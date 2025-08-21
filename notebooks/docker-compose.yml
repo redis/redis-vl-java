@@ -1,0 +1,29 @@
+name: redisvl4j-notebooks
+services:
+  jupyter:
+    build:
+      context: ../
+      dockerfile: ./notebooks/jupyter/Dockerfile
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    env_file:
+      - .env
+    volumes:
+      - ./01_getting_started.ipynb:/home/jovyan/01_getting_started.ipynb
+      - ./02_hybrid_queries.ipynb:/home/jovyan/02_hybrid_queries.ipynb
+      - ./05_hash_vs_json.ipynb:/home/jovyan/05_hash_vs_json.ipynb
+      - ./resources:/home/jovyan/resources
+    depends_on:
+      - redis-stack
+  redis-stack:
+      image: redis/redis-stack:latest
+      ports:
+        - "6379:6379"  # Redis database port
+        - "8001:8001"  # RedisInsight port
+      volumes:
+        - redis-data:/data  # Persist Redis data
+
+volumes:
+  redis-data:

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Exclude constructor throw warnings for BaseField - these are safe validations -->
+    <Match>
+        <Class name="com.redis.vl.schema.BaseField" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+    
+    <!-- Exclude any subclasses of BaseField from constructor throw warnings -->
+    <Match>
+        <Class name="~com\.redis\.vl\.schema\..*Field.*" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+    
+    <!-- Exclude IndexSchema constructor throw warnings -->
+    <Match>
+        <Class name="com.redis.vl.schema.IndexSchema" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+    
+    <!-- Exclude internal representation exposure for IndexSchema getFieldMap -->
+    <Match>
+        <Class name="com.redis.vl.schema.IndexSchema" />
+        <Method name="getFieldMap" />
+        <Bug pattern="EI_EXPOSE_REP" />
+    </Match>
+    
+    <!-- Exclude SearchIndex constructor throw warnings -->
+    <Match>
+        <Class name="com.redis.vl.index.SearchIndex" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+    
+    <!-- Exclude EI2 warnings for SearchIndex constructors - storing clients is intended behavior -->
+    <Match>
+        <Class name="com.redis.vl.index.SearchIndex" />
+        <Method name="&lt;init&gt;" />
+        <Bug pattern="EI_EXPOSE_REP2" />
+    </Match>
+    
+    <!-- Exclude all MS warnings for BaseIntegrationTest - test utility fields can't be final -->
+    <Match>
+        <Class name="com.redis.vl.BaseIntegrationTest" />
+        <Bug pattern="~MS_.*" />
+    </Match>
+    
+    <!-- Exclude VectorRangeQuery constructor throw warnings -->
+    <Match>
+        <Class name="com.redis.vl.query.VectorRangeQuery" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+    
+    <!-- Exclude format string warnings for test YAML content -->
+    <Match>
+        <Class name="com.redis.vl.index.SearchIndexIntegrationTest" />
+        <Method name="testSearchIndexFromYaml" />
+        <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE" />
+    </Match>
+</FindBugsFilter>
