@@ -58,3 +58,4 @@ notebooks/.env
 # IPython
 profile_default/
 ipython_config.py
+spotbugs-output.txt

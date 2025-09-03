@@ -2,13 +2,15 @@ package com.redis.vl.index;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.github.f4b6a3.ulid.UlidCreator;
 import com.redis.vl.exceptions.RedisVLException;
 import com.redis.vl.query.*;
 import com.redis.vl.redis.RedisConnectionManager;
 import com.redis.vl.schema.BaseField;
 import com.redis.vl.schema.IndexSchema;
 import com.redis.vl.schema.VectorField;
+import com.redis.vl.storage.BaseStorage;
+import com.redis.vl.storage.HashStorage;
+import com.redis.vl.storage.JsonStorage;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -42,6 +44,7 @@ public class SearchIndex {
   private Jedis client;
   private UnifiedJedis unifiedClient;
   @Getter private boolean validateOnLoad = false;
+  private final BaseStorage storage;
   private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
   private static final ObjectMapper jsonMapper = new ObjectMapper();
 
@@ -60,6 +63,7 @@ public class SearchIndex {
     }
     this.connectionManager = connectionManager;
     this.schema = schema;
+    this.storage = initializeStorage(schema);
   }
 
   /** Create a SearchIndex with schema only (no connection) */
@@ -77,6 +81,7 @@ public class SearchIndex {
     this.client = null;
     this.unifiedClient = null;
     this.validateOnLoad = validateOnLoad;
+    this.storage = initializeStorage(schema);
   }
 
   /** Create a SearchIndex with schema and Jedis client */
@@ -98,6 +103,7 @@ public class SearchIndex {
     this.client = client;
     this.unifiedClient = null;
     this.validateOnLoad = validateOnLoad;
+    this.storage = initializeStorage(schema);
   }
 
   /** Create a SearchIndex with schema and Redis URL */
@@ -119,6 +125,7 @@ public class SearchIndex {
     this.validateOnLoad = validateOnLoad;
     // Create UnifiedJedis from URL
     this.unifiedClient = new UnifiedJedis(redisUrl);
+    this.storage = initializeStorage(schema);
   }
 
   /** Create a SearchIndex with schema and UnifiedJedis client (preferred for RediSearch) */
@@ -140,6 +147,7 @@ public class SearchIndex {
     this.validateOnLoad = validateOnLoad;
     // Store the client - this is the expected usage pattern for this library
     this.unifiedClient = unifiedClient;
+    this.storage = initializeStorage(schema);
   }
 
   /** Get Jedis connection from either connectionManager or direct client */
@@ -160,6 +168,15 @@ public class SearchIndex {
     } else {
       throw new IllegalStateException(
           "RediSearch operations require UnifiedJedis client. Please use SearchIndex(schema, unifiedJedis) constructor.");
+    }
+  }
+
+  /** Initialize storage based on schema storage type */
+  private BaseStorage initializeStorage(IndexSchema schema) {
+    if (schema.getIndex().getStorageType() == IndexSchema.StorageType.JSON) {
+      return new JsonStorage(schema);
+    } else {
+      return new HashStorage(schema);
     }
   }
 
@@ -967,37 +984,30 @@ public class SearchIndex {
       List<Map<String, Object>> data,
       String idField,
       Function<Map<String, Object>, Map<String, Object>> preprocess) {
-    List<String> keys = new ArrayList<>();
+    // Create a combined preprocess function that includes validation if needed
+    Function<Map<String, Object>, Map<String, Object>> combinedPreprocess =
+        obj -> {
+          // Apply user preprocessing first
+          Map<String, Object> processed = preprocess != null ? preprocess.apply(obj) : obj;
 
-    for (Map<String, Object> record : data) {
-      Map<String, Object> processedRecord = record;
-      if (preprocess != null) {
-        processedRecord = preprocess.apply(record);
-        if (processedRecord == null) {
-          throw new RedisVLException("Preprocess function returned null");
-        }
-      }
+          if (processed == null) {
+            return null; // Will be handled by storage
+          }
 
-      String key;
-      if (idField == null) {
-        // Generate ULID if no id field specified
-        String ulid = UlidCreator.getMonotonicUlid().toString();
-        key = key(ulid);
-      } else {
-        // Use specified field as ID
-        if (!processedRecord.containsKey(idField)) {
-          throw new RedisVLException("Missing id field: " + idField);
-        }
-        String id = processedRecord.get(idField).toString();
-        key = key(id);
-      }
+          // Apply preprocessing for Lists to arrays for vector fields
+          processed = preprocessDocument(processed);
 
-      keys.add(key);
-      // Use existing addDocument method
-      addDocument(key, processedRecord);
-    }
+          // Apply validation if validateOnLoad is true
+          if (validateOnLoad) {
+            validateDocument(processed);
+          }
 
-    return keys;
+          return processed;
+        };
+
+    // Use the storage class for batch loading (with validation disabled since we handle it above)
+    UnifiedJedis jedis = getUnifiedJedis();
+    return storage.write(jedis, data, idField, null, null, null, combinedPreprocess, false);
   }
 
   public Map<String, Object> fetch(String idOrKey) {
