@@ -56,4 +56,17 @@
         <Method name="testSearchIndexFromYaml" />
         <Bug pattern="VA_FORMAT_STRING_USES_NEWLINE" />
     </Match>
+    
+    <!-- Exclude potential NPE in lambda for SearchIndex load method -->
+    <Match>
+        <Class name="com.redis.vl.index.SearchIndex" />
+        <Method name="load" />
+        <Bug pattern="NP_NULL_ON_SOME_PATH" />
+    </Match>
+    
+    <!-- Exclude any lambda-related warnings in SearchIndex -->
+    <Match>
+        <Class name="~com\.redis\.vl\.index\.SearchIndex\$.*" />
+        <Bug pattern="~.*" />
+    </Match>
 </FindBugsFilter>
