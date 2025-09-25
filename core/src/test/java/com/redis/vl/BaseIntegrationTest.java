@@ -4,20 +4,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
-import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.UnifiedJedis;
+import redis.clients.jedis.*;
 
 /** Base class for integration tests with Redis Stack container */
 public abstract class BaseIntegrationTest {
 
-  private static GenericContainer<?> redisContainer;
-  private static JedisPool jedisPool;
   protected static Jedis jedis;
   protected static UnifiedJedis unifiedJedis;
   protected static String redisUrl;
+  private static GenericContainer<?> redisContainer;
+  private static JedisPool jedisPool;
 
   @BeforeAll
   static void startContainer() {

@@ -36,22 +36,25 @@ class SimpleHashQueryTest extends BaseIntegrationTest {
     Map<String, Object> schema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "simple-hash",
-                    "prefix", "simple",
-                    "storage_type", "hash"),
+            Map.of("name", "simple-hash", "prefix", "simple", "storage_type", "hash"),
             "fields",
-                List.of(
-                    Map.of("name", "name", "type", "tag"),
+            List.of(
+                Map.of("name", "name", "type", "tag"),
+                Map.of(
+                    "name",
+                    "embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     index = SearchIndex.fromDict(schema, unifiedJedis);
@@ -131,22 +134,25 @@ class SimpleHashQueryTest extends BaseIntegrationTest {
     Map<String, Object> schema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "simple-json",
-                    "prefix", "simple-json",
-                    "storage_type", "json"),
+            Map.of("name", "simple-json", "prefix", "simple-json", "storage_type", "json"),
             "fields",
-                List.of(
-                    Map.of("name", "name", "type", "tag"),
+            List.of(
+                Map.of("name", "name", "type", "tag"),
+                Map.of(
+                    "name",
+                    "embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     index = SearchIndex.fromDict(schema, unifiedJedis);

@@ -22,9 +22,9 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
 
   private final HuggingFaceModelDownloader downloader;
   private final OnnxModelLoader modelLoader;
+  private final String cacheDir;
   private OrtSession session;
   private OrtEnvironment environment;
-  private final String cacheDir;
 
   /** Create a vectorizer with default cache directory. */
   @SuppressFBWarnings(
@@ -50,6 +50,10 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
     this.modelLoader = new OnnxModelLoader();
 
     initializeModelSafely();
+  }
+
+  private static String getDefaultCacheDir() {
+    return Paths.get(System.getProperty("user.home"), ".cache", "redisvl").toString();
   }
 
   private void initializeModelSafely() {
@@ -162,10 +166,6 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
       list.add(value);
     }
     return list;
-  }
-
-  private static String getDefaultCacheDir() {
-    return Paths.get(System.getProperty("user.home"), ".cache", "redisvl4j").toString();
   }
 
   private void cleanupResources() {

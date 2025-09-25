@@ -1,4 +1,4 @@
-rootProject.name = "redisvl4j"
+rootProject.name = "redisvl"
 
 // Core modules
 include("core")

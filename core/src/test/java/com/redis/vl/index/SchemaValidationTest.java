@@ -11,9 +11,9 @@ import org.junit.jupiter.api.Test;
 
 public class SchemaValidationTest extends BaseIntegrationTest {
 
-  private SearchIndex index;
   private static final String TEST_PREFIX =
       "validation_" + UUID.randomUUID().toString().substring(0, 8);
+  private SearchIndex index;
 
   @BeforeEach
   void setUp() {

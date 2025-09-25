@@ -17,10 +17,10 @@ import redis.clients.jedis.search.SearchResult;
 @DisplayName("JSON Storage Integration Tests")
 class JsonStorageIntegrationTest extends BaseIntegrationTest {
 
-  private static SearchIndex jsonIndex;
-  private static SearchIndex hashIndex;
   private static final String TEST_PREFIX =
       "test_json_" + UUID.randomUUID().toString().substring(0, 8);
+  private static SearchIndex jsonIndex;
+  private static SearchIndex hashIndex;
 
   @BeforeAll
   static void setup() {

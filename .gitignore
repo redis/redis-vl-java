@@ -58,4 +58,11 @@ notebooks/.env
 # IPython
 profile_default/
 ipython_config.py
+
+# Don't commit JAR files to notebooks directory
+notebooks/*.jar
+notebooks/schema.yaml
+notebooks/*_test.ipynb
+notebooks/*_output.ipynb
+
 spotbugs-output.txt

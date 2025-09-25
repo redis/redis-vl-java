@@ -84,27 +84,36 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
     Map<String, Object> hashSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "user-hash",
-                    "prefix", "user-hash-docs",
-                    "storage_type", "hash" // default setting -- HASH
-                    ),
+            Map.of(
+                "name",
+                "user-hash",
+                "prefix",
+                "user-hash-docs",
+                "storage_type",
+                "hash" // default setting -- HASH
+                ),
             "fields",
-                List.of(
-                    Map.of("name", "user", "type", "tag"),
-                    Map.of("name", "credit_score", "type", "tag"),
-                    Map.of("name", "job", "type", "text"),
-                    Map.of("name", "age", "type", "numeric"),
-                    Map.of("name", "office_location", "type", "geo"),
+            List.of(
+                Map.of("name", "user", "type", "tag"),
+                Map.of("name", "credit_score", "type", "tag"),
+                Map.of("name", "job", "type", "text"),
+                Map.of("name", "age", "type", "numeric"),
+                Map.of("name", "office_location", "type", "geo"),
+                Map.of(
+                    "name",
+                    "user_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "user_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     hashIndex = SearchIndex.fromDict(hashSchema, unifiedJedis);
@@ -165,27 +174,36 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
     Map<String, Object> jsonSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "user-json",
-                    "prefix", "user-json-docs",
-                    "storage_type", "json" // JSON storage type
-                    ),
+            Map.of(
+                "name",
+                "user-json",
+                "prefix",
+                "user-json-docs",
+                "storage_type",
+                "json" // JSON storage type
+                ),
             "fields",
-                List.of(
-                    Map.of("name", "user", "type", "tag"),
-                    Map.of("name", "credit_score", "type", "tag"),
-                    Map.of("name", "job", "type", "text"),
-                    Map.of("name", "age", "type", "numeric"),
-                    Map.of("name", "office_location", "type", "geo"),
+            List.of(
+                Map.of("name", "user", "type", "tag"),
+                Map.of("name", "credit_score", "type", "tag"),
+                Map.of("name", "job", "type", "text"),
+                Map.of("name", "age", "type", "numeric"),
+                Map.of("name", "office_location", "type", "geo"),
+                Map.of(
+                    "name",
+                    "user_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "user_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     jsonIndex = SearchIndex.fromDict(jsonSchema, unifiedJedis);
@@ -198,8 +216,7 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
 
       // Convert byte array embedding to float array for JSON
       Object embedding = user.get("user_embedding");
-      if (embedding instanceof byte[]) {
-        byte[] embBytes = (byte[]) embedding;
+      if (embedding instanceof byte[] embBytes) {
         ByteBuffer buffer = ByteBuffer.wrap(embBytes).order(ByteOrder.LITTLE_ENDIAN);
         float[] floats = new float[3];
         for (int i = 0; i < 3; i++) {
@@ -250,10 +267,7 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
     bike1.put("name", "Specialized Stumpjumper");
     Map<String, Object> metadata1 =
         Map.of(
-            "model", "Stumpjumper",
-            "brand", "Specialized",
-            "type", "Enduro bikes",
-            "price", 3000);
+            "model", "Stumpjumper", "brand", "Specialized", "type", "Enduro bikes", "price", 3000);
     bike1.put("metadata", metadata1);
     String desc1 =
         "The Specialized Stumpjumper is a versatile enduro bike that dominates both climbs and descents. "
@@ -272,11 +286,7 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
     Map<String, Object> bike2 = new HashMap<>();
     bike2.put("name", "bike_2");
     Map<String, Object> metadata2 =
-        Map.of(
-            "model", "Slash",
-            "brand", "Trek",
-            "type", "Enduro bikes",
-            "price", 5000);
+        Map.of("model", "Slash", "brand", "Trek", "type", "Enduro bikes", "price", 5000);
     bike2.put("metadata", metadata2);
     String desc2 =
         "Trek's Slash is built for aggressive enduro riding and racing. "
@@ -297,33 +307,27 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
     Map<String, Object> bikeSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "bike-json",
-                    "prefix", "bike-json",
-                    "storage_type", "json"),
+            Map.of("name", "bike-json", "prefix", "bike-json", "storage_type", "json"),
             "fields",
-                List.of(
+            List.of(
+                Map.of("name", "model", "type", "tag", "path", "$.metadata.model"),
+                Map.of("name", "brand", "type", "tag", "path", "$.metadata.brand"),
+                Map.of("name", "price", "type", "numeric", "path", "$.metadata.price"),
+                Map.of(
+                    "name",
+                    "bike_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "model",
-                        "type", "tag",
-                        "path", "$.metadata.model"),
-                    Map.of(
-                        "name", "brand",
-                        "type", "tag",
-                        "path", "$.metadata.brand"),
-                    Map.of(
-                        "name", "price",
-                        "type", "numeric",
-                        "path", "$.metadata.price"),
-                    Map.of(
-                        "name", "bike_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 384,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        384,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     bikeIndex = SearchIndex.fromDict(bikeSchema, unifiedJedis);

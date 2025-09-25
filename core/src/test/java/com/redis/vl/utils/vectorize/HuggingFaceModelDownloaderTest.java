@@ -19,10 +19,9 @@ import org.junit.jupiter.api.io.TempDir;
 @Tag("slow")
 public class HuggingFaceModelDownloaderTest {
 
+  @TempDir Path tempDir;
   private MockWebServer mockServer;
   private HuggingFaceModelDownloader downloader;
-
-  @TempDir Path tempDir;
 
   @BeforeEach
   public void setUp() throws IOException {

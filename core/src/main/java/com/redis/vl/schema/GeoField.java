@@ -20,6 +20,16 @@ public class GeoField extends BaseField {
     super(name, alias, indexed != null ? indexed : true, sortable != null && sortable);
   }
 
+  /** Create a GeoField with fluent API */
+  public static GeoFieldBuilder of(String name) {
+    return new GeoFieldBuilder(name);
+  }
+
+  /** Create a GeoField builder (Lombok-style) */
+  public static GeoFieldBuilder builder() {
+    return new GeoFieldBuilder(null);
+  }
+
   @Override
   public FieldType getFieldType() {
     return FieldType.GEO;
@@ -43,16 +53,6 @@ public class GeoField extends BaseField {
     }
 
     return jedisField;
-  }
-
-  /** Create a GeoField with fluent API */
-  public static GeoFieldBuilder of(String name) {
-    return new GeoFieldBuilder(name);
-  }
-
-  /** Create a GeoField builder (Lombok-style) */
-  public static GeoFieldBuilder builder() {
-    return new GeoFieldBuilder(null);
   }
 
   /** Fluent builder for GeoField */

@@ -16,9 +16,9 @@ import redis.clients.jedis.json.Path2;
 @DisplayName("Pagination Integration Tests")
 class PaginationIntegrationTest extends BaseIntegrationTest {
 
-  private static SearchIndex index;
   private static final int NUM_DOCS = 10;
   private static final List<Map<String, Object>> testData = new ArrayList<>();
+  private static SearchIndex index;
 
   @BeforeAll
   static void setup() {
@@ -32,22 +32,15 @@ class PaginationIntegrationTest extends BaseIntegrationTest {
     List<Map<String, Object>> fields =
         Arrays.asList(
             Map.of(
-                "name", "$.embedding",
-                "type", "vector",
+                "name",
+                "$.embedding",
+                "type",
+                "vector",
                 "attrs",
-                    Map.of(
-                        "dims", 3,
-                        "algorithm", "flat",
-                        "distance_metric", "cosine")),
-            Map.of(
-                "name", "$.credit_score",
-                "type", "tag"),
-            Map.of(
-                "name", "$.age",
-                "type", "numeric"),
-            Map.of(
-                "name", "$.job",
-                "type", "text"));
+                Map.of("dims", 3, "algorithm", "flat", "distance_metric", "cosine")),
+            Map.of("name", "$.credit_score", "type", "tag"),
+            Map.of("name", "$.age", "type", "numeric"),
+            Map.of("name", "$.job", "type", "text"));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);

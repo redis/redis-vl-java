@@ -20,6 +20,16 @@ public class NumericField extends BaseField {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
   }
 
+  /** Create a NumericField with fluent API */
+  public static NumericFieldBuilder of(String name) {
+    return new NumericFieldBuilder(name);
+  }
+
+  /** Create a NumericField builder (Lombok-style) */
+  public static NumericFieldBuilder builder() {
+    return new NumericFieldBuilder(null);
+  }
+
   @Override
   public FieldType getFieldType() {
     return FieldType.NUMERIC;
@@ -43,16 +53,6 @@ public class NumericField extends BaseField {
     }
 
     return jedisField;
-  }
-
-  /** Create a NumericField with fluent API */
-  public static NumericFieldBuilder of(String name) {
-    return new NumericFieldBuilder(name);
-  }
-
-  /** Create a NumericField builder (Lombok-style) */
-  public static NumericFieldBuilder builder() {
-    return new NumericFieldBuilder(null);
   }
 
   /** Fluent builder for NumericField */

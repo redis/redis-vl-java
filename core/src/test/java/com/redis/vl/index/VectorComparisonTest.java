@@ -11,6 +11,21 @@ import org.junit.jupiter.api.Test;
 
 public class VectorComparisonTest extends BaseIntegrationTest {
 
+  public static double calculateCosineDistance(float[] a, float[] b) {
+    double dotProduct = 0.0;
+    double normA = 0.0;
+    double normB = 0.0;
+
+    for (int i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    double similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    return 1.0 - similarity; // Distance = 1 - similarity
+  }
+
   @Test
   void testVectorScoresMatchExpectedValues() {
     // Use exact same schema and data as notebooks
@@ -156,20 +171,5 @@ public class VectorComparisonTest extends BaseIntegrationTest {
 
     // Cleanup
     index.delete(true);
-  }
-
-  public static double calculateCosineDistance(float[] a, float[] b) {
-    double dotProduct = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
-
-    for (int i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    double similarity = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-    return 1.0 - similarity; // Distance = 1 - similarity
   }
 }

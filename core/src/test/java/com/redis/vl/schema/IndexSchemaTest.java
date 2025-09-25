@@ -345,14 +345,20 @@ class IndexSchemaTest {
         List.of(
             Map.of("name", "category", "type", "tag"),
             Map.of(
-                "name", "embedding",
-                "type", "vector",
+                "name",
+                "embedding",
+                "type",
+                "vector",
                 "attrs",
-                    Map.of(
-                        "dims", 128,
-                        "distance_metric", "cosine",
-                        "algorithm", "hnsw",
-                        "datatype", "float32")));
+                Map.of(
+                    "dims",
+                    128,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "hnsw",
+                    "datatype",
+                    "float32")));
 
     // When
     schema.addFields(newFields);
@@ -407,14 +413,11 @@ class IndexSchemaTest {
     var schema =
         java.util.Map.of(
             "index",
-                java.util.Map.of(
-                    "name", "test-index",
-                    "prefix", "test:",
-                    "storage_type", "hash"),
+            java.util.Map.of("name", "test-index", "prefix", "test:", "storage_type", "hash"),
             "fields",
-                java.util.List.of(
-                    java.util.Map.of("name", "title", "type", "text"),
-                    java.util.Map.of("name", "price", "type", "numeric")));
+            java.util.List.of(
+                java.util.Map.of("name", "title", "type", "text"),
+                java.util.Map.of("name", "price", "type", "numeric")));
 
     // When
     IndexSchema indexSchema = IndexSchema.fromDict(schema);

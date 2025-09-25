@@ -17,12 +17,12 @@ import redis.clients.jedis.UnifiedJedis;
 @DisplayName("Storage Integration Tests")
 class StorageIntegrationTest extends BaseIntegrationTest {
 
+  private static final String TEST_PREFIX = "storage_test";
   private UnifiedJedis jedis;
   private HashStorage hashStorage;
   private JsonStorage jsonStorage;
   private IndexSchema hashSchema;
   private IndexSchema jsonSchema;
-  private static final String TEST_PREFIX = "storage_test";
 
   @BeforeEach
   void setUp() {
@@ -43,14 +43,20 @@ class StorageIntegrationTest extends BaseIntegrationTest {
             Map.of("name", "age", "type", "numeric"),
             Map.of("name", "tags", "type", "tag"),
             Map.of(
-                "name", "embedding",
-                "type", "vector",
+                "name",
+                "embedding",
+                "type",
+                "vector",
                 "attrs",
-                    Map.of(
-                        "dims", 3,
-                        "distance_metric", "cosine",
-                        "algorithm", "flat",
-                        "datatype", "float32")));
+                Map.of(
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "flat",
+                    "datatype",
+                    "float32")));
     hashSchemaDict.put("fields", hashFields);
     hashSchema = IndexSchema.fromDict(hashSchemaDict);
     hashStorage = new HashStorage(hashSchema);
@@ -70,15 +76,22 @@ class StorageIntegrationTest extends BaseIntegrationTest {
             Map.of("name", "age", "type", "numeric", "path", "$.age"),
             Map.of("name", "tags", "type", "tag", "path", "$.tags"),
             Map.of(
-                "name", "embedding",
-                "type", "vector",
-                "path", "$.embedding",
+                "name",
+                "embedding",
+                "type",
+                "vector",
+                "path",
+                "$.embedding",
                 "attrs",
-                    Map.of(
-                        "dims", 3,
-                        "distance_metric", "cosine",
-                        "algorithm", "flat",
-                        "datatype", "float32")));
+                Map.of(
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "flat",
+                    "datatype",
+                    "float32")));
     jsonSchemaDict.put("fields", jsonFields);
     jsonSchema = IndexSchema.fromDict(jsonSchemaDict);
     jsonStorage = new JsonStorage(jsonSchema);
@@ -211,9 +224,12 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     for (int i = 0; i < 100; i++) {
       objects.add(
           Map.of(
-              "name", "User" + i,
-              "age", 20 + (i % 50),
-              "embedding", new float[] {i * 0.01f, i * 0.02f, i * 0.03f}));
+              "name",
+              "User" + i,
+              "age",
+              20 + (i % 50),
+              "embedding",
+              new float[] {i * 0.01f, i * 0.02f, i * 0.03f}));
     }
 
     // Write with small batch size
@@ -230,7 +246,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
   @Test
   @DisplayName("Test write with TTL")
   void testWriteWithTTL() throws InterruptedException {
-    List<Map<String, Object>> objects = Arrays.asList(Map.of("name", "Temporary", "age", 30));
+    List<Map<String, Object>> objects = List.of(Map.of("name", "Temporary", "age", 30));
 
     // Write with 2 second TTL
     List<String> keys = hashStorage.write(jedis, objects, null, null, 2);
@@ -274,8 +290,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
   @DisplayName("Test validation")
   void testValidation() {
     // Invalid data - age should be numeric
-    List<Map<String, Object>> invalidObjects =
-        Arrays.asList(Map.of("name", "John", "age", "thirty"));
+    List<Map<String, Object>> invalidObjects = List.of(Map.of("name", "John", "age", "thirty"));
 
     // Should throw validation error
     assertThatThrownBy(
@@ -324,7 +339,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     List<Map<String, Object>> objects =
         Arrays.asList(Map.of("name", "John", "age", 30), Map.of("name", "Jane", "age", 25));
 
-    List<String> wrongSizeKeys = Arrays.asList(TEST_PREFIX + "_hash:key1");
+    List<String> wrongSizeKeys = List.of(TEST_PREFIX + "_hash:key1");
 
     // Should throw error for mismatched sizes
     assertThatThrownBy(() -> hashStorage.write(jedis, objects, null, wrongSizeKeys))
@@ -337,7 +352,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
   void testVectorStorageInHash() {
     Map<String, Object> obj = Map.of("name", "Test", "embedding", new float[] {0.1f, 0.2f, 0.3f});
 
-    List<String> keys = hashStorage.write(jedis, Arrays.asList(obj));
+    List<String> keys = hashStorage.write(jedis, List.of(obj));
     assertThat(keys).hasSize(1);
 
     // Verify vector is stored as binary
@@ -355,7 +370,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
   void testVectorStorageInJson() {
     Map<String, Object> obj = Map.of("name", "Test", "embedding", new float[] {0.1f, 0.2f, 0.3f});
 
-    List<String> keys = jsonStorage.write(jedis, Arrays.asList(obj));
+    List<String> keys = jsonStorage.write(jedis, List.of(obj));
     assertThat(keys).hasSize(1);
 
     // Verify retrieval - JSON should return as List<Float>
@@ -399,14 +414,13 @@ class StorageIntegrationTest extends BaseIntegrationTest {
 
     // Test with HashStorage
     String expectedKey = TEST_PREFIX + "_hash:1234";
-    List<String> keys =
-        hashStorage.write(jedis, Arrays.asList(obj), "id", null, null, null, null, false);
+    List<String> keys = hashStorage.write(jedis, List.of(obj), "id", null, null, null, null, false);
     assertThat(keys).hasSize(1);
     assertThat(keys.get(0)).isEqualTo(expectedKey);
 
     // Test with JsonStorage
     expectedKey = TEST_PREFIX + "_json:1234";
-    keys = jsonStorage.write(jedis, Arrays.asList(obj), "id", null, null, null, null, false);
+    keys = jsonStorage.write(jedis, List.of(obj), "id", null, null, null, null, false);
     assertThat(keys).hasSize(1);
     assertThat(keys.get(0)).isEqualTo(expectedKey);
   }
@@ -428,22 +442,19 @@ class StorageIntegrationTest extends BaseIntegrationTest {
 
     // Should not throw for valid data
     List<String> keys =
-        hashStorage.write(jedis, Arrays.asList(validData), null, null, null, null, null, true);
+        hashStorage.write(jedis, List.of(validData), null, null, null, null, null, true);
     assertThat(keys).hasSize(1);
 
     // Clean up
     jedis.del(keys.get(0));
 
     // Test validation failure for wrong numeric type
-    Map<String, Object> invalidNumeric =
-        Map.of(
-            "name", "John",
-            "age", "not-a-number");
+    Map<String, Object> invalidNumeric = Map.of("name", "John", "age", "not-a-number");
 
     assertThatThrownBy(
             () ->
                 hashStorage.write(
-                    jedis, Arrays.asList(invalidNumeric), null, null, null, null, null, true))
+                    jedis, List.of(invalidNumeric), null, null, null, null, null, true))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("numeric");
 
@@ -453,7 +464,7 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     assertThatThrownBy(
             () ->
                 hashStorage.write(
-                    jedis, Arrays.asList(invalidVector), null, null, null, null, null, true))
+                    jedis, List.of(invalidVector), null, null, null, null, null, true))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("vector");
   }
@@ -490,9 +501,9 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     List<String> keys1 =
         hashStorage.write(
             jedis,
-            Arrays.asList(obj1),
+            List.of(obj1),
             null,
-            Arrays.asList(TEST_PREFIX + "_hash:concurrent"),
+            List.of(TEST_PREFIX + "_hash:concurrent"),
             null,
             null,
             null,
@@ -503,9 +514,9 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     List<String> keys2 =
         hashStorage.write(
             jedis,
-            Arrays.asList(obj2),
+            List.of(obj2),
             null,
-            Arrays.asList(TEST_PREFIX + "_hash:concurrent"),
+            List.of(TEST_PREFIX + "_hash:concurrent"),
             null,
             null,
             null,
@@ -547,9 +558,9 @@ class StorageIntegrationTest extends BaseIntegrationTest {
             new float[] {0.5f, 0.5f, 0.5f});
 
     List<String> hashKeys =
-        hashStorage.write(jedis, Arrays.asList(data), null, null, null, null, null, false);
+        hashStorage.write(jedis, List.of(data), null, null, null, null, null, false);
     List<String> jsonKeys =
-        jsonStorage.write(jedis, Arrays.asList(data), null, null, null, null, null, false);
+        jsonStorage.write(jedis, List.of(data), null, null, null, null, null, false);
 
     assertThat(hashKeys).hasSize(1);
     assertThat(jsonKeys).hasSize(1);

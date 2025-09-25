@@ -1,12 +1,7 @@
 package com.redis.vl.query;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.redis.vl.utils.ArrayUtils;
+import java.util.*;
 
 /** Vector range query for finding vectors within a distance threshold */
 public class VectorRangeQuery {
@@ -14,10 +9,10 @@ public class VectorRangeQuery {
   private final float[] vector;
   private final String field;
   private final List<String> returnFields;
+  private final int numResults;
+  private final boolean returnScore;
+  private final boolean normalizeVectorDistance;
   private double distanceThreshold;
-  private int numResults;
-  private boolean returnScore;
-  private boolean normalizeVectorDistance;
   private Double epsilon;
 
   private VectorRangeQuery(Builder builder) {
@@ -38,6 +33,10 @@ public class VectorRangeQuery {
     this.returnScore = builder.returnScore;
     this.normalizeVectorDistance = builder.normalizeVectorDistance;
     this.epsilon = builder.epsilon;
+  }
+
+  public static Builder builder() {
+    return new Builder();
   }
 
   public float[] getVector() {
@@ -112,7 +111,7 @@ public class VectorRangeQuery {
 
     // Convert vector to byte array
     if (vector != null) {
-      byte[] vectorBytes = vectorToBytes(vector);
+      byte[] vectorBytes = ArrayUtils.floatArrayToBytes(vector);
       params.put("vec", vectorBytes);
     }
 
@@ -127,23 +126,9 @@ public class VectorRangeQuery {
     return params;
   }
 
-  /** Convert float array to byte array */
-  private byte[] vectorToBytes(float[] floats) {
-    ByteBuffer buffer = ByteBuffer.allocate(floats.length * 4);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-    for (float f : floats) {
-      buffer.putFloat(f);
-    }
-    return buffer.array();
-  }
-
   @Override
   public String toString() {
     return toQueryString();
-  }
-
-  public static Builder builder() {
-    return new Builder();
   }
 
   public static class Builder {

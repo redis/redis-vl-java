@@ -1,4 +1,4 @@
-name: redisvl4j-notebooks
+name: redisvl-notebooks
 services:
   jupyter:
     build:
@@ -11,10 +11,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./01_getting_started.ipynb:/home/jovyan/01_getting_started.ipynb
-      - ./02_hybrid_queries.ipynb:/home/jovyan/02_hybrid_queries.ipynb
-      - ./05_hash_vs_json.ipynb:/home/jovyan/05_hash_vs_json.ipynb
+      - .:/home/jovyan/notebooks
       - ./resources:/home/jovyan/resources
+      - ../core/build/libs:/home/jovyan/libs
     depends_on:
       - redis-stack
   redis-stack:

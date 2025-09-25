@@ -2,11 +2,7 @@ package com.redis.vl.utils.vectorize;
 
 import com.redis.vl.extensions.cache.EmbeddingsCache;
 import com.redis.vl.utils.ArrayUtils;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -44,21 +40,21 @@ public abstract class BaseVectorizer {
   }
 
   /**
-   * Set an embeddings cache for this vectorizer.
-   *
-   * @param cache The embeddings cache to use
-   */
-  public void setCache(EmbeddingsCache cache) {
-    this.cache = Optional.ofNullable(cache);
-  }
-
-  /**
    * Get the embeddings cache if present.
    *
    * @return Optional containing the cache, or empty if none set
    */
   public Optional<EmbeddingsCache> getCache() {
     return cache;
+  }
+
+  /**
+   * Set an embeddings cache for this vectorizer.
+   *
+   * @param cache The embeddings cache to use
+   */
+  public void setCache(EmbeddingsCache cache) {
+    this.cache = Optional.ofNullable(cache);
   }
 
   /**
@@ -228,20 +224,6 @@ public abstract class BaseVectorizer {
    */
   protected abstract List<float[]> generateEmbeddingsBatch(List<String> texts, int batchSize);
 
-  /** Helper class to hold batch cache results. */
-  protected static class BatchCacheResult {
-    public final List<float[]> results;
-    public final List<String> cacheMisses;
-    public final List<Integer> cacheMissIndices;
-
-    public BatchCacheResult(
-        List<float[]> results, List<String> cacheMisses, List<Integer> cacheMissIndices) {
-      this.results = results;
-      this.cacheMisses = cacheMisses;
-      this.cacheMissIndices = cacheMissIndices;
-    }
-  }
-
   /** Get cached embeddings and identify cache misses. */
   private BatchCacheResult getFromCacheBatch(List<String> texts, boolean skipCache) {
     List<float[]> results = new ArrayList<>();
@@ -295,5 +277,19 @@ public abstract class BaseVectorizer {
    */
   public String getType() {
     return "base";
+  }
+
+  /** Helper class to hold batch cache results. */
+  protected static class BatchCacheResult {
+    public final List<float[]> results;
+    public final List<String> cacheMisses;
+    public final List<Integer> cacheMissIndices;
+
+    public BatchCacheResult(
+        List<float[]> results, List<String> cacheMisses, List<Integer> cacheMissIndices) {
+      this.results = results;
+      this.cacheMisses = cacheMisses;
+      this.cacheMissIndices = cacheMissIndices;
+    }
   }
 }

@@ -3,14 +3,13 @@ package com.redis.vl.storage;
 import com.redis.vl.schema.BaseField;
 import com.redis.vl.schema.IndexSchema;
 import com.redis.vl.schema.VectorField;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import com.redis.vl.utils.ArrayUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import redis.clients.jedis.PipelineBase;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 
 /**
@@ -18,7 +17,6 @@ import redis.clients.jedis.Response;
  *
  * <p>Implements hash-specific logic for validation and read/write operations in Redis.
  */
-@SuppressWarnings("deprecation")
 public class HashStorage extends BaseStorage {
 
   public HashStorage(IndexSchema indexSchema) {
@@ -26,7 +24,7 @@ public class HashStorage extends BaseStorage {
   }
 
   @Override
-  protected void set(PipelineBase pipeline, String key, Map<String, Object> obj) {
+  protected void set(Pipeline pipeline, String key, Map<String, Object> obj) {
     Map<byte[], byte[]> binaryFields = new HashMap<>();
     Map<String, String> stringFields = new HashMap<>();
 
@@ -46,10 +44,10 @@ public class HashStorage extends BaseStorage {
         if (value instanceof byte[]) {
           vectorBytes = (byte[]) value;
         } else if (value instanceof float[]) {
-          vectorBytes = floatArrayToBytes((float[]) value);
+          vectorBytes = ArrayUtils.floatArrayToBytes((float[]) value);
         } else if (value instanceof double[]) {
-          float[] floats = doubleArrayToFloats((double[]) value);
-          vectorBytes = floatArrayToBytes(floats);
+          float[] floats = ArrayUtils.doubleArrayToFloats((double[]) value);
+          vectorBytes = ArrayUtils.floatArrayToBytes(floats);
         }
         if (vectorBytes != null) {
           binaryFields.put(fieldName.getBytes(StandardCharsets.UTF_8), vectorBytes);
@@ -72,7 +70,7 @@ public class HashStorage extends BaseStorage {
 
   @Override
   @SuppressWarnings("unchecked")
-  protected Response<Map<String, Object>> getResponse(PipelineBase pipeline, String key) {
+  protected Response<Map<String, Object>> getResponse(Pipeline pipeline, String key) {
     // For hash, we use hgetAll to get all fields
     Response<Map<String, String>> response = pipeline.hgetAll(key);
     // We need to return Response<Map<String, Object>> so cast it
@@ -95,36 +93,36 @@ public class HashStorage extends BaseStorage {
     // Currently not using batchSize parameter
 
     // Use a pipeline to batch the retrieval
-    PipelineBase pipeline = redisClient.pipelined();
     List<Response<Map<String, String>>> stringResponses = new ArrayList<>();
     Map<String, List<Response<byte[]>>> vectorResponses = new HashMap<>();
 
-    // Get all string fields and identify vector fields
-    for (String key : keys) {
-      Response<Map<String, String>> response = pipeline.hgetAll(key);
-      stringResponses.add(response);
+    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+      // Get all string fields and identify vector fields
+      for (String key : keys) {
+        Response<Map<String, String>> response = pipeline.hgetAll(key);
+        stringResponses.add(response);
 
-      // For each vector field, get the binary data
-      if (indexSchema != null && indexSchema.getFields() != null) {
-        List<Response<byte[]>> keyVectorResponses = new ArrayList<>();
-        for (BaseField field : indexSchema.getFields()) {
-          if (field instanceof VectorField) {
-            Response<byte[]> vectorResponse =
-                pipeline.hget(
-                    key.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                    field.getName().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            keyVectorResponses.add(vectorResponse);
+        // For each vector field, get the binary data
+        if (indexSchema != null && indexSchema.getFields() != null) {
+          List<Response<byte[]>> keyVectorResponses = new ArrayList<>();
+          for (BaseField field : indexSchema.getFields()) {
+            if (field instanceof VectorField) {
+              Response<byte[]> vectorResponse =
+                  pipeline.hget(
+                      key.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                      field.getName().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+              keyVectorResponses.add(vectorResponse);
+            }
+          }
+          if (!keyVectorResponses.isEmpty()) {
+            vectorResponses.put(key, keyVectorResponses);
           }
         }
-        if (!keyVectorResponses.isEmpty()) {
-          vectorResponses.put(key, keyVectorResponses);
-        }
       }
-    }
 
-    // Execute all commands
-    pipeline.sync();
-    pipeline.close();
+      // Execute all commands
+      pipeline.sync();
+    }
 
     // Process results
     int keyIndex = 0;
@@ -179,22 +177,5 @@ public class HashStorage extends BaseStorage {
         .filter(f -> f.getName().equals(fieldName))
         .findFirst()
         .orElse(null);
-  }
-
-  private byte[] floatArrayToBytes(float[] floats) {
-    ByteBuffer buffer = ByteBuffer.allocate(floats.length * 4);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-    for (float f : floats) {
-      buffer.putFloat(f);
-    }
-    return buffer.array();
-  }
-
-  private float[] doubleArrayToFloats(double[] doubles) {
-    float[] floats = new float[doubles.length];
-    for (int i = 0; i < doubles.length; i++) {
-      floats[i] = (float) doubles[i];
-    }
-    return floats;
   }
 }

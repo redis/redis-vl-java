@@ -62,33 +62,54 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
 
     data.add(
         Map.of(
-            "user", "john",
-            "age", 18,
-            "job", "engineer",
-            "credit_score", "high",
-            "office_location", "-122.4194,37.7749",
-            "user_embedding", embedding1,
-            "last_updated", 1741627789));
+            "user",
+            "john",
+            "age",
+            18,
+            "job",
+            "engineer",
+            "credit_score",
+            "high",
+            "office_location",
+            "-122.4194,37.7749",
+            "user_embedding",
+            embedding1,
+            "last_updated",
+            1741627789));
 
     data.add(
         Map.of(
-            "user", "mary",
-            "age", 2,
-            "job", "doctor",
-            "credit_score", "low",
-            "office_location", "-122.4194,37.7749",
-            "user_embedding", embedding2,
-            "last_updated", 1741627789));
+            "user",
+            "mary",
+            "age",
+            2,
+            "job",
+            "doctor",
+            "credit_score",
+            "low",
+            "office_location",
+            "-122.4194,37.7749",
+            "user_embedding",
+            embedding2,
+            "last_updated",
+            1741627789));
 
     data.add(
         Map.of(
-            "user", "joe",
-            "age", 35,
-            "job", "dentist",
-            "credit_score", "medium",
-            "office_location", "-122.0839,37.3861",
-            "user_embedding", embedding3,
-            "last_updated", 1742232589));
+            "user",
+            "joe",
+            "age",
+            35,
+            "job",
+            "dentist",
+            "credit_score",
+            "medium",
+            "office_location",
+            "-122.0839,37.3861",
+            "user_embedding",
+            embedding3,
+            "last_updated",
+            1742232589));
 
     return data;
   }
@@ -109,26 +130,30 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     Map<String, Object> hashSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "test-user-hash",
-                    "prefix", "test-user-hash-docs",
-                    "storage_type", "hash"),
+            Map.of(
+                "name", "test-user-hash", "prefix", "test-user-hash-docs", "storage_type", "hash"),
             "fields",
-                List.of(
-                    Map.of("name", "user", "type", "tag"),
-                    Map.of("name", "credit_score", "type", "tag"),
-                    Map.of("name", "job", "type", "text"),
-                    Map.of("name", "age", "type", "numeric"),
-                    Map.of("name", "office_location", "type", "geo"),
+            List.of(
+                Map.of("name", "user", "type", "tag"),
+                Map.of("name", "credit_score", "type", "tag"),
+                Map.of("name", "job", "type", "text"),
+                Map.of("name", "age", "type", "numeric"),
+                Map.of("name", "office_location", "type", "geo"),
+                Map.of(
+                    "name",
+                    "user_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "user_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     hashIndex = SearchIndex.fromDict(hashSchema, jedis);
@@ -189,26 +214,30 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     Map<String, Object> jsonSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "test-user-json",
-                    "prefix", "test-user-json-docs",
-                    "storage_type", "json"),
+            Map.of(
+                "name", "test-user-json", "prefix", "test-user-json-docs", "storage_type", "json"),
             "fields",
-                List.of(
-                    Map.of("name", "user", "type", "tag"),
-                    Map.of("name", "credit_score", "type", "tag"),
-                    Map.of("name", "job", "type", "text"),
-                    Map.of("name", "age", "type", "numeric"),
-                    Map.of("name", "office_location", "type", "geo"),
+            List.of(
+                Map.of("name", "user", "type", "tag"),
+                Map.of("name", "credit_score", "type", "tag"),
+                Map.of("name", "job", "type", "text"),
+                Map.of("name", "age", "type", "numeric"),
+                Map.of("name", "office_location", "type", "geo"),
+                Map.of(
+                    "name",
+                    "user_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "user_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     jsonIndex = SearchIndex.fromDict(jsonSchema, jedis);
@@ -221,8 +250,7 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
 
       // Convert byte array to float array
       Object embedding = user.get("user_embedding");
-      if (embedding instanceof byte[]) {
-        byte[] embBytes = (byte[]) embedding;
+      if (embedding instanceof byte[] embBytes) {
         ByteBuffer buffer = ByteBuffer.wrap(embBytes).order(ByteOrder.LITTLE_ENDIAN);
         float[] floats = new float[3];
         for (int i = 0; i < 3; i++) {
@@ -270,10 +298,7 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     bike1.put(
         "metadata",
         Map.of(
-            "model", "Stumpjumper",
-            "brand", "Specialized",
-            "type", "Enduro bikes",
-            "price", 3000));
+            "model", "Stumpjumper", "brand", "Specialized", "type", "Enduro bikes", "price", 3000));
     bike1.put("description", "Versatile enduro bike");
     // Use a simple embedding for testing
     bike1.put("bike_embedding", new float[] {0.1f, 0.2f, 0.3f});
@@ -282,11 +307,7 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     bike2.put("name", "Trek Slash");
     bike2.put(
         "metadata",
-        Map.of(
-            "model", "Slash",
-            "brand", "Trek",
-            "type", "Enduro bikes",
-            "price", 5000));
+        Map.of("model", "Slash", "brand", "Trek", "type", "Enduro bikes", "price", 5000));
     bike2.put("description", "Aggressive enduro bike");
     bike2.put("bike_embedding", new float[] {0.4f, 0.5f, 0.6f});
 
@@ -297,33 +318,27 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     Map<String, Object> bikeSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "test-bike-json",
-                    "prefix", "test-bike-json",
-                    "storage_type", "json"),
+            Map.of("name", "test-bike-json", "prefix", "test-bike-json", "storage_type", "json"),
             "fields",
-                List.of(
+            List.of(
+                Map.of("name", "model", "type", "tag", "path", "$.metadata.model"),
+                Map.of("name", "brand", "type", "tag", "path", "$.metadata.brand"),
+                Map.of("name", "price", "type", "numeric", "path", "$.metadata.price"),
+                Map.of(
+                    "name",
+                    "bike_embedding",
+                    "type",
+                    "vector",
+                    "attrs",
                     Map.of(
-                        "name", "model",
-                        "type", "tag",
-                        "path", "$.metadata.model"),
-                    Map.of(
-                        "name", "brand",
-                        "type", "tag",
-                        "path", "$.metadata.brand"),
-                    Map.of(
-                        "name", "price",
-                        "type", "numeric",
-                        "path", "$.metadata.price"),
-                    Map.of(
-                        "name", "bike_embedding",
-                        "type", "vector",
-                        "attrs",
-                            Map.of(
-                                "dims", 3,
-                                "distance_metric", "cosine",
-                                "algorithm", "flat",
-                                "datatype", "float32"))));
+                        "dims",
+                        3,
+                        "distance_metric",
+                        "cosine",
+                        "algorithm",
+                        "flat",
+                        "datatype",
+                        "float32"))));
 
     // Create index
     SearchIndex bikeIndex = SearchIndex.fromDict(bikeSchema, jedis);
@@ -365,14 +380,10 @@ class HashVsJsonIntegrationTest extends BaseIntegrationTest {
     Map<String, Object> hashSchema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "debug-hash",
-                    "prefix", "debug-hash",
-                    "storage_type", "hash"),
+            Map.of("name", "debug-hash", "prefix", "debug-hash", "storage_type", "hash"),
             "fields",
-                List.of(
-                    Map.of("name", "user", "type", "tag"),
-                    Map.of("name", "age", "type", "numeric")));
+            List.of(
+                Map.of("name", "user", "type", "tag"), Map.of("name", "age", "type", "numeric")));
 
     SearchIndex debugIndex = SearchIndex.fromDict(hashSchema, jedis);
     debugIndex.create(true);
