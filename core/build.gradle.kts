@@ -8,7 +8,7 @@ description = "RedisVL4J - Vector Library for Java"
 
 dependencies {
     // Redis client
-    api("redis.clients:jedis:5.2.0")
+    api("redis.clients:jedis:6.2.0")
     
     // JSON processing
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
@@ -32,6 +32,63 @@ dependencies {
     
     // SpotBugs annotations for suppressing false positives
     implementation("com.github.spotbugs:spotbugs-annotations:4.8.3")
+    
+    // LangChain4J - Core API (required for vectorizers)
+    compileOnly("dev.langchain4j:langchain4j:0.36.2")
+    
+    // LangChain4J Embedding Providers (optional - users include what they need)
+    compileOnly("dev.langchain4j:langchain4j-open-ai:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-azure-open-ai:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-hugging-face:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-ollama:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-vertex-ai-gemini:0.36.2")
+    
+    // LangChain4J Local Embedding Models (optional)
+    compileOnly("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-embeddings-bge-small-en-v15:0.36.2")
+    compileOnly("dev.langchain4j:langchain4j-embeddings-e5-small-v2:0.36.2")
+    
+    // ONNX Runtime for running models locally
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.16.3")
+    
+    // HTTP client for downloading from HuggingFace
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    
+    // JSON parsing for config.json
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Test dependencies for LangChain4J (include in tests to verify integration)
+    testImplementation("dev.langchain4j:langchain4j:0.36.2")
+    testImplementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")
+    testImplementation("dev.langchain4j:langchain4j-hugging-face:0.36.2")
+    
+    // Additional test dependencies
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.mockito:mockito-core:5.11.0")
+}
+
+// Configure test execution
+tasks.test {
+    // Exclude slow and integration tests by default
+    useJUnitPlatform {
+        excludeTags("slow", "integration")
+    }
+}
+
+// Create a task for running integration tests
+tasks.register<Test>("integrationTest") {
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    shouldRunAfter(tasks.test)
+}
+
+// Create a task for running slow tests
+tasks.register<Test>("slowTest") {
+    useJUnitPlatform {
+        includeTags("slow")
+    }
+    shouldRunAfter(tasks.test)
 }
 
 // Configure all JAR tasks to use the desired artifact name
