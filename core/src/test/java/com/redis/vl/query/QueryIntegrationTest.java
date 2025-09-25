@@ -44,10 +44,14 @@ class QueryIntegrationTest extends BaseIntegrationTest {
                 "vector",
                 "attrs",
                 Map.of(
-                    "dims", 3,
-                    "distance_metric", "cosine",
-                    "algorithm", "hnsw",
-                    "datatype", "float32")));
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "hnsw",
+                    "datatype",
+                    "float32")));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);
@@ -81,87 +85,150 @@ class QueryIntegrationTest extends BaseIntegrationTest {
     // Sample users with embeddings and metadata
     data.add(
         Map.of(
-            "id", "john",
-            "user", "john",
-            "description", "John is a software engineer with expertise in distributed systems",
-            "credit_score", "high",
-            "job", "engineer",
-            "age", 35,
-            "last_updated", System.currentTimeMillis() / 1000,
-            "location", "-122.4194,37.7749",
-            "user_embedding", new float[] {0.1f, 0.2f, 0.3f}));
+            "id",
+            "john",
+            "user",
+            "john",
+            "description",
+            "John is a software engineer with expertise in distributed systems",
+            "credit_score",
+            "high",
+            "job",
+            "engineer",
+            "age",
+            35,
+            "last_updated",
+            System.currentTimeMillis() / 1000,
+            "location",
+            "-122.4194,37.7749",
+            "user_embedding",
+            new float[] {0.1f, 0.2f, 0.3f}));
 
     data.add(
         Map.of(
-            "id", "mary",
-            "user", "mary",
-            "description", "Mary is a medical professional with expertise in lung cancer research",
-            "credit_score", "high",
-            "job", "doctor",
-            "age", 42,
-            "last_updated", System.currentTimeMillis() / 1000 - 3600,
-            "location", "-122.4194,37.7749",
-            "user_embedding", new float[] {0.15f, 0.25f, 0.35f}));
+            "id",
+            "mary",
+            "user",
+            "mary",
+            "description",
+            "Mary is a medical professional with expertise in lung cancer research",
+            "credit_score",
+            "high",
+            "job",
+            "doctor",
+            "age",
+            42,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 3600,
+            "location",
+            "-122.4194,37.7749",
+            "user_embedding",
+            new float[] {0.15f, 0.25f, 0.35f}));
 
     data.add(
         Map.of(
-            "id", "nancy",
-            "user", "nancy",
-            "description", "Nancy is a dermatologist specializing in skin conditions",
-            "credit_score", "medium",
-            "job", "dermatologist",
-            "age", 38,
-            "last_updated", System.currentTimeMillis() / 1000 - 7200,
-            "location", "-110.0839,37.3861",
-            "user_embedding", new float[] {0.2f, 0.3f, 0.4f}));
+            "id",
+            "nancy",
+            "user",
+            "nancy",
+            "description",
+            "Nancy is a dermatologist specializing in skin conditions",
+            "credit_score",
+            "medium",
+            "job",
+            "dermatologist",
+            "age",
+            38,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 7200,
+            "location",
+            "-110.0839,37.3861",
+            "user_embedding",
+            new float[] {0.2f, 0.3f, 0.4f}));
 
     data.add(
         Map.of(
-            "id", "tyler",
-            "user", "tyler",
-            "description", "Tyler is a CEO of a startup company",
-            "credit_score", "high",
-            "job", "CEO",
-            "age", 45,
-            "last_updated", System.currentTimeMillis() / 1000 - 10800,
-            "location", "-122.4194,37.7749",
-            "user_embedding", new float[] {0.25f, 0.35f, 0.45f}));
+            "id",
+            "tyler",
+            "user",
+            "tyler",
+            "description",
+            "Tyler is a CEO of a startup company",
+            "credit_score",
+            "high",
+            "job",
+            "CEO",
+            "age",
+            45,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 10800,
+            "location",
+            "-122.4194,37.7749",
+            "user_embedding",
+            new float[] {0.25f, 0.35f, 0.45f}));
 
     data.add(
         Map.of(
-            "id", "tim",
-            "user", "tim",
-            "description", "Tim is a software engineer focusing on machine learning",
-            "credit_score", "low",
-            "job", "engineer",
-            "age", 28,
-            "last_updated", System.currentTimeMillis() / 1000 - 14400,
-            "location", "-110.0839,37.3861",
-            "user_embedding", new float[] {0.3f, 0.4f, 0.5f}));
+            "id",
+            "tim",
+            "user",
+            "tim",
+            "description",
+            "Tim is a software engineer focusing on machine learning",
+            "credit_score",
+            "low",
+            "job",
+            "engineer",
+            "age",
+            28,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 14400,
+            "location",
+            "-110.0839,37.3861",
+            "user_embedding",
+            new float[] {0.3f, 0.4f, 0.5f}));
 
     data.add(
         Map.of(
-            "id", "derrick",
-            "user", "derrick",
-            "description", "Derrick is a medical researcher studying cancer treatments",
-            "credit_score", "high",
-            "job", "doctor",
-            "age", 50,
-            "last_updated", System.currentTimeMillis() / 1000 - 18000,
-            "location", "-110.0839,37.3861",
-            "user_embedding", new float[] {0.35f, 0.45f, 0.55f}));
+            "id",
+            "derrick",
+            "user",
+            "derrick",
+            "description",
+            "Derrick is a medical researcher studying cancer treatments",
+            "credit_score",
+            "high",
+            "job",
+            "doctor",
+            "age",
+            50,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 18000,
+            "location",
+            "-110.0839,37.3861",
+            "user_embedding",
+            new float[] {0.35f, 0.45f, 0.55f}));
 
     data.add(
         Map.of(
-            "id", "joe",
-            "user", "joe",
-            "description", "Joe is a dentist with a private practice",
-            "credit_score", "low",
-            "job", "dentist",
-            "age", 40,
-            "last_updated", System.currentTimeMillis() / 1000 - 21600,
-            "location", "-110.0839,37.3861",
-            "user_embedding", new float[] {0.4f, 0.5f, 0.6f}));
+            "id",
+            "joe",
+            "user",
+            "joe",
+            "description",
+            "Joe is a dentist with a private practice",
+            "credit_score",
+            "low",
+            "job",
+            "dentist",
+            "age",
+            40,
+            "last_updated",
+            System.currentTimeMillis() / 1000 - 21600,
+            "location",
+            "-110.0839,37.3861",
+            "user_embedding",
+            new float[] {0.4f, 0.5f, 0.6f}));
 
     return data;
   }

@@ -3,7 +3,7 @@ package com.redis.vl.schema;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-/** Enumeration of field types supported by RedisVL4J. Maps to Redis RediSearch field types. */
+/** Enumeration of field types supported by RedisVL. Maps to Redis RediSearch field types. */
 @Getter
 @RequiredArgsConstructor
 public enum FieldType {

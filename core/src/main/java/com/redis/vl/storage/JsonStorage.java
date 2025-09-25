@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import redis.clients.jedis.PipelineBase;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.json.Path2;
 
@@ -16,7 +16,6 @@ import redis.clients.jedis.json.Path2;
  *
  * <p>Implements json-specific logic for validation and read/write operations in Redis.
  */
-@SuppressWarnings("deprecation")
 public class JsonStorage extends BaseStorage {
 
   public JsonStorage(IndexSchema indexSchema) {
@@ -24,7 +23,7 @@ public class JsonStorage extends BaseStorage {
   }
 
   @Override
-  protected void set(PipelineBase pipeline, String key, Map<String, Object> obj) {
+  protected void set(Pipeline pipeline, String key, Map<String, Object> obj) {
     // For JSON storage, vectors are stored as JSON arrays
     Map<String, Object> jsonDocument = new HashMap<>();
 
@@ -41,18 +40,15 @@ public class JsonStorage extends BaseStorage {
       if (field instanceof VectorField) {
         // Convert to List<Float> for proper JSON serialization
         List<Float> floatList = null;
-        if (value instanceof float[]) {
-          float[] floatArray = (float[]) value;
+        if (value instanceof float[] floatArray) {
           floatList = new ArrayList<>();
           for (float f : floatArray) {
             floatList.add(f);
           }
-        } else if (value instanceof byte[]) {
+        } else if (value instanceof byte[] bytes) {
           // Convert byte array to float array first
-          byte[] bytes = (byte[]) value;
           floatList = bytesToFloatList(bytes);
-        } else if (value instanceof double[]) {
-          double[] doubleArray = (double[]) value;
+        } else if (value instanceof double[] doubleArray) {
           floatList = new ArrayList<>();
           for (double d : doubleArray) {
             floatList.add((float) d);
@@ -82,7 +78,7 @@ public class JsonStorage extends BaseStorage {
 
   @Override
   @SuppressWarnings("unchecked")
-  protected Response<Map<String, Object>> getResponse(PipelineBase pipeline, String key) {
+  protected Response<Map<String, Object>> getResponse(Pipeline pipeline, String key) {
     // For JSON, we get the entire document
     Response<Object> response = pipeline.jsonGet(key);
     // We need to return Response<Map<String, Object>> so cast it

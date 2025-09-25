@@ -13,8 +13,8 @@ import redis.clients.jedis.json.Path2;
 @DisplayName("Expire Keys Integration Tests")
 class ExpireKeysIntegrationTest extends BaseIntegrationTest {
 
-  private static SearchIndex index;
   private static final String TEST_PREFIX = "expire:";
+  private static SearchIndex index;
 
   @BeforeAll
   static void setup() {
@@ -28,12 +28,7 @@ class ExpireKeysIntegrationTest extends BaseIntegrationTest {
 
     List<Map<String, Object>> fields =
         Arrays.asList(
-            Map.of(
-                "name", "$.name",
-                "type", "text"),
-            Map.of(
-                "name", "$.value",
-                "type", "numeric"));
+            Map.of("name", "$.name", "type", "text"), Map.of("name", "$.value", "type", "numeric"));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);

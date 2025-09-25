@@ -3,11 +3,7 @@ package com.redis.vl.index;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.redis.vl.schema.IndexSchema;
-import com.redis.vl.schema.NumericField;
-import com.redis.vl.schema.TagField;
-import com.redis.vl.schema.TextField;
-import com.redis.vl.schema.VectorField;
+import com.redis.vl.schema.*;
 import com.redis.vl.test.BaseIntegrationTest;
 import java.util.HashMap;
 import java.util.List;
@@ -259,7 +255,8 @@ class SearchIndexTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("Should throw exception when fromDict receives null schema")
-  @SuppressWarnings("DataFlowIssue") // Intentionally testing failure case
+  @SuppressWarnings("DataFlowIssue")
+  // Intentionally testing failure case
   void shouldThrowExceptionWhenFromDictReceivesNullSchema() {
     // When/Then
     assertThatThrownBy(() -> SearchIndex.fromDict(null))
@@ -273,13 +270,16 @@ class SearchIndexTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("Should throw exception when fromDict receives null client")
-  @SuppressWarnings("DataFlowIssue") // Intentionally testing failure case
+  @SuppressWarnings("DataFlowIssue")
+  // Intentionally testing failure case
   void shouldThrowExceptionWhenFromDictReceivesNullClient() {
     // Given
     var schema =
         Map.of(
-            "index", Map.of("name", "test", "prefix", "test:"),
-            "fields", List.of(Map.of("name", "title", "type", "text")));
+            "index",
+            Map.of("name", "test", "prefix", "test:"),
+            "fields",
+            List.of(Map.of("name", "title", "type", "text")));
 
     // When/Then
     assertThatThrownBy(() -> SearchIndex.fromDict(schema, (UnifiedJedis) null))
@@ -294,14 +294,11 @@ class SearchIndexTest extends BaseIntegrationTest {
     var schema =
         Map.of(
             "index",
-                Map.of(
-                    "name", "immutable-test",
-                    "prefix", "immut:",
-                    "storage_type", "hash"),
+            Map.of("name", "immutable-test", "prefix", "immut:", "storage_type", "hash"),
             "fields",
-                List.of(
-                    Map.of("name", "title", "type", "text"),
-                    Map.of("name", "score", "type", "numeric")));
+            List.of(
+                Map.of("name", "title", "type", "text"),
+                Map.of("name", "score", "type", "numeric")));
 
     // When
     SearchIndex index = SearchIndex.fromDict(schema, unifiedJedis);

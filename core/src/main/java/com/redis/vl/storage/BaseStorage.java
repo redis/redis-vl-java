@@ -7,7 +7,7 @@ import java.util.*;
 import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.Getter;
-import redis.clients.jedis.PipelineBase;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.UnifiedJedis;
 
@@ -17,11 +17,12 @@ import redis.clients.jedis.UnifiedJedis;
  * <p>Provides foundational methods for key management, data preprocessing, validation, and basic
  * read/write operations.
  */
-@SuppressWarnings("deprecation")
 public abstract class BaseStorage {
 
   @Getter(AccessLevel.NONE)
   protected final IndexSchema indexSchema;
+
+  protected int defaultBatchSize = 200;
 
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP2",
@@ -30,13 +31,6 @@ public abstract class BaseStorage {
     // Store a defensive copy if needed, or just store as-is if immutable
     this.indexSchema = indexSchema;
   }
-
-  // Protected getter for subclasses to use
-  protected IndexSchema getIndexSchema() {
-    return indexSchema;
-  }
-
-  protected int defaultBatchSize = 200;
 
   /**
    * Create a Redis key using a combination of a prefix, separator, and the identifier.
@@ -52,6 +46,26 @@ public abstract class BaseStorage {
     } else {
       return prefix + keySeparator + id;
     }
+  }
+
+  /**
+   * Apply a preprocessing function to the object if provided.
+   *
+   * @param obj Object to preprocess
+   * @param preprocess Function to process the object
+   * @return Processed object as a map
+   */
+  protected static Map<String, Object> preprocessObject(
+      Map<String, Object> obj, Function<Map<String, Object>, Map<String, Object>> preprocess) {
+    if (preprocess != null) {
+      return preprocess.apply(obj);
+    }
+    return obj;
+  }
+
+  // Protected getter for subclasses to use
+  protected IndexSchema getIndexSchema() {
+    return indexSchema;
   }
 
   /**
@@ -76,21 +90,6 @@ public abstract class BaseStorage {
 
     return createKey(
         keyValue, indexSchema.getIndex().getPrefix(), indexSchema.getIndex().getKeySeparator());
-  }
-
-  /**
-   * Apply a preprocessing function to the object if provided.
-   *
-   * @param obj Object to preprocess
-   * @param preprocess Function to process the object
-   * @return Processed object as a map
-   */
-  protected static Map<String, Object> preprocessObject(
-      Map<String, Object> obj, Function<Map<String, Object>, Map<String, Object>> preprocess) {
-    if (preprocess != null) {
-      return preprocess.apply(obj);
-    }
-    return obj;
   }
 
   /**
@@ -297,30 +296,30 @@ public abstract class BaseStorage {
     // Pass 2: Write all valid objects in batches
     List<String> addedKeys = new ArrayList<>();
 
-    PipelineBase pipeline = redisClient.pipelined();
-    for (int i = 0; i < preparedObjects.size(); i++) {
-      KeyValuePair kvp = preparedObjects.get(i);
-      set(pipeline, kvp.key, kvp.value);
+    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+      for (int i = 0; i < preparedObjects.size(); i++) {
+        KeyValuePair kvp = preparedObjects.get(i);
+        set(pipeline, kvp.key, kvp.value);
 
-      // Set TTL if provided
-      if (ttl != null) {
-        pipeline.expire(kvp.key, ttl);
+        // Set TTL if provided
+        if (ttl != null) {
+          pipeline.expire(kvp.key, ttl);
+        }
+
+        addedKeys.add(kvp.key);
+
+        // Execute in batches
+        if ((i + 1) % batchSize == 0) {
+          pipeline.sync();
+        }
       }
 
-      addedKeys.add(kvp.key);
-
-      // Execute in batches
-      if ((i + 1) % batchSize == 0) {
+      // Execute any remaining commands
+      if (preparedObjects.size() % batchSize != 0) {
         pipeline.sync();
       }
     }
 
-    // Execute any remaining commands
-    if (preparedObjects.size() % batchSize != 0) {
-      pipeline.sync();
-    }
-
-    pipeline.close();
     return addedKeys;
   }
 
@@ -435,17 +434,17 @@ public abstract class BaseStorage {
     // Currently not using batchSize parameter
 
     // Use a pipeline to batch the retrieval
-    PipelineBase pipeline = redisClient.pipelined();
     List<Response<Map<String, Object>>> responses = new ArrayList<>();
 
-    for (String key : keys) {
-      Response<Map<String, Object>> response = getResponse(pipeline, key);
-      responses.add(response);
-    }
+    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+      for (String key : keys) {
+        Response<Map<String, Object>> response = getResponse(pipeline, key);
+        responses.add(response);
+      }
 
-    // Execute all commands
-    pipeline.sync();
-    pipeline.close();
+      // Execute all commands
+      pipeline.sync();
+    }
 
     // Process results
     for (Response<Map<String, Object>> response : responses) {
@@ -486,9 +485,9 @@ public abstract class BaseStorage {
   }
 
   // Abstract methods to be implemented by subclasses
-  protected abstract void set(PipelineBase pipeline, String key, Map<String, Object> obj);
+  protected abstract void set(Pipeline pipeline, String key, Map<String, Object> obj);
 
-  protected abstract Response<Map<String, Object>> getResponse(PipelineBase pipeline, String key);
+  protected abstract Response<Map<String, Object>> getResponse(Pipeline pipeline, String key);
 
   // Helper class for key-value pairs
   protected static class KeyValuePair {

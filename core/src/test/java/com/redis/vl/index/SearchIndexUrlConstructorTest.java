@@ -46,7 +46,8 @@ class SearchIndexUrlConstructorTest {
 
   @Test
   @DisplayName("Should throw exception for null Redis URL")
-  @SuppressWarnings("DataFlowIssue") // Intentionally testing failure case
+  @SuppressWarnings("DataFlowIssue")
+  // Intentionally testing failure case
   void shouldThrowExceptionForNullRedisUrl() {
     // Given
     IndexSchema schema = IndexSchema.builder().name("test_index").prefix("test:").build();

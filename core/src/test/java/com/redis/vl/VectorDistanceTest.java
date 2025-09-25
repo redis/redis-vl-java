@@ -38,16 +38,13 @@ class VectorDistanceTest extends BaseIntegrationTest {
     List<Map<String, Object>> fields =
         Arrays.asList(
             Map.of(
-                "name", "$.embedding",
-                "type", "vector",
+                "name",
+                "$.embedding",
+                "type",
+                "vector",
                 "attrs",
-                    Map.of(
-                        "dims", 3,
-                        "algorithm", "flat",
-                        "distance_metric", "cosine")),
-            Map.of(
-                "name", "$.text",
-                "type", "text"));
+                Map.of("dims", 3, "algorithm", "flat", "distance_metric", "cosine")),
+            Map.of("name", "$.text", "type", "text"));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);

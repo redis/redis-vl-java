@@ -14,55 +14,6 @@ import redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm;
 @Getter
 public class VectorField extends BaseField {
 
-  /** Vector indexing algorithms */
-  public enum Algorithm {
-    FLAT("FLAT"),
-    HNSW("HNSW");
-
-    private final String value;
-
-    Algorithm(String value) {
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-  }
-
-  /** Distance metrics for vector similarity */
-  public enum DistanceMetric {
-    L2("L2"),
-    IP("IP"),
-    COSINE("COSINE");
-
-    private final String value;
-
-    DistanceMetric(String value) {
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-  }
-
-  /** Vector data types */
-  public enum VectorDataType {
-    FLOAT32("FLOAT32"),
-    FLOAT64("FLOAT64");
-
-    private final String value;
-
-    VectorDataType(String value) {
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-  }
-
   /** Number of dimensions in the vector */
   @JsonProperty("dimensions")
   private final int dimensions;
@@ -149,6 +100,16 @@ public class VectorField extends BaseField {
     this.epsilon = epsilon;
   }
 
+  /** Create a VectorField with fluent API */
+  public static VectorFieldBuilder of(String name, int dimensions) {
+    return new VectorFieldBuilder(name, dimensions);
+  }
+
+  /** Create a VectorField builder (Lombok-style) */
+  public static VectorFieldBuilder builder() {
+    return new VectorFieldBuilder(null, 0);
+  }
+
   /** Get the algorithm as our enum type */
   public Algorithm getAlgorithm() {
     if (algorithm == VectorAlgorithm.HNSW) {
@@ -212,14 +173,53 @@ public class VectorField extends BaseField {
     return jedisField;
   }
 
-  /** Create a VectorField with fluent API */
-  public static VectorFieldBuilder of(String name, int dimensions) {
-    return new VectorFieldBuilder(name, dimensions);
+  /** Vector indexing algorithms */
+  public enum Algorithm {
+    FLAT("FLAT"),
+    HNSW("HNSW");
+
+    private final String value;
+
+    Algorithm(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
   }
 
-  /** Create a VectorField builder (Lombok-style) */
-  public static VectorFieldBuilder builder() {
-    return new VectorFieldBuilder(null, 0);
+  /** Distance metrics for vector similarity */
+  public enum DistanceMetric {
+    L2("L2"),
+    IP("IP"),
+    COSINE("COSINE");
+
+    private final String value;
+
+    DistanceMetric(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
+
+  /** Vector data types */
+  public enum VectorDataType {
+    FLOAT32("FLOAT32"),
+    FLOAT64("FLOAT64");
+
+    private final String value;
+
+    VectorDataType(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
   }
 
   /** Fluent builder for VectorField */

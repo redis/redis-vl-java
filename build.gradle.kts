@@ -136,3 +136,15 @@ tasks.wrapper {
     gradleVersion = "8.11.1"
     distributionType = Wrapper.DistributionType.ALL
 }
+
+// Task to copy jar to notebooks directory for Jupyter
+tasks.register<Copy>("copyJarToNotebooks") {
+    dependsOn(":core:jar")
+    from("core/build/libs/redisvl-0.0.1.jar")
+    into("notebooks")
+}
+
+// Make build depend on copying jar
+tasks.named("build") {
+    dependsOn("copyJarToNotebooks")
+}

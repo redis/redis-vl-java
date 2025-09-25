@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.search.FieldName;
 
 /**
- * Base class for all field types in RedisVL4J. Provides common functionality for all field
+ * Base class for all field types in RedisVL. Provides common functionality for all field
  * implementations.
  */
 @Getter

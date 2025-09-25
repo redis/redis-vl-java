@@ -11,10 +11,9 @@ import com.redis.vl.schema.VectorField;
 import com.redis.vl.storage.BaseStorage;
 import com.redis.vl.storage.HashStorage;
 import com.redis.vl.storage.JsonStorage;
+import com.redis.vl.utils.ArrayUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
@@ -33,6 +32,8 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 @Slf4j
 public class SearchIndex {
 
+  private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+  private static final ObjectMapper jsonMapper = new ObjectMapper();
   @Getter private final RedisConnectionManager connectionManager;
 
   @Getter
@@ -41,12 +42,10 @@ public class SearchIndex {
       justification = "Schema needs to be mutable for Python-like API compatibility")
   private final IndexSchema schema;
 
+  private final BaseStorage storage;
   private Jedis client;
   private UnifiedJedis unifiedClient;
   @Getter private boolean validateOnLoad = false;
-  private final BaseStorage storage;
-  private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
-  private static final ObjectMapper jsonMapper = new ObjectMapper();
 
   /**
    * Create a SearchIndex with connection manager and schema
@@ -148,6 +147,194 @@ public class SearchIndex {
     // Store the client - this is the expected usage pattern for this library
     this.unifiedClient = unifiedClient;
     this.storage = initializeStorage(schema);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static SearchIndex fromYaml(String yamlPath) {
+    try {
+      Map<String, Object> data = yamlMapper.readValue(new File(yamlPath), Map.class);
+      IndexSchema schema = IndexSchema.fromDict(data);
+      return new SearchIndex(schema);
+    } catch (Exception e) {
+      throw new RedisVLException("Failed to load schema from YAML: " + yamlPath, e);
+    }
+  }
+
+  public static SearchIndex fromDict(Map<String, Object> dict) {
+    return fromDict(dict, (UnifiedJedis) null, false);
+  }
+
+  public static SearchIndex fromDict(Map<String, Object> dict, UnifiedJedis client) {
+    if (dict == null) {
+      throw new IllegalArgumentException("Schema dictionary cannot be null");
+    }
+    if (client == null) {
+      throw new IllegalArgumentException("Redis client cannot be null");
+    }
+    IndexSchema schema = IndexSchema.fromDict(dict);
+    return new SearchIndex(schema, client, false);
+  }
+
+  public static SearchIndex fromDict(Map<String, Object> dict, String redisUrl) {
+    return fromDict(dict, redisUrl, false);
+  }
+
+  private static IndexSchema validateAndParseDict(Map<String, Object> dict) {
+    if (dict == null) {
+      throw new IllegalArgumentException("Schema dictionary cannot be null");
+    }
+    return IndexSchema.fromDict(dict);
+  }
+
+  private static void addParamsToSearchParams(
+      redis.clients.jedis.search.FTSearchParams searchParams, Map<String, Object> params) {
+    for (Map.Entry<String, Object> entry : params.entrySet()) {
+      if ("vec".equals(entry.getKey()) && entry.getValue() instanceof byte[]) {
+        searchParams.addParam(entry.getKey(), entry.getValue());
+      } else if ("K".equals(entry.getKey()) && entry.getValue() instanceof Integer) {
+        searchParams.addParam(entry.getKey(), entry.getValue());
+      } else {
+        searchParams.addParam(entry.getKey(), entry.getValue().toString());
+      }
+    }
+  }
+
+  public static SearchIndex fromDict(
+      Map<String, Object> dict, UnifiedJedis client, boolean validateOnLoad) {
+    IndexSchema schema = validateAndParseDict(dict);
+    if (client == null) {
+      return new SearchIndex(schema, validateOnLoad);
+    }
+    return new SearchIndex(schema, client, validateOnLoad);
+  }
+
+  public static SearchIndex fromDict(
+      Map<String, Object> dict, String redisUrl, boolean validateOnLoad) {
+    IndexSchema schema = validateAndParseDict(dict);
+    if (redisUrl == null) {
+      return new SearchIndex(schema, validateOnLoad);
+    }
+    return new SearchIndex(schema, redisUrl, validateOnLoad);
+  }
+
+  private static BaseField createFieldFromType(
+      String fieldName, String fieldType, List<Object> fieldDef) {
+    switch (fieldType.toUpperCase()) {
+      case "TAG":
+        return new com.redis.vl.schema.TagField(fieldName);
+      case "TEXT":
+        return new com.redis.vl.schema.TextField(fieldName);
+      case "NUMERIC":
+        return new com.redis.vl.schema.NumericField(fieldName);
+      case "GEO":
+        return new com.redis.vl.schema.GeoField(fieldName);
+      case "VECTOR":
+        // Extract vector parameters
+        int dims = 0;
+        String distanceMetric = "COSINE";
+        String algorithm = "FLAT";
+
+        for (int i = 0; i < fieldDef.size(); i++) {
+          String item = fieldDef.get(i).toString();
+
+          if ("dim".equals(item) && i + 1 < fieldDef.size()) {
+            dims = Integer.parseInt(fieldDef.get(i + 1).toString());
+          } else if ("distance_metric".equals(item) && i + 1 < fieldDef.size()) {
+            distanceMetric = fieldDef.get(i + 1).toString();
+          } else if ("algorithm".equals(item) && i + 1 < fieldDef.size()) {
+            algorithm = fieldDef.get(i + 1).toString();
+          }
+        }
+
+        return VectorField.builder()
+            .name(fieldName)
+            .dimensions(dims)
+            .distanceMetric(VectorField.DistanceMetric.valueOf(distanceMetric))
+            .algorithm(
+                "HNSW".equals(algorithm)
+                    ? redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.HNSW
+                    : redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.FLAT)
+            .build();
+      default:
+        log.warn("Unknown field type: {} for field: {}", fieldType, fieldName);
+        return null;
+    }
+  }
+
+  public static SearchIndex fromExisting(String indexName, UnifiedJedis client) {
+    // Load index info from Redis
+    Map<String, Object> info = client.ftInfo(indexName);
+
+    // Extract index definition
+    @SuppressWarnings("unchecked")
+    List<Object> indexDef = (List<Object>) info.get("index_definition");
+
+    // Build schema from the info
+    var builder = IndexSchema.builder().name(indexName);
+
+    // Extract prefix if available
+    if (indexDef != null) {
+      for (int i = 0; i < indexDef.size(); i += 2) {
+        String key = indexDef.get(i).toString();
+        if ("prefixes".equals(key) && i + 1 < indexDef.size()) {
+          @SuppressWarnings("unchecked")
+          List<String> prefixes = (List<String>) indexDef.get(i + 1);
+          if (!prefixes.isEmpty()) {
+            builder.prefix(prefixes.get(0));
+          }
+        } else if ("key_type".equals(key) && i + 1 < indexDef.size()) {
+          String keyType = indexDef.get(i + 1).toString();
+          builder.storageType(
+              "JSON".equals(keyType) ? IndexSchema.StorageType.JSON : IndexSchema.StorageType.HASH);
+        }
+      }
+    }
+
+    // Extract fields from attributes
+    @SuppressWarnings("unchecked")
+    List<Object> attributes = (List<Object>) info.get("attributes");
+
+    if (attributes != null) {
+      // Process attributes list - it's a list of field definitions
+      for (Object attrObj : attributes) {
+        if (attrObj instanceof List) {
+          @SuppressWarnings("unchecked")
+          List<Object> attr = (List<Object>) attrObj;
+          if (!attr.isEmpty()) {
+            // The attr list itself is the field definition
+            List<Object> fieldDef = attr;
+
+            String fieldName = null;
+            String fieldType = null;
+            String jsonPath = null;
+
+            // Parse field definition
+            for (int i = 0; i < fieldDef.size(); i++) {
+              String item = fieldDef.get(i).toString();
+
+              if ("identifier".equals(item) && i + 1 < fieldDef.size()) {
+                fieldName = fieldDef.get(i + 1).toString();
+              } else if ("attribute".equals(item) && i + 1 < fieldDef.size()) {
+                jsonPath = fieldDef.get(i + 1).toString();
+              } else if ("type".equals(item) && i + 1 < fieldDef.size()) {
+                fieldType = fieldDef.get(i + 1).toString();
+              }
+            }
+
+            // Create appropriate field based on type
+            if (fieldName != null && fieldType != null) {
+              BaseField field = createFieldFromType(fieldName, fieldType, fieldDef);
+              if (field != null) {
+                builder.field(field);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    IndexSchema schema = builder.build();
+    return new SearchIndex(schema, client);
   }
 
   /** Get Jedis connection from either connectionManager or direct client */
@@ -293,6 +480,8 @@ public class SearchIndex {
       }
     }
   }
+
+  // Additional methods for integration test compatibility
 
   /**
    * Check if index exists using FT.INFO
@@ -485,10 +674,10 @@ public class SearchIndex {
               // Already in byte array format
               vectorBytes = (byte[]) value;
             } else if (value instanceof float[]) {
-              vectorBytes = floatArrayToBytes((float[]) value);
+              vectorBytes = ArrayUtils.floatArrayToBytes((float[]) value);
             } else if (value instanceof double[]) {
-              float[] floats = doubleArrayToFloats((double[]) value);
-              vectorBytes = floatArrayToBytes(floats);
+              float[] floats = ArrayUtils.doubleArrayToFloats((double[]) value);
+              vectorBytes = ArrayUtils.floatArrayToBytes(floats);
             }
             if (vectorBytes != null) {
               jedis.hset(
@@ -554,10 +743,10 @@ public class SearchIndex {
               // Already in byte array format
               vectorBytes = (byte[]) value;
             } else if (value instanceof float[]) {
-              vectorBytes = floatArrayToBytes((float[]) value);
+              vectorBytes = ArrayUtils.floatArrayToBytes((float[]) value);
             } else if (value instanceof double[]) {
-              float[] floats = doubleArrayToFloats((double[]) value);
-              vectorBytes = floatArrayToBytes(floats);
+              float[] floats = ArrayUtils.doubleArrayToFloats((double[]) value);
+              vectorBytes = ArrayUtils.floatArrayToBytes(floats);
             }
             if (vectorBytes != null) {
               binaryFields.put(key.getBytes(StandardCharsets.UTF_8), vectorBytes);
@@ -661,215 +850,6 @@ public class SearchIndex {
         jedis.close();
       }
     }
-  }
-
-  /** Convert float array to byte array */
-  private byte[] floatArrayToBytes(float[] floats) {
-    ByteBuffer buffer = ByteBuffer.allocate(floats.length * 4);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-    for (float f : floats) {
-      buffer.putFloat(f);
-    }
-    return buffer.array();
-  }
-
-  /** Convert double array to float array */
-  private float[] doubleArrayToFloats(double[] doubles) {
-    float[] floats = new float[doubles.length];
-    for (int i = 0; i < doubles.length; i++) {
-      floats[i] = (float) doubles[i];
-    }
-    return floats;
-  }
-
-  // Additional methods for integration test compatibility
-
-  @SuppressWarnings("unchecked")
-  public static SearchIndex fromYaml(String yamlPath) {
-    try {
-      Map<String, Object> data = yamlMapper.readValue(new File(yamlPath), Map.class);
-      IndexSchema schema = IndexSchema.fromDict(data);
-      return new SearchIndex(schema);
-    } catch (Exception e) {
-      throw new RedisVLException("Failed to load schema from YAML: " + yamlPath, e);
-    }
-  }
-
-  public static SearchIndex fromDict(Map<String, Object> dict) {
-    return fromDict(dict, (UnifiedJedis) null, false);
-  }
-
-  public static SearchIndex fromDict(Map<String, Object> dict, UnifiedJedis client) {
-    if (dict == null) {
-      throw new IllegalArgumentException("Schema dictionary cannot be null");
-    }
-    if (client == null) {
-      throw new IllegalArgumentException("Redis client cannot be null");
-    }
-    IndexSchema schema = IndexSchema.fromDict(dict);
-    return new SearchIndex(schema, client, false);
-  }
-
-  public static SearchIndex fromDict(Map<String, Object> dict, String redisUrl) {
-    return fromDict(dict, redisUrl, false);
-  }
-
-  private static IndexSchema validateAndParseDict(Map<String, Object> dict) {
-    if (dict == null) {
-      throw new IllegalArgumentException("Schema dictionary cannot be null");
-    }
-    return IndexSchema.fromDict(dict);
-  }
-
-  private static void addParamsToSearchParams(
-      redis.clients.jedis.search.FTSearchParams searchParams, Map<String, Object> params) {
-    for (Map.Entry<String, Object> entry : params.entrySet()) {
-      if ("vec".equals(entry.getKey()) && entry.getValue() instanceof byte[]) {
-        searchParams.addParam(entry.getKey(), entry.getValue());
-      } else if ("K".equals(entry.getKey()) && entry.getValue() instanceof Integer) {
-        searchParams.addParam(entry.getKey(), entry.getValue());
-      } else {
-        searchParams.addParam(entry.getKey(), entry.getValue().toString());
-      }
-    }
-  }
-
-  public static SearchIndex fromDict(
-      Map<String, Object> dict, UnifiedJedis client, boolean validateOnLoad) {
-    IndexSchema schema = validateAndParseDict(dict);
-    if (client == null) {
-      return new SearchIndex(schema, validateOnLoad);
-    }
-    return new SearchIndex(schema, client, validateOnLoad);
-  }
-
-  public static SearchIndex fromDict(
-      Map<String, Object> dict, String redisUrl, boolean validateOnLoad) {
-    IndexSchema schema = validateAndParseDict(dict);
-    if (redisUrl == null) {
-      return new SearchIndex(schema, validateOnLoad);
-    }
-    return new SearchIndex(schema, redisUrl, validateOnLoad);
-  }
-
-  private static BaseField createFieldFromType(
-      String fieldName, String fieldType, List<Object> fieldDef) {
-    switch (fieldType.toUpperCase()) {
-      case "TAG":
-        return new com.redis.vl.schema.TagField(fieldName);
-      case "TEXT":
-        return new com.redis.vl.schema.TextField(fieldName);
-      case "NUMERIC":
-        return new com.redis.vl.schema.NumericField(fieldName);
-      case "GEO":
-        return new com.redis.vl.schema.GeoField(fieldName);
-      case "VECTOR":
-        // Extract vector parameters
-        int dims = 0;
-        String distanceMetric = "COSINE";
-        String algorithm = "FLAT";
-
-        for (int i = 0; i < fieldDef.size(); i++) {
-          String item = fieldDef.get(i).toString();
-
-          if ("dim".equals(item) && i + 1 < fieldDef.size()) {
-            dims = Integer.parseInt(fieldDef.get(i + 1).toString());
-          } else if ("distance_metric".equals(item) && i + 1 < fieldDef.size()) {
-            distanceMetric = fieldDef.get(i + 1).toString();
-          } else if ("algorithm".equals(item) && i + 1 < fieldDef.size()) {
-            algorithm = fieldDef.get(i + 1).toString();
-          }
-        }
-
-        return VectorField.builder()
-            .name(fieldName)
-            .dimensions(dims)
-            .distanceMetric(VectorField.DistanceMetric.valueOf(distanceMetric))
-            .algorithm(
-                "HNSW".equals(algorithm)
-                    ? redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.HNSW
-                    : redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.FLAT)
-            .build();
-      default:
-        log.warn("Unknown field type: {} for field: {}", fieldType, fieldName);
-        return null;
-    }
-  }
-
-  public static SearchIndex fromExisting(String indexName, UnifiedJedis client) {
-    // Load index info from Redis
-    Map<String, Object> info = client.ftInfo(indexName);
-
-    // Extract index definition
-    @SuppressWarnings("unchecked")
-    List<Object> indexDef = (List<Object>) info.get("index_definition");
-
-    // Build schema from the info
-    var builder = IndexSchema.builder().name(indexName);
-
-    // Extract prefix if available
-    if (indexDef != null) {
-      for (int i = 0; i < indexDef.size(); i += 2) {
-        String key = indexDef.get(i).toString();
-        if ("prefixes".equals(key) && i + 1 < indexDef.size()) {
-          @SuppressWarnings("unchecked")
-          List<String> prefixes = (List<String>) indexDef.get(i + 1);
-          if (!prefixes.isEmpty()) {
-            builder.prefix(prefixes.get(0));
-          }
-        } else if ("key_type".equals(key) && i + 1 < indexDef.size()) {
-          String keyType = indexDef.get(i + 1).toString();
-          builder.storageType(
-              "JSON".equals(keyType) ? IndexSchema.StorageType.JSON : IndexSchema.StorageType.HASH);
-        }
-      }
-    }
-
-    // Extract fields from attributes
-    @SuppressWarnings("unchecked")
-    List<Object> attributes = (List<Object>) info.get("attributes");
-
-    if (attributes != null) {
-      // Process attributes list - it's a list of field definitions
-      for (Object attrObj : attributes) {
-        if (attrObj instanceof List) {
-          @SuppressWarnings("unchecked")
-          List<Object> attr = (List<Object>) attrObj;
-          if (!attr.isEmpty()) {
-            // The attr list itself is the field definition
-            List<Object> fieldDef = attr;
-
-            String fieldName = null;
-            String fieldType = null;
-            String jsonPath = null;
-
-            // Parse field definition
-            for (int i = 0; i < fieldDef.size(); i++) {
-              String item = fieldDef.get(i).toString();
-
-              if ("identifier".equals(item) && i + 1 < fieldDef.size()) {
-                fieldName = fieldDef.get(i + 1).toString();
-              } else if ("attribute".equals(item) && i + 1 < fieldDef.size()) {
-                jsonPath = fieldDef.get(i + 1).toString();
-              } else if ("type".equals(item) && i + 1 < fieldDef.size()) {
-                fieldType = fieldDef.get(i + 1).toString();
-              }
-            }
-
-            // Create appropriate field based on type
-            if (fieldName != null && fieldType != null) {
-              BaseField field = createFieldFromType(fieldName, fieldType, fieldDef);
-              if (field != null) {
-                builder.field(field);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    IndexSchema schema = builder.build();
-    return new SearchIndex(schema, client);
   }
 
   public String getName() {

@@ -1,15 +1,15 @@
 <div align="center">
 <div><img src="https://redis.io/images/redis-logo.svg" style="width: 130px"> </div>
-<h1>RedisVL4J Java Notebooks</h1>
+<h1>RedisVL Java Notebooks</h1>
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Java](https://img.shields.io/badge/Java-21-orange)
-![RedisVL4J](https://img.shields.io/badge/RedisVL4J-Latest-green)
+![RedisVL](https://img.shields.io/badge/RedisVL-Latest-green)
 
 </div>
 <div>
-    ✨ Interactive Jupyter notebooks demonstrating RedisVL4J capabilities for AI and ML applications with Redis. ✨
+    ✨ Interactive Jupyter notebooks demonstrating RedisVL capabilities for AI and ML applications with Redis. ✨
 </div>
 
 <div></div>
@@ -22,11 +22,11 @@
 
 ## Setup
 
-This project uses Docker Compose to set up a complete environment for running Java-based AI applications with RedisVL4J. The environment includes:
+This project uses Docker Compose to set up a complete environment for running Java-based AI applications with RedisVL. The environment includes:
 
 - A Jupyter Notebook server with Java kernel support
 - Redis Stack (includes Redis and RedisInsight)
-- RedisVL4J library built from source
+- RedisVL library built from source
 - Pre-installed dependencies for AI/ML workloads
 
 ### Prerequisites
@@ -81,7 +81,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 | Notebook | Description | Status |
 | --- | --- | --- |
-| [01_getting_started.ipynb](./01_getting_started.ipynb) | Introduction to RedisVL4J basic concepts and usage | ✅ |
+| [01_getting_started.ipynb](./01_getting_started.ipynb) | Introduction to RedisVL basic concepts and usage | ✅ |
 | [02_hybrid_queries.ipynb](./02_hybrid_queries.ipynb) | Demonstrates hybrid search capabilities combining vector and text queries | ✅ |
 | [05_hash_vs_json.ipynb](./05_hash_vs_json.ipynb) | Comparison of Redis Hash vs JSON storage types for vector data | ✅ |
 
@@ -113,13 +113,13 @@ Key components:
 - Java 21 for modern Java features
 - Maven for dependency management
 - JJava kernel for Jupyter integration
-- RedisVL4J built from source
+- RedisVL built from source
 
-### RedisVL4J Integration
+### RedisVL Integration
 
-The notebooks showcase how to use RedisVL4J capabilities with Redis:
+The notebooks showcase how to use RedisVL capabilities with Redis:
 
-- **RedisVL4J**: Java port of the Redis Vector Library
+- **RedisVL**: Java port of the Redis Vector Library
 - **Redis Vector Store**: Used for storing and querying vector embeddings
 - **Search Indexes**: For building vector similarity search applications
 - **Hybrid Queries**: Combining vector and traditional search
@@ -131,7 +131,7 @@ The Docker setup includes:
 1. **Jupyter Container**:
    - Based on minimal Jupyter notebook image
    - Adds Java 21, Maven, and the JJava kernel
-   - Builds RedisVL4J from source and includes it in classpath
+   - Builds RedisVL from source and includes it in classpath
    - Includes Python environment for utilities
 
 2. **Redis Container**:
@@ -141,6 +141,6 @@ The Docker setup includes:
 
 ## Getting Started
 
-After starting the environment, begin with the `01_getting_started.ipynb` notebook to learn the basics of RedisVL4J, then explore the other notebooks to see advanced features and use cases.
+After starting the environment, begin with the `01_getting_started.ipynb` notebook to learn the basics of RedisVL, then explore the other notebooks to see advanced features and use cases.
 
 Each notebook is self-contained and includes explanations of the concepts being demonstrated along with runnable code examples.

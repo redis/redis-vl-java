@@ -42,6 +42,16 @@ public class RedisConnectionConfig {
   /** Whether to test connections while idle */
   @Builder.Default private final boolean testWhileIdle = true;
 
+  /** Create a default configuration with URI */
+  public static RedisConnectionConfig fromUri(String uri) {
+    return RedisConnectionConfig.builder().uri(uri).build();
+  }
+
+  /** Create a default configuration with host and port */
+  public static RedisConnectionConfig fromHostPort(String host, int port) {
+    return RedisConnectionConfig.builder().host(host).port(port).build();
+  }
+
   /** Create a JedisPoolConfig from this configuration */
   public JedisPoolConfig toJedisPoolConfig() {
     JedisPoolConfig config = new JedisPoolConfig();
@@ -52,15 +62,5 @@ public class RedisConnectionConfig {
     config.setTestOnReturn(testOnReturn);
     config.setTestWhileIdle(testWhileIdle);
     return config;
-  }
-
-  /** Create a default configuration with URI */
-  public static RedisConnectionConfig fromUri(String uri) {
-    return RedisConnectionConfig.builder().uri(uri).build();
-  }
-
-  /** Create a default configuration with host and port */
-  public static RedisConnectionConfig fromHostPort(String host, int port) {
-    return RedisConnectionConfig.builder().host(host).port(port).build();
   }
 }

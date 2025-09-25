@@ -1,4 +1,4 @@
-# RedisVL4J
+# RedisVL
 
 The Java client for AI-native applications with Redis.
 
@@ -7,7 +7,7 @@ The Java client for AI-native applications with Redis.
 
 ## Introduction
 
-RedisVL4J is a Java library for building AI-native applications on Redis, providing:
+RedisVL is a Java library for building AI-native applications on Redis, providing:
 
 - Vector similarity search
 - Hybrid queries combining vectors and metadata filters
@@ -18,14 +18,14 @@ RedisVL4J is a Java library for building AI-native applications on Redis, provid
 
 ### Installation
 
-Add RedisVL4J to your project:
+Add RedisVL to your project:
 
 **Maven:**
 
 ```xml
 <dependency>
     <groupId>com.redis</groupId>
-    <artifactId>redisvl4j</artifactId>
+    <artifactId>redisvl</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -33,7 +33,7 @@ Add RedisVL4J to your project:
 **Gradle:**
 
 ```gradle
-implementation 'com.redis:redisvl4j:0.1.0-SNAPSHOT'
+implementation 'com.redis:redisvl:0.1.0-SNAPSHOT'
 ```
 
 ### Setting up Redis
@@ -317,7 +317,7 @@ The notebooks are available as Jupyter notebooks with Java kernel support. To ru
 
 - Jupyter Lab with Java kernel (JJava)
 - Redis Stack container
-- Pre-installed RedisVL4J library
+- Pre-installed RedisVL library
 - All required dependencies
 
 ## Requirements
@@ -335,4 +335,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Support
 
-This project is supported by Redis, Inc. on a good faith effort basis. To report bugs or request features, please [file an issue](https://github.com/redis/redisvl4j/issues).
+This project is supported by Redis, Inc. on a good faith effort basis. To report bugs or request features, please [file an issue](https://github.com/redis/redisvl/issues).

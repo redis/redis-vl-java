@@ -15,8 +15,8 @@ import redis.clients.jedis.search.SearchResult;
 @DisplayName("Batch Operations Integration Tests")
 class BatchOperationsIntegrationTest extends BaseIntegrationTest {
 
-  private static SearchIndex index;
   private static final int NUM_DOCS = 20;
+  private static SearchIndex index;
 
   @BeforeAll
   static void setup() {
@@ -30,18 +30,10 @@ class BatchOperationsIntegrationTest extends BaseIntegrationTest {
 
     List<Map<String, Object>> fields =
         Arrays.asList(
-            Map.of(
-                "name", "$.category",
-                "type", "tag"),
-            Map.of(
-                "name", "$.price",
-                "type", "numeric"),
-            Map.of(
-                "name", "$.description",
-                "type", "text"),
-            Map.of(
-                "name", "$.rating",
-                "type", "numeric"));
+            Map.of("name", "$.category", "type", "tag"),
+            Map.of("name", "$.price", "type", "numeric"),
+            Map.of("name", "$.description", "type", "text"),
+            Map.of("name", "$.rating", "type", "numeric"));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);

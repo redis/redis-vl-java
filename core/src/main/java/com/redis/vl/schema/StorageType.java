@@ -11,15 +11,6 @@ public enum StorageType {
     this.value = value;
   }
 
-  public String getValue() {
-    return value;
-  }
-
-  @Override
-  public String toString() {
-    return value;
-  }
-
   public static StorageType fromValue(String value) {
     for (StorageType type : values()) {
       if (type.value.equalsIgnoreCase(value)) {
@@ -27,5 +18,14 @@ public enum StorageType {
       }
     }
     throw new IllegalArgumentException("Unknown storage type: " + value);
+  }
+
+  public String getValue() {
+    return value;
+  }
+
+  @Override
+  public String toString() {
+    return value;
   }
 }

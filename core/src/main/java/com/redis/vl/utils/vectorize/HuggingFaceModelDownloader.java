@@ -16,7 +16,7 @@ import okhttp3.ResponseBody;
 
 /**
  * Downloads and caches HuggingFace models locally for offline use. Models are cached in
- * ~/.cache/redisvl4j/models/ by default.
+ * ~/.cache/redisvl/models/ by default.
  */
 @Slf4j
 public class HuggingFaceModelDownloader {
@@ -29,11 +29,6 @@ public class HuggingFaceModelDownloader {
   private final String baseUrl;
   private final OkHttpClient httpClient;
   private final ProgressListener progressListener;
-
-  /** Progress listener for download tracking. */
-  public interface ProgressListener {
-    void onProgress(String fileName, long bytesDownloaded, long totalBytes);
-  }
 
   public HuggingFaceModelDownloader(String cacheDir) {
     this(cacheDir, DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS);
@@ -278,5 +273,10 @@ public class HuggingFaceModelDownloader {
     } catch (IOException e) {
       log.warn("Failed to cleanup partial download at {}: {}", modelDir, e.getMessage());
     }
+  }
+
+  /** Progress listener for download tracking. */
+  public interface ProgressListener {
+    void onProgress(String fileName, long bytesDownloaded, long totalBytes);
   }
 }

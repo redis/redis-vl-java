@@ -43,6 +43,16 @@ public class TextField extends BaseField {
     this.phonetic = phonetic;
   }
 
+  /** Create a TextField with fluent API */
+  public static TextFieldBuilder of(String name) {
+    return new TextFieldBuilder(name);
+  }
+
+  /** Create a TextField builder (Lombok-style) */
+  public static TextFieldBuilder builder() {
+    return new TextFieldBuilder(null);
+  }
+
   @Override
   public FieldType getFieldType() {
     return FieldType.TEXT;
@@ -78,16 +88,6 @@ public class TextField extends BaseField {
     }
 
     return jedisField;
-  }
-
-  /** Create a TextField with fluent API */
-  public static TextFieldBuilder of(String name) {
-    return new TextFieldBuilder(name);
-  }
-
-  /** Create a TextField builder (Lombok-style) */
-  public static TextFieldBuilder builder() {
-    return new TextFieldBuilder(null);
   }
 
   /** Fluent builder for TextField */

@@ -38,6 +38,16 @@ public class TagField extends BaseField {
     this.caseSensitive = caseSensitive != null ? caseSensitive : false;
   }
 
+  /** Create a TagField with fluent API */
+  public static TagFieldBuilder of(String name) {
+    return new TagFieldBuilder(name);
+  }
+
+  /** Create a TagField builder (Lombok-style) */
+  public static TagFieldBuilder builder() {
+    return new TagFieldBuilder(null);
+  }
+
   @Override
   public FieldType getFieldType() {
     return FieldType.TAG;
@@ -69,16 +79,6 @@ public class TagField extends BaseField {
     }
 
     return jedisField;
-  }
-
-  /** Create a TagField with fluent API */
-  public static TagFieldBuilder of(String name) {
-    return new TagFieldBuilder(name);
-  }
-
-  /** Create a TagField builder (Lombok-style) */
-  public static TagFieldBuilder builder() {
-    return new TagFieldBuilder(null);
   }
 
   /** Fluent builder for TagField */

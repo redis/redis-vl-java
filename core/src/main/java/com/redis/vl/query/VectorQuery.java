@@ -1,8 +1,7 @@
 package com.redis.vl.query;
 
 import com.redis.vl.schema.VectorField;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import com.redis.vl.utils.ArrayUtils;
 import java.util.*;
 
 /** Represents a vector similarity search query */
@@ -35,11 +34,14 @@ public class VectorQuery {
   /** Query text for hybrid search */
   private final String hybridQuery;
 
-  /** EF runtime parameter for HNSW algorithm */
-  private Integer efRuntime;
-
   /** Fields to return in results */
   private final List<String> returnFields;
+
+  /** Whether to normalize vector distance */
+  private final boolean normalizeVectorDistance;
+
+  /** EF runtime parameter for HNSW algorithm */
+  private Integer efRuntime;
 
   /** Filter query for pre-filtering */
   private Filter filter;
@@ -49,9 +51,6 @@ public class VectorQuery {
 
   /** Batch size for hybrid search */
   private Integer batchSize;
-
-  /** Whether to normalize vector distance */
-  private final boolean normalizeVectorDistance;
 
   /** Private constructor */
   private VectorQuery(
@@ -104,6 +103,21 @@ public class VectorQuery {
       floats[i] = (float) doubles[i];
     }
     return floats;
+  }
+
+  /** Escape field name for RediSearch query */
+  private static String escapeFieldName(String field) {
+    if (field == null) return null;
+
+    // For JSONPath fields in RediSearch, we need to escape special characters
+    // RediSearch expects double backslash escaping for $ and . in field names
+    // e.g., $.embedding becomes \\$\\.embedding in the query string
+    if (field.startsWith("$.")) {
+      // Escape $ and . characters with double backslash for Java string literal
+      // This produces \$ and \. in the actual query sent to Redis
+      return field.replace("$", "\\$").replace(".", "\\.");
+    }
+    return field;
   }
 
   /** Create a copy with modified numResults value */
@@ -220,7 +234,7 @@ public class VectorQuery {
     params.put("K", numResults);
 
     // Convert vector to byte array
-    byte[] vectorBytes = vectorToBytes(vector);
+    byte[] vectorBytes = ArrayUtils.floatArrayToBytes(vector);
     params.put("vec", vectorBytes);
 
     // Add EF runtime if specified (for HNSW)
@@ -231,29 +245,111 @@ public class VectorQuery {
     return params;
   }
 
-  /** Convert float array to byte array */
-  private byte[] vectorToBytes(float[] floats) {
-    ByteBuffer buffer = ByteBuffer.allocate(floats.length * 4);
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-    for (float f : floats) {
-      buffer.putFloat(f);
-    }
-    return buffer.array();
+  // Getters
+  public String getField() {
+    return field;
   }
 
-  /** Escape field name for RediSearch query */
-  private static String escapeFieldName(String field) {
-    if (field == null) return null;
+  public float[] getVector() {
+    return vector != null ? vector.clone() : null; // Defensive copy
+  }
 
-    // For JSONPath fields in RediSearch, we need to escape special characters
-    // RediSearch expects double backslash escaping for $ and . in field names
-    // e.g., $.embedding becomes \\$\\.embedding in the query string
-    if (field.startsWith("$.")) {
-      // Escape $ and . characters with double backslash for Java string literal
-      // This produces \$ and \. in the actual query sent to Redis
-      return field.replace("$", "\\$").replace(".", "\\.");
+  public int getNumResults() {
+    return numResults;
+  }
+
+  /**
+   * @deprecated Use getNumResults() instead
+   */
+  @Deprecated
+  public int getK() {
+    return numResults;
+  }
+
+  public VectorField.DistanceMetric getDistanceMetric() {
+    return distanceMetric;
+  }
+
+  public boolean isReturnDistance() {
+    return returnDistance;
+  }
+
+  public boolean isReturnScore() {
+    return returnScore;
+  }
+
+  public String getPreFilter() {
+    return preFilter;
+  }
+
+  public String getHybridField() {
+    return hybridField;
+  }
+
+  public String getHybridQuery() {
+    return hybridQuery;
+  }
+
+  public Integer getEfRuntime() {
+    return efRuntime;
+  }
+
+  public void setEfRuntime(int efRuntime) {
+    this.efRuntime = efRuntime;
+  }
+
+  public List<String> getReturnFields() {
+    return returnFields != null ? new ArrayList<>(returnFields) : null;
+  }
+
+  public Filter getFilter() {
+    return filter;
+  }
+
+  public void setFilter(Filter filter) {
+    this.filter = filter;
+  }
+
+  public String getHybridPolicy() {
+    return hybridPolicy;
+  }
+
+  public void setHybridPolicy(String policy) {
+    this.hybridPolicy = policy;
+  }
+
+  public Integer getBatchSize() {
+    return batchSize;
+  }
+
+  public void setBatchSize(int batchSize) {
+    this.batchSize = batchSize;
+  }
+
+  public boolean isNormalizeVectorDistance() {
+    return normalizeVectorDistance;
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("VectorQuery{");
+    sb.append("field='").append(field).append("'");
+    sb.append(", numResults=").append(numResults);
+    if (filter != null) {
+      sb.append(", filter='").append(filter.build()).append("'");
     }
-    return field;
+    if (hybridPolicy != null) {
+      sb.append(", HYBRID_POLICY ").append(hybridPolicy);
+      if (batchSize != null) {
+        sb.append(" BATCH_SIZE ").append(batchSize);
+      }
+    }
+    if (efRuntime != null) {
+      sb.append(", EF_RUNTIME $EF_RUNTIME");
+    }
+    sb.append("}");
+    return sb.toString();
   }
 
   /** Builder for VectorQuery */
@@ -270,6 +366,15 @@ public class VectorQuery {
     private Integer efRuntime;
     private List<String> returnFields;
     private boolean normalizeVectorDistance = false;
+
+    private static float[] toFloatArray(double[] doubles) {
+      if (doubles == null) return null;
+      float[] floats = new float[doubles.length];
+      for (int i = 0; i < doubles.length; i++) {
+        floats[i] = (float) doubles[i];
+      }
+      return floats;
+    }
 
     public Builder field(String field) {
       this.field = field;
@@ -420,121 +525,5 @@ public class VectorQuery {
           returnFields,
           normalizeVectorDistance);
     }
-
-    private static float[] toFloatArray(double[] doubles) {
-      if (doubles == null) return null;
-      float[] floats = new float[doubles.length];
-      for (int i = 0; i < doubles.length; i++) {
-        floats[i] = (float) doubles[i];
-      }
-      return floats;
-    }
-  }
-
-  // Getters
-  public String getField() {
-    return field;
-  }
-
-  public float[] getVector() {
-    return vector != null ? vector.clone() : null; // Defensive copy
-  }
-
-  public int getNumResults() {
-    return numResults;
-  }
-
-  /**
-   * @deprecated Use getNumResults() instead
-   */
-  @Deprecated
-  public int getK() {
-    return numResults;
-  }
-
-  public VectorField.DistanceMetric getDistanceMetric() {
-    return distanceMetric;
-  }
-
-  public boolean isReturnDistance() {
-    return returnDistance;
-  }
-
-  public boolean isReturnScore() {
-    return returnScore;
-  }
-
-  public String getPreFilter() {
-    return preFilter;
-  }
-
-  public String getHybridField() {
-    return hybridField;
-  }
-
-  public String getHybridQuery() {
-    return hybridQuery;
-  }
-
-  public Integer getEfRuntime() {
-    return efRuntime;
-  }
-
-  public List<String> getReturnFields() {
-    return returnFields != null ? new ArrayList<>(returnFields) : null;
-  }
-
-  public void setFilter(Filter filter) {
-    this.filter = filter;
-  }
-
-  public Filter getFilter() {
-    return filter;
-  }
-
-  public void setHybridPolicy(String policy) {
-    this.hybridPolicy = policy;
-  }
-
-  public String getHybridPolicy() {
-    return hybridPolicy;
-  }
-
-  public void setBatchSize(int batchSize) {
-    this.batchSize = batchSize;
-  }
-
-  public Integer getBatchSize() {
-    return batchSize;
-  }
-
-  public void setEfRuntime(int efRuntime) {
-    this.efRuntime = efRuntime;
-  }
-
-  public boolean isNormalizeVectorDistance() {
-    return normalizeVectorDistance;
-  }
-
-  @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("VectorQuery{");
-    sb.append("field='").append(field).append("'");
-    sb.append(", numResults=").append(numResults);
-    if (filter != null) {
-      sb.append(", filter='").append(filter.build()).append("'");
-    }
-    if (hybridPolicy != null) {
-      sb.append(", HYBRID_POLICY ").append(hybridPolicy);
-      if (batchSize != null) {
-        sb.append(" BATCH_SIZE ").append(batchSize);
-      }
-    }
-    if (efRuntime != null) {
-      sb.append(", EF_RUNTIME $EF_RUNTIME");
-    }
-    sb.append("}");
-    return sb.toString();
   }
 }

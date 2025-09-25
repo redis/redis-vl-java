@@ -11,36 +11,6 @@ import java.util.stream.Collectors;
 /** Represents a filter for Redis search */
 public class Filter {
 
-  /** Geographic units for radius queries */
-  public enum GeoUnit {
-    M("m"),
-    KM("km"),
-    MI("mi"),
-    FT("ft");
-
-    private final String value;
-
-    GeoUnit(String value) {
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-  }
-
-  /** Filter type */
-  private enum FilterType {
-    TEXT,
-    TAG,
-    NUMERIC,
-    GEO,
-    AND,
-    OR,
-    NOT,
-    CUSTOM
-  }
-
   private final FilterType type;
   private final String field;
   private final String expression;
@@ -279,45 +249,6 @@ public class Filter {
     return new TimestampFilterBuilder(field);
   }
 
-  /**
-   * Build the filter query string
-   *
-   * @return Query string
-   */
-  public String build() {
-    switch (type) {
-      case TEXT:
-      case TAG:
-      case NUMERIC:
-      case GEO:
-      case CUSTOM:
-        return expression;
-
-      case AND:
-        // Filter out any wildcard (*) filters since they represent "match all"
-        String andQuery =
-            subFilters.stream()
-                .map(Filter::build)
-                .filter(s -> !"*".equals(s)) // Remove wildcard filters
-                .collect(Collectors.joining(" "));
-        // If all filters were wildcards, return wildcard
-        if (andQuery.isEmpty()) {
-          return "*";
-        }
-        return "(" + andQuery + ")";
-
-      case OR:
-        String orQuery = subFilters.stream().map(Filter::build).collect(Collectors.joining(" | "));
-        return "(" + orQuery + ")";
-
-      case NOT:
-        return "-" + subFilters.get(0).build();
-
-      default:
-        throw new IllegalStateException("Unknown filter type: " + type);
-    }
-  }
-
   /** Validate field name */
   private static void validateField(String field) {
     if (field == null || field.trim().isEmpty()) {
@@ -380,6 +311,75 @@ public class Filter {
         .replace("!", "\\!")
         .replace("?", "\\?")
         .replace(";", "\\;");
+  }
+
+  /**
+   * Build the filter query string
+   *
+   * @return Query string
+   */
+  public String build() {
+    switch (type) {
+      case TEXT:
+      case TAG:
+      case NUMERIC:
+      case GEO:
+      case CUSTOM:
+        return expression;
+
+      case AND:
+        // Filter out any wildcard (*) filters since they represent "match all"
+        String andQuery =
+            subFilters.stream()
+                .map(Filter::build)
+                .filter(s -> !"*".equals(s)) // Remove wildcard filters
+                .collect(Collectors.joining(" "));
+        // If all filters were wildcards, return wildcard
+        if (andQuery.isEmpty()) {
+          return "*";
+        }
+        return "(" + andQuery + ")";
+
+      case OR:
+        String orQuery = subFilters.stream().map(Filter::build).collect(Collectors.joining(" | "));
+        return "(" + orQuery + ")";
+
+      case NOT:
+        return "-" + subFilters.get(0).build();
+
+      default:
+        throw new IllegalStateException("Unknown filter type: " + type);
+    }
+  }
+
+  /** Geographic units for radius queries */
+  public enum GeoUnit {
+    M("m"),
+    KM("km"),
+    MI("mi"),
+    FT("ft");
+
+    private final String value;
+
+    GeoUnit(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
+
+  /** Filter type */
+  private enum FilterType {
+    TEXT,
+    TAG,
+    NUMERIC,
+    GEO,
+    AND,
+    OR,
+    NOT,
+    CUSTOM
   }
 
   /** Builder for numeric filters */

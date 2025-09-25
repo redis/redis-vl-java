@@ -241,10 +241,14 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
                 "$.user_embedding",
                 "attrs",
                 Map.of(
-                    "dims", 3,
-                    "distance_metric", "cosine",
-                    "algorithm", "flat",
-                    "datatype", "float32")));
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "flat",
+                    "datatype",
+                    "float32")));
     complexSchema.put("fields", fields);
 
     SearchIndex complexIndex = SearchIndex.fromDict(complexSchema, unifiedJedis);
@@ -732,10 +736,14 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
                 "vector",
                 "attrs",
                 Map.of(
-                    "dims", 3,
-                    "distance_metric", "cosine",
-                    "algorithm", "flat",
-                    "datatype", "float32")));
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "flat",
+                    "datatype",
+                    "float32")));
     flatSchema.put("fields", fields);
 
     SearchIndex flatIndex = SearchIndex.fromDict(flatSchema, unifiedJedis);
@@ -784,10 +792,14 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
                 "vector",
                 "attrs",
                 Map.of(
-                    "dims", 3,
-                    "distance_metric", "cosine",
-                    "algorithm", "hnsw",
-                    "datatype", "float32")));
+                    "dims",
+                    3,
+                    "distance_metric",
+                    "cosine",
+                    "algorithm",
+                    "hnsw",
+                    "datatype",
+                    "float32")));
     hnswSchema.put("fields", fields);
 
     SearchIndex hnswIndex = SearchIndex.fromDict(hnswSchema, unifiedJedis);

@@ -99,13 +99,7 @@ public class OnnxModelLoaderTest {
   @Test
   public void testPooling() throws Exception {
     // Test mean pooling
-    float[][][] tokenEmbeddings = {
-      {
-        {1.0f, 2.0f, 3.0f},
-        {4.0f, 5.0f, 6.0f},
-        {7.0f, 8.0f, 9.0f}
-      }
-    };
+    float[][][] tokenEmbeddings = {{{1.0f, 2.0f, 3.0f}, {4.0f, 5.0f, 6.0f}, {7.0f, 8.0f, 9.0f}}};
 
     float[][] pooled = modelLoader.meanPooling(tokenEmbeddings);
 

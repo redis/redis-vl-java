@@ -19,24 +19,24 @@ WORKDIR /home/jovyan/java
 RUN mvn dependency:get -Dartifact=org.dflib.jjava:jjava:1.0-M3 -Ddest=./ -Dtransitive=false
 RUN mv jjava-1.0-M3.jar jjava.jar
 
-# Copy RedisVL4J source and build it
-COPY ./core /home/jovyan/redisvl4j-src/core
-COPY ./gradle /home/jovyan/redisvl4j-src/gradle
-COPY ./gradlew /home/jovyan/redisvl4j-src/
-COPY ./gradlew.bat /home/jovyan/redisvl4j-src/
-COPY ./build.gradle.kts /home/jovyan/redisvl4j-src/
-COPY ./settings.gradle.kts /home/jovyan/redisvl4j-src/
-COPY ./spotbugs-exclude.xml /home/jovyan/redisvl4j-src/
+# Copy RedisVL source and build it
+COPY ./core /home/jovyan/redisvl-src/core
+COPY ./gradle /home/jovyan/redisvl-src/gradle
+COPY ./gradlew /home/jovyan/redisvl-src/
+COPY ./gradlew.bat /home/jovyan/redisvl-src/
+COPY ./build.gradle.kts /home/jovyan/redisvl-src/
+COPY ./settings.gradle.kts /home/jovyan/redisvl-src/
+COPY ./spotbugs-exclude.xml /home/jovyan/redisvl-src/
 
-# Build RedisVL4J from source
-WORKDIR /home/jovyan/redisvl4j-src
+# Build RedisVL from source
+WORKDIR /home/jovyan/redisvl-src
 RUN chmod +x gradlew && ./gradlew clean build publishToMavenLocal -x test
 
 # Back to java directory for dependencies
 WORKDIR /home/jovyan/java
 
 # Copy the built JAR to a known location (excluding javadoc and sources JARs)
-RUN cp /home/jovyan/redisvl4j-src/core/build/libs/redisvl4j-0.0.1.jar /home/jovyan/java/redisvl4j-core.jar
+RUN cp /home/jovyan/redisvl-src/core/build/libs/redisvl-0.0.1.jar /home/jovyan/java/redisvl-core.jar
 
 # Download all dependencies including Jedis and its transitive dependencies
 RUN mvn dependency:copy-dependencies -DoutputDirectory=./lib
@@ -45,17 +45,17 @@ RUN mvn dependency:copy-dependencies -DoutputDirectory=./lib
 RUN find ./lib -name "*.jar" | tr '\n' ':' > classpath.txt
 # Add the jjava.jar to the classpath
 RUN echo -n "/home/jovyan/java/jjava.jar:" >> classpath.txt
-# Add RedisVL4J JAR to classpath
-RUN echo -n "/home/jovyan/java/redisvl4j-core.jar" >> classpath.txt
+# Add RedisVL JAR to classpath
+RUN echo -n "/home/jovyan/java/redisvl-core.jar" >> classpath.txt
 
 # Install the kernel with classpath configuration
 WORKDIR /home/jovyan
 RUN python install.py --prefix /opt/conda/ --classpath $(cat /home/jovyan/java/classpath.txt)
 
-# Clean up Maven artifacts but keep the jjava.jar, redisvl4j-core.jar and lib directory
+# Clean up Maven artifacts but keep the jjava.jar, redisvl-core.jar and lib directory
 RUN rm -rf /home/jovyan/java/target /home/jovyan/java/.m2 /home/jovyan/java/pom.xml \
     /home/jovyan/java/classpath.txt \
-    /home/jovyan/redisvl4j-src \
+    /home/jovyan/redisvl-src \
     && rm -f /home/jovyan/install.py
 
 # Install conda packages from environment.yml
