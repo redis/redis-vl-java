@@ -1261,6 +1261,28 @@ public class SearchIndex {
     } else if (query instanceof TextQuery tq) {
       SearchResult result = search(tq.toString());
       return processSearchResult(result);
+    } else if (query instanceof FilterQuery fq) {
+      // FilterQuery: metadata-only query without vector search
+      // Python: FilterQuery (redisvl/query/query.py:314)
+      redis.clients.jedis.search.Query redisQuery = fq.buildRedisQuery();
+      UnifiedJedis jedis = getUnifiedJedis();
+      SearchResult result = jedis.ftSearch(schema.getName(), redisQuery);
+      return processSearchResult(result);
+    } else if (query instanceof AggregationQuery aq) {
+      // AggregationQuery: HybridQuery and other aggregation-based queries
+      // Python: HybridQuery (redisvl/query/aggregate.py:23)
+      redis.clients.jedis.search.aggr.AggregationBuilder aggregation = aq.buildRedisAggregation();
+      UnifiedJedis jedis = getUnifiedJedis();
+
+      // Add parameters if present (e.g., vector parameter for HybridQuery)
+      Map<String, Object> params = aq.getParams();
+      if (params != null && !params.isEmpty()) {
+        aggregation.params(params);
+      }
+
+      redis.clients.jedis.search.aggr.AggregationResult result =
+          jedis.ftAggregate(schema.getName(), aggregation);
+      return processAggregationResult(result);
     }
 
     // Default: try to convert to string and search
@@ -1318,6 +1340,28 @@ public class SearchIndex {
         }
 
         processed.add(docMap);
+      }
+    }
+    return processed;
+  }
+
+  /**
+   * Process AggregationResult into List of Maps.
+   *
+   * <p>Converts Redis aggregation results into a list of maps, where each map represents a row from
+   * the aggregation result.
+   *
+   * @param result the AggregationResult from Redis
+   * @return list of maps containing aggregation results
+   */
+  private List<Map<String, Object>> processAggregationResult(
+      redis.clients.jedis.search.aggr.AggregationResult result) {
+    List<Map<String, Object>> processed = new ArrayList<>();
+    if (result != null && result.getResults() != null) {
+      for (Map<String, Object> row : result.getResults()) {
+        // Each row is already a Map<String, Object>
+        // Just add it to the processed list
+        processed.add(new HashMap<>(row));
       }
     }
     return processed;
@@ -1487,6 +1531,9 @@ public class SearchIndex {
               return vq.toQueryString();
             } else if (query instanceof Filter) {
               return ((Filter) query).build();
+            } else if (query instanceof FilterQuery fq) {
+              // FilterQuery: extract filter expression or use "*"
+              return (fq.getFilterExpression() != null) ? fq.getFilterExpression().build() : "*";
             } else if (query instanceof TextQuery) {
               return query.toString();
             } else {
