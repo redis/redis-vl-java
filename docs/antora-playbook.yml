@@ -1,0 +1,35 @@
+site:
+  title: RedisVL Documentation
+  url: https://redis.github.io/redis-vl-java
+  start_page: redisvl::index.adoc
+
+content:
+  sources:
+    # Current version (from current branch only)
+    - url: ..
+      branches: HEAD
+      start_path: docs/content
+
+runtime:
+  fetch: true
+  cache_dir: ./.cache/antora
+
+ui:
+  bundle:
+    url: https://github.com/spring-io/antora-ui-spring/releases/download/v0.4.16/ui-bundle.zip
+    snapshot: true
+  supplemental_files: ./supplemental-ui
+
+asciidoc:
+  attributes:
+    experimental: ''
+    idprefix: ''
+    idseparator: '-'
+    page-pagination: ''
+    toc: ~
+    xrefstyle: short
+    # Javadoc-specific attributes
+    # Using relative paths from the page location
+    javadoc-base-url: '_attachments/javadoc'
+    javadoc-core-url: '{javadoc-base-url}/modules/core'
+    javadoc-aggregate-url: '{javadoc-base-url}/aggregate'
