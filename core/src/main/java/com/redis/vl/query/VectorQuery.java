@@ -52,6 +52,15 @@ public class VectorQuery {
   /** Batch size for hybrid search */
   private Integer batchSize;
 
+  /** Field to sort results by */
+  private String sortBy;
+
+  /** Whether to sort in descending order (default: ascending) */
+  private boolean sortDescending;
+
+  /** Whether to require terms in field to have same order as in query */
+  private boolean inOrder;
+
   /** Private constructor */
   private VectorQuery(
       String field,
@@ -65,7 +74,10 @@ public class VectorQuery {
       String hybridQuery,
       Integer efRuntime,
       List<String> returnFields,
-      boolean normalizeVectorDistance) {
+      boolean normalizeVectorDistance,
+      String sortBy,
+      boolean sortDescending,
+      boolean inOrder) {
     this.field = field;
     this.vector = vector != null ? vector.clone() : null; // Defensive copy
     this.numResults = numResults;
@@ -78,6 +90,9 @@ public class VectorQuery {
     this.efRuntime = efRuntime;
     this.returnFields = returnFields;
     this.normalizeVectorDistance = normalizeVectorDistance;
+    this.sortBy = sortBy;
+    this.sortDescending = sortDescending;
+    this.inOrder = inOrder;
   }
 
   /** Create a builder */
@@ -330,6 +345,18 @@ public class VectorQuery {
     return normalizeVectorDistance;
   }
 
+  public String getSortBy() {
+    return sortBy;
+  }
+
+  public boolean isSortDescending() {
+    return sortDescending;
+  }
+
+  public boolean isInOrder() {
+    return inOrder;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -366,6 +393,9 @@ public class VectorQuery {
     private Integer efRuntime;
     private List<String> returnFields;
     private boolean normalizeVectorDistance = false;
+    private String sortBy;
+    private boolean sortDescending = false;
+    private boolean inOrder = false;
 
     private static float[] toFloatArray(double[] doubles) {
       if (doubles == null) return null;
@@ -495,6 +525,21 @@ public class VectorQuery {
       return this;
     }
 
+    public Builder sortBy(String sortBy) {
+      this.sortBy = sortBy;
+      return this;
+    }
+
+    public Builder sortDescending(boolean descending) {
+      this.sortDescending = descending;
+      return this;
+    }
+
+    public Builder inOrder(boolean inOrder) {
+      this.inOrder = inOrder;
+      return this;
+    }
+
     public VectorQuery build() {
       // Validate required fields
       if (field == null || field.trim().isEmpty()) {
@@ -523,7 +568,10 @@ public class VectorQuery {
           hybridQuery,
           efRuntime,
           returnFields,
-          normalizeVectorDistance);
+          normalizeVectorDistance,
+          sortBy,
+          sortDescending,
+          inOrder);
     }
   }
 }

@@ -1104,6 +1104,13 @@ public class SearchIndex {
     // Convert VectorQuery to search string
     String queryString = query.toQueryString();
     Map<String, Object> params = query.toParams();
+
+    // Handle sorting or inOrder if specified
+    if ((query.getSortBy() != null && !query.getSortBy().isEmpty()) || query.isInOrder()) {
+      return searchWithSort(
+          queryString, params, query.getSortBy(), query.isSortDescending(), query.isInOrder());
+    }
+
     return search(queryString, params);
   }
 
@@ -1135,6 +1142,57 @@ public class SearchIndex {
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to search index: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Search with sorting and/or inOrder support.
+   *
+   * @param query The query string
+   * @param params Query parameters
+   * @param sortBy Field to sort by (can be null)
+   * @param descending Whether to sort in descending order
+   * @param inOrder Whether to require terms in field to have same order as in query
+   * @return Search results
+   */
+  private SearchResult searchWithSort(
+      String query, Map<String, Object> params, String sortBy, boolean descending, boolean inOrder) {
+    if (!exists()) {
+      throw new RedisVLException("Index " + getName() + " does not exist");
+    }
+
+    UnifiedJedis jedis = getUnifiedJedis();
+    try {
+      // Convert params to FTSearchParams
+      redis.clients.jedis.search.FTSearchParams searchParams =
+          new redis.clients.jedis.search.FTSearchParams();
+
+      // Set dialect to 2 for KNN queries
+      searchParams.dialect(2);
+
+      // Add vector parameters if present
+      if (params != null && !params.isEmpty()) {
+        addParamsToSearchParams(searchParams, params);
+      }
+
+      // Add sorting if specified
+      if (sortBy != null && !sortBy.isEmpty()) {
+        redis.clients.jedis.args.SortingOrder order =
+            descending
+                ? redis.clients.jedis.args.SortingOrder.DESC
+                : redis.clients.jedis.args.SortingOrder.ASC;
+        searchParams.sortBy(sortBy, order);
+      }
+
+      // Add inOrder if specified
+      if (inOrder) {
+        searchParams.inOrder();
+      }
+
+      return jedis.ftSearch(schema.getName(), query, searchParams);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          "Failed to search index with sorting/inOrder: " + e.getMessage(), e);
     }
   }
 
@@ -1227,6 +1285,9 @@ public class SearchIndex {
                 .hybridQuery(vq.getHybridQuery())
                 .efRuntime(vq.getEfRuntime())
                 .returnFields(vq.getReturnFields())
+                .sortBy(vq.getSortBy())
+                .sortDescending(vq.isSortDescending())
+                .inOrder(vq.isInOrder())
                 .build();
       }
 
@@ -1241,14 +1302,19 @@ public class SearchIndex {
               .field(vrq.getField())
               .numResults(vrq.getNumResults())
               .returnDistance(true)
+              .sortBy(vrq.getSortBy())
+              .sortDescending(vrq.isSortDescending())
+              .inOrder(vrq.isInOrder())
               .build();
       SearchResult result = search(vq);
       // Filter results by distance threshold
       List<Map<String, Object>> allResults = processSearchResult(result);
       List<Map<String, Object>> filtered = new ArrayList<>();
       for (Map<String, Object> doc : allResults) {
-        if (doc.containsKey("distance")) {
-          double distance = Double.parseDouble(doc.get("distance").toString());
+        // Check both "distance" and "vector_distance" for compatibility
+        Object distanceObj = doc.getOrDefault("distance", doc.get("vector_distance"));
+        if (distanceObj != null) {
+          double distance = Double.parseDouble(distanceObj.toString());
           if (distance <= vrq.getDistanceThreshold()) {
             filtered.add(doc);
           }

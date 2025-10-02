@@ -14,6 +14,9 @@ public class VectorRangeQuery {
   private final boolean normalizeVectorDistance;
   private double distanceThreshold;
   private Double epsilon;
+  private final String sortBy;
+  private final boolean sortDescending;
+  private final boolean inOrder;
 
   private VectorRangeQuery(Builder builder) {
     // Validate before modifying state to avoid partial initialization
@@ -33,6 +36,9 @@ public class VectorRangeQuery {
     this.returnScore = builder.returnScore;
     this.normalizeVectorDistance = builder.normalizeVectorDistance;
     this.epsilon = builder.epsilon;
+    this.sortBy = builder.sortBy;
+    this.sortDescending = builder.sortDescending;
+    this.inOrder = builder.inOrder;
   }
 
   public static Builder builder() {
@@ -91,6 +97,18 @@ public class VectorRangeQuery {
     this.epsilon = epsilon;
   }
 
+  public String getSortBy() {
+    return sortBy;
+  }
+
+  public boolean isSortDescending() {
+    return sortDescending;
+  }
+
+  public boolean isInOrder() {
+    return inOrder;
+  }
+
   /**
    * Build the query string for Redis range query
    *
@@ -140,6 +158,9 @@ public class VectorRangeQuery {
     private boolean returnScore = false;
     private boolean normalizeVectorDistance = false;
     private Double epsilon;
+    private String sortBy;
+    private boolean sortDescending = false;
+    private boolean inOrder = false;
 
     public Builder vector(float[] vector) {
       this.vector = vector != null ? vector.clone() : null;
@@ -192,6 +213,21 @@ public class VectorRangeQuery {
 
     public Builder epsilon(double epsilon) {
       this.epsilon = epsilon;
+      return this;
+    }
+
+    public Builder sortBy(String sortBy) {
+      this.sortBy = sortBy;
+      return this;
+    }
+
+    public Builder sortDescending(boolean descending) {
+      this.sortDescending = descending;
+      return this;
+    }
+
+    public Builder inOrder(boolean inOrder) {
+      this.inOrder = inOrder;
       return this;
     }
 
