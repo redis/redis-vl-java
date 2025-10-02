@@ -1,0 +1,479 @@
+= Vectorizers
+:navtitle: Vectorizers
+
+Vectorizers convert text into numerical vector representations (embeddings) that capture semantic meaning. RedisVL for Java supports multiple vectorization options to fit different use cases and deployment requirements.
+
+== What are Vectorizers?
+
+Vectorizers (also called embedding models) transform text into dense vector representations that machine learning models can process. Similar texts produce similar vectors, enabling semantic search and similarity comparisons.
+
+== Available Vectorizers
+
+RedisVL for Java supports two main vectorization approaches:
+
+. *LangChain4J Integration* - Use cloud-based or local models via LangChain4J
+. *Local ONNX Models* - Run Sentence Transformers models locally with ONNX Runtime
+
+== LangChain4J Vectorizer
+
+LangChain4J provides access to many embedding providers including OpenAI, Azure OpenAI, Cohere, and local models.
+
+=== Setup
+
+Add LangChain4J dependencies to your project:
+
+[tabs]
+====
+Maven::
++
+[source,xml]
+----
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j</artifactId>
+    <version>0.35.0</version>
+</dependency>
+<!-- Add specific provider (e.g., OpenAI) -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-open-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+Gradle::
++
+[source,gradle]
+----
+implementation 'dev.langchain4j:langchain4j:0.35.0'
+implementation 'dev.langchain4j:langchain4j-open-ai:0.35.0'
+----
+====
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.LangChain4JVectorizer;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+
+// Create an embedding model from LangChain4J
+EmbeddingModel embeddingModel = OpenAiEmbeddingModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .modelName("text-embedding-3-small")
+    .build();
+
+// Wrap it in RedisVL vectorizer
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(embeddingModel);
+
+// Generate embeddings
+String text = "Redis is an in-memory database";
+float[] embedding = vectorizer.embed(text);
+
+System.out.println("Embedding dimensions: " + embedding.length);
+----
+
+=== Batch Embedding
+
+Process multiple texts efficiently:
+
+[source,java]
+----
+List<String> texts = List.of(
+    "First document about Redis",
+    "Second document about vector search",
+    "Third document about databases"
+);
+
+List<float[]> embeddings = vectorizer.embed(texts);
+
+for (int i = 0; i < texts.size(); i++) {
+    System.out.println("Text: " + texts.get(i));
+    System.out.println("Embedding length: " + embeddings.get(i).length);
+}
+----
+
+=== Supported Providers
+
+LangChain4J supports many providers. Here are some examples:
+
+==== OpenAI
+
+[source,java]
+----
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+
+EmbeddingModel model = OpenAiEmbeddingModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .modelName("text-embedding-3-small")  // or text-embedding-3-large
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+----
+
+==== Azure OpenAI
+
+[source,java]
+----
+import dev.langchain4j.model.azure.AzureOpenAiEmbeddingModel;
+
+EmbeddingModel model = AzureOpenAiEmbeddingModel.builder()
+    .apiKey(System.getenv("AZURE_OPENAI_KEY"))
+    .endpoint(System.getenv("AZURE_OPENAI_ENDPOINT"))
+    .deploymentName("text-embedding-ada-002")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+----
+
+==== Ollama (Local)
+
+[source,java]
+----
+import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
+
+EmbeddingModel model = OllamaEmbeddingModel.builder()
+    .baseUrl("http://localhost:11434")
+    .modelName("nomic-embed-text")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+----
+
+== Local ONNX Vectorizer
+
+Run Sentence Transformers models locally using ONNX Runtime. No API calls, no internet required, complete privacy.
+
+=== Setup
+
+ONNX Runtime dependency is already included in RedisVL. Download a model:
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.HuggingFaceModelDownloader;
+
+// Download a model from Hugging Face
+String modelName = "sentence-transformers/all-MiniLM-L6-v2";
+String modelPath = HuggingFaceModelDownloader.downloadModel(
+    modelName,
+    "~/.cache/redisvl4j/models"  // local cache directory
+);
+
+System.out.println("Model downloaded to: " + modelPath);
+----
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.SentenceTransformersVectorizer;
+
+// Create vectorizer with downloaded model
+SentenceTransformersVectorizer vectorizer =
+    new SentenceTransformersVectorizer(modelPath);
+
+// Generate embeddings
+String text = "Local embedding generation";
+float[] embedding = vectorizer.embed(text);
+
+System.out.println("Generated " + embedding.length + "-dim embedding locally");
+----
+
+=== Popular ONNX Models
+
+[cols="1,1,2"]
+|===
+| Model | Dimensions | Best For
+
+| all-MiniLM-L6-v2
+| 384
+| Fast, general purpose, good balance
+
+| all-mpnet-base-v2
+| 768
+| High quality, general purpose
+
+| all-MiniLM-L12-v2
+| 384
+| Better than L6, still fast
+
+| multi-qa-MiniLM-L6-cos-v1
+| 384
+| Question-answering, Q&A systems
+
+| msmarco-distilbert-base-v4
+| 768
+| Search and ranking tasks
+|===
+
+=== Complete Example with ONNX
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.SentenceTransformersVectorizer;
+import com.redis.vl.utils.vectorize.HuggingFaceModelDownloader;
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class LocalVectorizerExample {
+    public static void main(String[] args) {
+        // Download model (only once)
+        String modelName = "sentence-transformers/all-MiniLM-L6-v2";
+        String modelPath = HuggingFaceModelDownloader.downloadModel(modelName);
+
+        // Create vectorizer
+        SentenceTransformersVectorizer vectorizer =
+            new SentenceTransformersVectorizer(modelPath);
+
+        // Prepare documents
+        List<String> documents = List.of(
+            "Redis is an in-memory database",
+            "Vector search enables semantic similarity",
+            "Machine learning models process embeddings"
+        );
+
+        // Generate embeddings
+        List<float[]> embeddings = vectorizer.embed(documents);
+
+        // Create search index (JSON storage uses $.field notation)
+        Map<String, Object> schema = Map.of(
+            "index", Map.of(
+                "name", "documents",
+                "prefix", "doc",
+                "storage_type", "json"
+            ),
+            "fields", List.of(
+                Map.of("name", "$.content", "type", "text"),
+                Map.of(
+                    "name", "$.embedding",
+                    "type", "vector",
+                    "attrs", Map.of(
+                        "dims", 384,  // all-MiniLM-L6-v2 dimensions
+                        "distance_metric", "cosine",
+                        "algorithm", "flat",
+                        "datatype", "float32"
+                    )
+                )
+            )
+        );
+
+        // Create index from schema
+        ObjectMapper mapper = new ObjectMapper();
+        String schemaJson = mapper.writeValueAsString(schema);
+        SearchIndex index = new SearchIndex(
+            IndexSchema.fromJson(schemaJson),
+            jedis
+        );
+        index.create(true);
+
+        // Load documents with embeddings
+        List<Map<String, Object>> data = new ArrayList<>();
+        for (int i = 0; i < documents.size(); i++) {
+            data.add(Map.of(
+                "content", documents.get(i),
+                "embedding", embeddings.get(i)
+            ));
+        }
+        index.load(data);
+
+        // Search with a query
+        String query = "database systems";
+        float[] queryEmbedding = vectorizer.embed(query);
+
+        VectorQuery vq = VectorQuery.builder()
+            .vector(queryEmbedding)
+            .field("embedding")
+            .numResults(3)
+            .returnFields("$.content")
+            .build();
+
+        List<Map<String, Object>> results = index.query(vq);
+
+        System.out.println("Results for query: " + query);
+        results.forEach(result ->
+            System.out.println("- " + result.get("$.content"))
+        );
+    }
+}
+----
+
+== Builder Pattern
+
+Use the builder for more control:
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.VectorizerBuilder;
+
+// LangChain4J with builder
+LangChain4JVectorizer vectorizer = VectorizerBuilder
+    .langchain4j()
+    .embeddingModel(embeddingModel)
+    .build();
+
+// ONNX with builder
+SentenceTransformersVectorizer onnxVectorizer = VectorizerBuilder
+    .sentenceTransformers()
+    .modelPath(modelPath)
+    .build();
+----
+
+== Choosing a Vectorizer
+
+[cols="1,2,2"]
+|===
+| Aspect | LangChain4J | Local ONNX
+
+| *Cost*
+| Pay per API call
+| Free after initial download
+
+| *Speed*
+| Network latency + inference
+| Fast, local inference
+
+| *Quality*
+| Latest models (e.g., GPT embeddings)
+| Good quality, proven models
+
+| *Privacy*
+| Data sent to provider
+| Complete privacy, offline capable
+
+| *Deployment*
+| Simple, no model management
+| Requires model files, more setup
+
+| *Best For*
+| Production apps with cloud access
+| Privacy-sensitive, offline, high-volume
+|===
+
+== Integration with Search Index
+
+Combine vectorizers with search indices:
+
+[source,java]
+----
+public class VectorizedSearchIndex {
+    private final SearchIndex index;
+    private final BaseVectorizer vectorizer;
+
+    public VectorizedSearchIndex(
+        SearchIndex index,
+        BaseVectorizer vectorizer
+    ) {
+        this.index = index;
+        this.vectorizer = vectorizer;
+    }
+
+    public void addDocument(String content, Map<String, Object> metadata) {
+        // Generate embedding
+        float[] embedding = vectorizer.embed(content);
+
+        // Create document
+        Map<String, Object> doc = new HashMap<>(metadata);
+        doc.put("content", content);
+        doc.put("embedding", embedding);
+
+        // Store in index
+        index.load(List.of(doc));
+    }
+
+    public List<Map<String, Object>> search(String query, int numResults) {
+        // Vectorize query
+        float[] queryVector = vectorizer.embed(query);
+
+        // Search
+        VectorQuery vq = VectorQuery.builder()
+            .vector(queryVector)
+            .field("embedding")
+            .numResults(numResults)
+            .build();
+
+        return index.query(vq);
+    }
+}
+
+// Usage
+VectorizedSearchIndex vsi = new VectorizedSearchIndex(index, vectorizer);
+
+vsi.addDocument(
+    "Redis enables real-time vector search",
+    Map.of("category", "database", "author", "Redis")
+);
+
+List<Map<String, Object>> results = vsi.search(
+    "fast database for vectors",
+    10
+);
+----
+
+== Best Practices
+
+. *Match Dimensions* - Ensure your index vector field dimensions match your model:
++
+[source,java]
+----
+// For all-MiniLM-L6-v2 (384 dimensions)
+Map.of("dims", 384, ...)
+
+// For text-embedding-3-small (1536 dimensions)
+Map.of("dims", 1536, ...)
+----
+
+. *Cache Models Locally* - Download ONNX models once and reuse:
++
+[source,java]
+----
+// Check if model exists before downloading
+Path modelPath = Paths.get(cacheDir, modelName);
+if (!Files.exists(modelPath)) {
+    HuggingFaceModelDownloader.downloadModel(modelName, cacheDir);
+}
+----
+
+. *Batch Processing* - Process multiple texts together for better performance:
++
+[source,java]
+----
+// Less efficient
+for (String text : texts) {
+    float[] emb = vectorizer.embed(text);
+}
+
+// More efficient
+List<float[]> embs = vectorizer.embed(texts);
+----
+
+. *Handle Errors Gracefully*:
++
+[source,java]
+----
+try {
+    float[] embedding = vectorizer.embed(text);
+} catch (Exception e) {
+    logger.error("Failed to generate embedding", e);
+    // Fallback strategy
+}
+----
+
+. *Monitor Token Limits* - Some models have maximum token limits:
++
+[source,java]
+----
+// Truncate long texts if necessary
+String text = longText;
+if (text.split("\\s+").length > 512) {
+    text = truncate(text, 512);  // Implement truncation
+}
+float[] embedding = vectorizer.embed(text);
+----
+
+== Next Steps
+
+* xref:llmcache.adoc[LLM Cache] - Cache embeddings for performance
+* xref:hybrid-queries.adoc[Hybrid Queries] - Combine vectors with filters
+* xref:getting-started.adoc[Getting Started] - Build your first application

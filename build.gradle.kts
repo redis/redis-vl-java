@@ -148,3 +148,46 @@ tasks.register<Copy>("copyJarToNotebooks") {
 tasks.named("build") {
     dependsOn("copyJarToNotebooks")
 }
+
+// Add aggregated Javadoc generation
+tasks.register<Javadoc>("aggregateJavadoc") {
+    description = "Generate aggregated Javadoc for all modules"
+    group = "documentation"
+
+    val coreProject = project(":core")
+    source(coreProject.the<SourceSetContainer>()["main"].allJava)
+    classpath = files(coreProject.the<SourceSetContainer>()["main"].compileClasspath)
+    setDestinationDir(layout.buildDirectory.dir("docs/javadoc/aggregate").get().asFile)
+
+    (options as StandardJavadocDocletOptions).apply {
+        title = "RedisVL ${project.version} API"
+        windowTitle = "RedisVL ${project.version}"
+        author(true)
+        version(true)
+        use(true)
+        splitIndex(true)
+        links(
+            "https://docs.oracle.com/en/java/javase/17/docs/api/",
+            "https://www.javadoc.io/doc/redis.clients/jedis/latest/"
+        )
+    }
+
+    // Ensure Javadoc generation succeeds
+    isFailOnError = false
+}
+
+// Individual module Javadocs
+tasks.register("generateModuleJavadocs") {
+    description = "Generate Javadoc for individual modules"
+    group = "documentation"
+
+    val coreProject = project(":core")
+    dependsOn(coreProject.tasks.named("javadoc"))
+
+    doLast {
+        copy {
+            from(coreProject.tasks.named<Javadoc>("javadoc").get().destinationDir)
+            into(layout.buildDirectory.dir("docs/javadoc/modules/core").get().asFile)
+        }
+    }
+}

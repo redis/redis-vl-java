@@ -1,0 +1,18 @@
+name: redisvl
+title: RedisVL
+version: 'current'
+display_version: '0.1.0-SNAPSHOT'
+prerelease: true
+start_page: ROOT:index.adoc
+nav:
+  - modules/ROOT/nav.adoc
+asciidoc:
+  attributes:
+    source-language: java
+    source-highlighter: highlight.js
+    redisvl-version: '0.1.0-SNAPSHOT'
+    url-redisvl-java: https://github.com/redis/redis-vl-java
+    url-redisvl-python: https://github.com/redis/redis-vl-python
+    url-redis-stack: https://redis.io/docs/stack/
+    url-redis-search: https://redis.io/docs/stack/search/
+    url-redis-json: https://redis.io/docs/stack/json/

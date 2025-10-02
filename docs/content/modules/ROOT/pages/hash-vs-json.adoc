@@ -1,0 +1,528 @@
+= Hash vs JSON Storage
+:navtitle: Hash vs JSON
+
+RedisVL supports two storage types for your data: Redis Hash and Redis JSON. Both storage options offer a variety of features and tradeoffs. Understanding the differences helps you choose the right option for your use case.
+
+== Storage Types Overview
+
+[cols="1,2,2"]
+|===
+| Aspect | Hash | JSON
+
+| *Structure*
+| Flat key-value pairs
+| Nested documents with hierarchy
+
+| *Performance*
+| Faster, less overhead
+| Slightly slower, more features
+
+| *Memory*
+| More efficient
+| Uses more memory
+
+| *Vectors*
+| Stored as byte arrays
+| Stored as float arrays
+
+| *Nested Data*
+| Not supported
+| Fully supported
+
+| *Query Syntax*
+| Field names directly
+| JSONPath with `$.` prefix
+
+| *Best For*
+| Simple, flat data; performance-critical
+| Complex, nested data; flexibility
+|===
+
+== Hash Storage
+
+Hashes in Redis are simple collections of field-value pairs. Think of it like a mutable single-level dictionary.
+
+Hashes are best suited for use cases with the following characteristics:
+- Performance (speed) and storage space (memory consumption) are top concerns
+- Data can be easily normalized and modeled as a single-level dict
+
+NOTE: Hashes are typically the default recommendation.
+
+=== Schema Definition
+
+[source,yaml]
+----
+index:
+  name: user-hash-index
+  prefix: user
+  storage_type: hash  # ← Hash storage
+
+fields:
+  - name: name
+    type: tag
+  - name: age
+    type: numeric
+  - name: email
+    type: text
+  - name: embedding
+    type: vector
+    attrs:
+      dims: 384
+      distance_metric: cosine
+      algorithm: flat
+      datatype: float32
+----
+
+=== Data Format
+
+[source,java]
+----
+// Data for Hash storage
+Map<String, Object> user = Map.of(
+    "name", "john",
+    "age", 25,
+    "email", "john@example.com",
+    "embedding", new float[]{0.1f, 0.2f, 0.3f}  // Float array
+);
+
+// Load into Hash index
+List<String> keys = index.load(List.of(user));
+----
+
+IMPORTANT: Vectors in Hash storage must be converted to byte arrays internally by RedisVL.
+
+=== Advantages
+
+. *Performance* - Faster read/write operations
+. *Memory Efficiency* - Lower memory footprint
+. *Simplicity* - Direct field access without paths
+. *Atomicity* - Field-level atomic operations
+
+=== Limitations
+
+. *Flat Structure* - No nested objects
+. *No Arrays* - Cannot store arrays (except vectors)
+. *Limited Types* - String, numeric, and byte arrays only
+. *No Partial Updates* - Must update entire fields
+
+=== Use Cases
+
+* User profiles with flat attributes
+* Product catalogs without nested data
+* High-performance caching
+* Simple key-value lookups with vectors
+
+== JSON Storage
+
+JSON storage uses Redis JSON (RedisJSON module) for hierarchical documents.
+
+JSON is best suited for use cases with the following characteristics:
+- Ease of use and data model flexibility are top concerns
+- Application data is already native JSON
+- Replacing another document storage/db solution
+
+=== Schema Definition
+
+[source,yaml]
+----
+index:
+  name: product-json-index
+  prefix: product
+  storage_type: json  # ← JSON storage
+
+fields:
+  - name: $.name
+    type: text
+  - name: $.category
+    type: tag
+  - name: $.price
+    type: numeric
+  - name: $.specs.weight
+    type: numeric
+    path: $.specs.weight  # Nested field
+  - name: $.embedding
+    type: vector
+    attrs:
+      dims: 384
+      distance_metric: cosine
+      algorithm: flat
+      datatype: float32
+----
+
+NOTE: JSON fields use JSONPath notation with `$.` prefix.
+
+=== Data Format
+
+[source,java]
+----
+// Data for JSON storage - supports nesting
+Map<String, Object> product = Map.of(
+    "name", "Laptop",
+    "category", "electronics",
+    "price", 899.99,
+    "specs", Map.of(
+        "weight", 1.5,
+        "dimensions", Map.of(
+            "width", 30,
+            "height", 2,
+            "depth", 20
+        )
+    ),
+    "tags", List.of("portable", "powerful", "gaming"),
+    "embedding", new float[]{0.1f, 0.2f, 0.3f}
+);
+
+// Load into JSON index
+List<String> keys = index.load(List.of(product));
+----
+
+=== Advantages
+
+. *Nested Data* - Full support for hierarchical documents
+. *Arrays* - Store and query arrays
+. *Partial Updates* - Update specific paths without reading entire document
+. *Flexibility* - Complex data models
+. *Rich Queries* - JSONPath queries
+
+=== Limitations
+
+. *Memory* - Uses more memory than Hash
+. *Performance* - Slightly slower than Hash
+. *Complexity* - Requires understanding JSONPath
+
+=== Use Cases
+
+* E-commerce products with specifications
+* User profiles with nested preferences
+* Documents with metadata
+* Complex data models
+
+== Side-by-Side Comparison
+
+=== Example: User Profile
+
+==== Hash Storage
+
+[source,java]
+----
+// Hash schema - flat structure
+Map<String, Object> schema = Map.of(
+    "index", Map.of(
+        "name", "users-hash",
+        "storage_type", "hash"
+    ),
+    "fields", List.of(
+        Map.of("name", "name", "type", "text"),
+        Map.of("name", "age", "type", "numeric"),
+        Map.of("name", "city", "type", "tag"),
+        Map.of("name", "embedding", "type", "vector",
+               "attrs", Map.of("dims", 128, "distance_metric", "cosine"))
+    )
+);
+
+// Flat data
+Map<String, Object> user = Map.of(
+    "name", "Alice",
+    "age", 28,
+    "city", "San Francisco",
+    "embedding", new float[128]
+);
+----
+
+==== JSON Storage
+
+[source,java]
+----
+// JSON schema - nested structure
+Map<String, Object> schema = Map.of(
+    "index", Map.of(
+        "name", "users-json",
+        "storage_type", "json"
+    ),
+    "fields", List.of(
+        Map.of("name", "$.name", "type", "text"),
+        Map.of("name", "$.age", "type", "numeric"),
+        Map.of("name", "$.location.city", "type", "tag"),
+        Map.of("name", "$.preferences.topics", "type", "tag"),
+        Map.of("name", "$.embedding", "type", "vector",
+               "attrs", Map.of("dims", 128, "distance_metric", "cosine"))
+    )
+);
+
+// Nested data
+Map<String, Object> user = Map.of(
+    "name", "Alice",
+    "age", 28,
+    "location", Map.of(
+        "city", "San Francisco",
+        "state", "CA",
+        "country", "USA"
+    ),
+    "preferences", Map.of(
+        "topics", List.of("AI", "databases", "cloud"),
+        "notifications", true
+    ),
+    "embedding", new float[128]
+);
+----
+
+== Querying
+
+=== Hash Queries
+
+[source,java]
+----
+import com.redis.vl.query.Filter;
+
+// Direct field names
+Filter filter = Filter.and(
+    Filter.tag("city", "San Francisco"),
+    Filter.numeric("age").between(25, 35)
+);
+
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .withPreFilter(filter.build())
+    .returnFields("name", "age", "city")  // Direct field names
+    .build();
+----
+
+=== JSON Queries
+
+[source,java]
+----
+// JSONPath syntax
+Filter filter = Filter.and(
+    Filter.tag("$.location.city", "San Francisco"),
+    Filter.numeric("$.age").between(25, 35),
+    Filter.tag("$.preferences.topics", "AI")
+);
+
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .withPreFilter(filter.build())
+    .returnFields("$.name", "$.age", "$.location", "$.preferences")
+    .build();
+----
+
+== Performance Comparison
+
+Based on Redis benchmarks:
+
+[cols="1,1,1"]
+|===
+| Operation | Hash | JSON
+
+| Write (single)
+| ~100k ops/s
+| ~80k ops/s
+
+| Read (single)
+| ~120k ops/s
+| ~100k ops/s
+
+| Update (single field)
+| ~100k ops/s
+| ~90k ops/s
+
+| Vector search
+| Similar
+| Similar
+
+| Memory (1M docs)
+| ~500 MB
+| ~650 MB
+|===
+
+NOTE: Performance varies based on document size and complexity. Hash is generally 10-20% faster.
+
+== Migration Between Storage Types
+
+You can migrate data between storage types:
+
+[source,java]
+----
+public class StorageMigration {
+    public void migrateHashToJson(
+        SearchIndex hashIndex,
+        SearchIndex jsonIndex
+    ) {
+        // Fetch all documents from Hash
+        // (implement pagination for large datasets)
+        List<Map<String, Object>> docs = hashIndex.fetchAll();
+
+        // Transform if needed (e.g., add nesting)
+        List<Map<String, Object>> transformedDocs = docs.stream()
+            .map(this::transformToNested)
+            .collect(Collectors.toList());
+
+        // Load into JSON index
+        jsonIndex.load(transformedDocs);
+    }
+
+    private Map<String, Object> transformToNested(
+        Map<String, Object> flatDoc
+    ) {
+        // Transform flat structure to nested
+        return Map.of(
+            "name", flatDoc.get("name"),
+            "age", flatDoc.get("age"),
+            "location", Map.of(
+                "city", flatDoc.get("city")
+            ),
+            "embedding", flatDoc.get("embedding")
+        );
+    }
+}
+----
+
+== Best Practices
+
+. *Start Simple*
++
+--
+Begin with Hash storage unless you need nesting:
+[source,java]
+----
+// Start with Hash
+storage_type: hash
+
+// Migrate to JSON if needed later
+storage_type: json
+----
+--
+
+. *Consider Memory*
++
+--
+For large datasets, Hash storage saves significant memory:
+[source,java]
+----
+// 1 million documents
+// Hash: ~500 MB
+// JSON: ~650 MB
+// Savings: ~150 MB (23%)
+----
+--
+
+. *Evaluate Query Complexity*
++
+--
+If you need nested queries, use JSON:
+[source,java]
+----
+// Complex nested query - JSON only
+Filter.and(
+    Filter.tag("$.specs.features.ai", "true"),
+    Filter.numeric("$.specs.performance.score").gt(80)
+)
+----
+--
+
+. *Benchmark Your Use Case*
++
+--
+[source,java]
+----
+// Measure performance for your data
+long start = System.currentTimeMillis();
+index.load(testData);
+long duration = System.currentTimeMillis() - start;
+System.out.println("Load time: " + duration + "ms");
+----
+--
+
+. *Plan for Growth*
++
+--
+* Hash: Better for scaling to millions of simple documents
+* JSON: Better for evolving, complex schemas
+--
+
+== Decision Tree
+
+[source,text]
+----
+Do you need nested data?
+├─ No → Use Hash
+│        ├─ Flat user profiles
+│        ├─ Simple product catalogs
+│        └─ Key-value with vectors
+└─ Yes → Use JSON
+         ├─ E-commerce products
+         ├─ User preferences
+         └─ Complex documents
+----
+
+== Complete Examples
+
+=== Hash Example
+
+[source,java]
+----
+// Schema
+IndexSchema hashSchema = IndexSchema.fromYaml("hash-schema.yaml");
+
+// Create index
+SearchIndex hashIndex = new SearchIndex(hashSchema, jedis);
+hashIndex.create(true);
+
+// Load flat data
+List<Map<String, Object>> users = List.of(
+    Map.of("name", "Alice", "age", 28, "city", "SF",
+           "embedding", embeddings.get(0)),
+    Map.of("name", "Bob", "age", 32, "city", "NYC",
+           "embedding", embeddings.get(1))
+);
+hashIndex.load(users);
+
+// Query
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .withPreFilter(Filter.tag("city", "SF").build())
+    .build();
+----
+
+=== JSON Example
+
+[source,java]
+----
+// Schema
+IndexSchema jsonSchema = IndexSchema.fromYaml("json-schema.yaml");
+
+// Create index
+SearchIndex jsonIndex = new SearchIndex(jsonSchema, jedis);
+jsonIndex.create(true);
+
+// Load nested data
+List<Map<String, Object>> products = List.of(
+    Map.of(
+        "name", "Laptop",
+        "specs", Map.of(
+            "cpu", "Intel i7",
+            "ram", 16,
+            "storage", Map.of("type", "SSD", "size", 512)
+        ),
+        "embedding", embeddings.get(0)
+    )
+);
+jsonIndex.load(products);
+
+// Query nested fields
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .withPreFilter(
+        Filter.numeric("$.specs.ram").gte(16).build()
+    )
+    .build();
+----
+
+== Next Steps
+
+* xref:getting-started.adoc[Getting Started] - Create your first index
+* xref:hybrid-queries.adoc[Hybrid Queries] - Advanced filtering
+* xref:vectorizers.adoc[Vectorizers] - Generate embeddings

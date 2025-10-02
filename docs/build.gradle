@@ -1,0 +1,85 @@
+plugins {
+	id 'base'
+	id 'com.github.node-gradle.node' version '7.0.2'
+}
+
+// Don't publish this module
+tasks.matching { it.name.startsWith('publish') }.configureEach {
+	enabled = false
+}
+
+description = 'RedisVL for Java Documentation Site'
+
+// Define properties similar to Maven pom.xml
+ext {
+	nodeVersion = '20.17.0' // LTS version
+	npmVersion = '10.9.2'
+	antoraVersion = '3.1.12'
+}
+
+// Configure Node.js plugin
+node {
+	version = nodeVersion
+	npmVersion = project.ext.npmVersion
+	download = true
+	nodeProjectDir = layout.projectDirectory.asFile
+}
+
+// Install Antora CLI and generator
+task installAntora(type: NpmTask) {
+	args = [
+		'install',
+		"@antora/cli@${antoraVersion}",
+		"@antora/site-generator-default@${antoraVersion}"
+	]
+}
+
+// Add Javadoc integration task
+task copyJavadocs(type: Copy) {
+	description = 'Copy Javadoc outputs to Antora attachments'
+	group = 'documentation'
+
+	dependsOn ':aggregateJavadoc', ':generateModuleJavadocs'
+	from rootProject.layout.buildDirectory.dir('docs/javadoc')
+	into layout.projectDirectory.dir("content/modules/ROOT/attachments/javadoc")
+
+	doFirst {
+		mkdir layout.projectDirectory.dir("content/modules/ROOT/attachments").asFile
+		mkdir layout.projectDirectory.dir("content/modules/ROOT/attachments/javadoc").asFile
+		logger.lifecycle("Copying Javadoc documentation to Antora attachments...")
+	}
+}
+
+// Generate Antora site
+task generateSite(type: NodeTask) {
+	dependsOn installAntora, copyJavadocs
+	script = file('node_modules/@antora/cli/bin/antora')
+
+	// Add options to handle multi-version gracefully
+	args = [
+		'--fetch',
+		'--stacktrace',
+		'--log-format=pretty',
+		'antora-playbook.yml',
+		'--to-dir=build/site'
+	]
+
+	outputs.dir(layout.buildDirectory.dir("site"))
+
+	doFirst {
+		mkdir layout.buildDirectory.dir("site").get().asFile
+		logger.lifecycle("Building multi-version documentation with Antora...")
+	}
+}
+
+// Make the build task depend on generating the Antora site
+build.dependsOn generateSite
+assemble.dependsOn generateSite
+
+// Clean up Antora-related directories when cleaning the project
+clean {
+	delete 'node_modules'
+	delete layout.buildDirectory
+	delete layout.projectDirectory.dir("content/modules/ROOT/assets/javadoc")
+	delete layout.projectDirectory.dir("content/modules/ROOT/attachments/javadoc")
+}

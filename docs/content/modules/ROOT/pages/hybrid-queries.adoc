@@ -1,0 +1,338 @@
+= Querying with RedisVL
+:navtitle: Hybrid Queries
+
+In this guide, we will explore more complex queries that can be performed with RedisVL.
+
+== Hybrid Queries
+
+Hybrid queries are queries that combine multiple types of filters. For example, you may want to search for a user that is a certain age, has a certain job, and is within a certain distance of a location. This is a hybrid query that combines numeric, tag, and geographic filters.
+
+== Filter Types
+
+RedisVL supports several filter types corresponding to Redis field types:
+
+=== Tag Filters
+
+Tag filters are filters that are applied to tag fields. These are fields that are not tokenized and are used to store a single categorical value:
+
+[source,java]
+----
+import com.redis.vl.query.Filter;
+
+// Match a single tag (use $.field for JSON storage)
+Filter colorFilter = Filter.tag("$.color", "red");
+
+// Match one of multiple tags
+Filter categoryFilter = Filter.tag("$.category", "electronics", "computers", "phones");
+----
+
+=== Numeric Filters
+
+Numeric filters are filters that are applied to numeric fields and can be used to isolate a range of values for a given field:
+
+[source,java]
+----
+// Between two values (inclusive) - use $.field for JSON storage
+Filter priceFilter = Filter.numeric("$.price").between(10.0, 100.0);
+
+// Greater than
+Filter ageFilter = Filter.numeric("$.age").gt(18);
+
+// Less than
+Filter scoreFilter = Filter.numeric("$.score").lt(100);
+
+// Greater than or equal
+Filter ratingFilter = Filter.numeric("$.rating").gte(4.0);
+
+// Less than or equal
+Filter maxFilter = Filter.numeric("$.max_value").lte(1000);
+
+// Equal to
+Filter exactFilter = Filter.numeric("$.quantity").eq(5);
+----
+
+=== Text Filters
+
+Text filters are filters that are applied to text fields. These filters are applied to the entire text field. For example, if you have a text field that contains the text "The quick brown fox jumps over the lazy dog", a text filter of "quick" will match this text field:
+
+[source,java]
+----
+// Full-text search (matches words) - use $.field for JSON storage
+Filter descFilter = Filter.text("$.description", "redis vector");
+
+// Exact phrase (use quotes)
+Filter exactPhrase = Filter.text("$.content", "\"exact phrase here\"");
+----
+
+=== Combining Filters
+
+Combine multiple filters using boolean logic:
+
+[source,java]
+----
+// AND - all conditions must be true
+Filter andFilter = Filter.and(
+    Filter.tag("$.status", "active"),
+    Filter.numeric("$.age").between(18, 65)
+);
+
+// OR - at least one condition must be true
+Filter orFilter = Filter.or(
+    Filter.tag("$.category", "electronics"),
+    Filter.tag("$.category", "computers")
+);
+
+// NOT - negate a condition
+Filter notFilter = Filter.not(
+    Filter.tag("$.status", "deleted")
+);
+
+// Complex combinations
+Filter complexFilter = Filter.and(
+    Filter.or(
+        Filter.tag("$.type", "premium"),
+        Filter.numeric("$.score").gte(80)
+    ),
+    Filter.not(Filter.tag("$.status", "expired"))
+);
+----
+
+== Pre-Filtering vs Post-Filtering
+
+=== Pre-Filtering (Recommended)
+
+Pre-filtering applies filters *before* the vector search. This is more efficient as it reduces the search space:
+
+[source,java]
+----
+import com.redis.vl.query.VectorQuery;
+
+Filter filter = Filter.and(
+    Filter.tag("$.category", "electronics"),
+    Filter.numeric("$.price").between(100, 1000)
+);
+
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .numResults(10)
+    .withPreFilter(filter.build())  // Apply before vector search
+    .build();
+
+List<Map<String, Object>> results = index.query(query);
+----
+
+=== Post-Filtering
+
+Post-filtering applies filters *after* the vector search. Use this when you want to find similar items first, then filter the results:
+
+[source,java]
+----
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .numResults(100)  // Get more results initially
+    .build();
+
+// Get results
+List<Map<String, Object>> results = index.query(query);
+
+// Apply filter in application code
+results = results.stream()
+    .filter(doc -> {
+        String category = (String) doc.get("$.category");
+        double price = ((Number) doc.get("$.price")).doubleValue();
+        return "electronics".equals(category) && price >= 100 && price <= 1000;
+    })
+    .limit(10)
+    .collect(Collectors.toList());
+----
+
+IMPORTANT: Pre-filtering is generally more efficient as it leverages Redis's indexing capabilities.
+
+== Complete Example: Product Search
+
+Here's a complete example of a product search with hybrid queries:
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.query.VectorQuery;
+import com.redis.vl.query.Filter;
+import redis.clients.jedis.UnifiedJedis;
+
+public class HybridQueryExample {
+    public static void main(String[] args) {
+        // Connect to Redis
+        UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+        // Define schema
+        Map<String, Object> schema = Map.of(
+            "index", Map.of(
+                "name", "products",
+                "prefix", "product",
+                "storage_type", "json"
+            ),
+            "fields", List.of(
+                Map.of("name", "name", "type", "text"),
+                Map.of("name", "category", "type", "tag"),
+                Map.of("name", "price", "type", "numeric"),
+                Map.of("name", "rating", "type", "numeric"),
+                Map.of("name", "in_stock", "type", "tag"),
+                Map.of(
+                    "name", "description_embedding",
+                    "type", "vector",
+                    "attrs", Map.of(
+                        "dims", 384,
+                        "distance_metric", "cosine",
+                        "algorithm", "flat",
+                        "datatype", "float32"
+                    )
+                )
+            )
+        );
+
+        // Create index
+        SearchIndex index = new SearchIndex(new IndexSchema(schema), jedis);
+        index.create(true);
+
+        // Load sample products
+        List<Map<String, Object>> products = List.of(
+            Map.of(
+                "name", "Laptop",
+                "category", "electronics",
+                "price", 899.99,
+                "rating", 4.5,
+                "in_stock", "yes",
+                "description_embedding", generateEmbedding("high performance laptop")
+            ),
+            Map.of(
+                "name", "Mouse",
+                "category", "electronics",
+                "price", 29.99,
+                "rating", 4.2,
+                "in_stock", "yes",
+                "description_embedding", generateEmbedding("wireless mouse")
+            ),
+            Map.of(
+                "name", "Desk",
+                "category", "furniture",
+                "price", 399.99,
+                "rating", 4.7,
+                "in_stock", "no",
+                "description_embedding", generateEmbedding("standing desk")
+            )
+        );
+
+        index.load(products);
+
+        // Example 1: Find electronics under $100 with good ratings
+        Filter filter1 = Filter.and(
+            Filter.tag("$.category", "electronics"),
+            Filter.numeric("$.price").lt(100),
+            Filter.numeric("$.rating").gte(4.0),
+            Filter.tag("$.in_stock", "yes")
+        );
+
+        float[] queryVector = generateEmbedding("computer accessories");
+
+        VectorQuery query1 = VectorQuery.builder()
+            .vector(queryVector)
+            .field("description_embedding")
+            .numResults(10)
+            .withPreFilter(filter1.build())
+            .returnFields("name", "category", "price", "rating")
+            .build();
+
+        List<Map<String, Object>> results1 = index.query(query1);
+        System.out.println("Affordable electronics in stock:");
+        results1.forEach(System.out::println);
+
+        // Example 2: Find any highly-rated products
+        Filter filter2 = Filter.and(
+            Filter.numeric("$.rating").gte(4.5),
+            Filter.tag("$.in_stock", "yes")
+        );
+
+        VectorQuery query2 = VectorQuery.builder()
+            .vector(queryVector)
+            .field("description_embedding")
+            .numResults(5)
+            .withPreFilter(filter2.build())
+            .returnFields("name", "category", "price", "rating")
+            .build();
+
+        List<Map<String, Object>> results2 = index.query(query2);
+        System.out.println("\nTop rated products:");
+        results2.forEach(System.out::println);
+
+        // Clean up
+        jedis.close();
+    }
+
+    private static float[] generateEmbedding(String text) {
+        // In a real application, use an embedding model
+        // For demo purposes, return a random vector
+        float[] embedding = new float[384];
+        for (int i = 0; i < embedding.length; i++) {
+            embedding[i] = (float) Math.random();
+        }
+        return embedding;
+    }
+}
+----
+
+== Range Queries
+
+Perform range queries on numeric fields:
+
+[source,java]
+----
+// Find products in a price range
+Filter priceRange = Filter.numeric("$.price").between(50, 200);
+
+// Find products with rating above threshold
+Filter highRated = Filter.numeric("$.rating").gt(4.0);
+
+// Combine ranges
+Filter rangeFilter = Filter.and(
+    Filter.numeric("$.price").between(50, 500),
+    Filter.numeric("$.rating").gte(4.0),
+    Filter.numeric("$.discount_percent").lte(30)
+);
+----
+
+== Multi-Value Tag Filters
+
+Search for items matching multiple tags:
+
+[source,java]
+----
+// Match any of the specified categories
+Filter categoryFilter = Filter.tag("$.category", "electronics", "computers", "phones");
+
+// Match any of the specified colors
+Filter colorFilter = Filter.tag("$.color", "red", "blue", "green");
+
+// Combine with other filters
+Filter multiFilter = Filter.and(
+    categoryFilter,
+    colorFilter,
+    Filter.tag("$.in_stock", "yes")
+);
+----
+
+== Tips for Effective Hybrid Queries
+
+. *Use Pre-Filtering* - More efficient than post-filtering
+. *Index Your Filters* - Make sure filtered fields are indexed in your schema
+. *Balance Specificity* - Too many filters may return no results
+. *Test Different Combinations* - Experiment with AND/OR combinations
+. *Monitor Performance* - Use `index.info()` to check index statistics
+
+== Next Steps
+
+* xref:llmcache.adoc[LLM Cache] - Learn about semantic caching
+* xref:vectorizers.adoc[Vectorizers] - Generate embeddings for your queries
+* xref:hash-vs-json.adoc[Hash vs JSON] - Choose the right storage type

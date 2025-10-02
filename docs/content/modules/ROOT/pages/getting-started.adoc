@@ -1,0 +1,350 @@
+= Getting Started
+:navtitle: Getting Started
+
+RedisVL is a versatile Java library designed to enhance AI applications using Redis. This guide will walk you through the following steps:
+
+1. Defining an `IndexSchema`
+2. Preparing a sample dataset
+3. Creating a `SearchIndex` object
+4. Loading the sample data
+5. Building `VectorQuery` objects and executing searches
+6. Working with hybrid queries
+
+...and more!
+
+== Prerequisites
+
+* Java 17 or higher
+* Maven or Gradle
+* Redis Stack 7.2+ or Redis with RediSearch module
+
+== Installation
+
+Add RedisVL to your project:
+
+[tabs]
+====
+Maven::
++
+[source,xml,subs="attributes+"]
+----
+<dependency>
+    <groupId>com.redis</groupId>
+    <artifactId>redisvl</artifactId>
+    <version>{redisvl-version}</version>
+</dependency>
+----
+
+Gradle::
++
+[source,gradle,subs="attributes+"]
+----
+implementation 'com.redis:redisvl:{redisvl-version}'
+----
+====
+
+== Set Up Redis
+
+The easiest way to get started is with Redis Stack using Docker:
+
+[source,bash]
+----
+docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+----
+
+This command:
+
+* Starts Redis Stack in a Docker container
+* Exposes Redis on port 6379
+* Exposes Redis Insight GUI on port 8001 (access at http://localhost:8001)
+
+== Define an `IndexSchema`
+
+The `IndexSchema` maintains crucial **index configuration** and **field definitions** to enable search with Redis. For ease of use, the schema can be constructed from YAML or programmatically in Java.
+
+=== Example Schema Creation
+
+Consider a dataset with user information, including `job`, `age`, `credit_score`, and a 3-dimensional `user_embedding` vector.
+
+You must also decide on a Redis index name and key prefix to use for this dataset. Below are example schema definitions in both YAML and programmatic format.
+
+=== YAML Schema
+
+Create a file named `user-schema.yaml`:
+
+[source,yaml]
+----
+index:
+  name: user-index
+  prefix: user
+  storage_type: json  # or 'hash'
+
+fields:
+  - name: name
+    type: tag
+  - name: age
+    type: numeric
+  - name: job
+    type: text
+  - name: embedding
+    type: vector
+    attrs:
+      dims: 3
+      distance_metric: cosine
+      algorithm: flat
+      datatype: float32
+----
+
+=== Java Dictionary
+
+Alternatively, define the schema programmatically in Java:
+
+[source,java]
+----
+import com.redis.vl.schema.IndexSchema;
+
+Map<String, Object> schema = Map.of(
+    "index", Map.of(
+        "name", "user-index",
+        "prefix", "user",
+        "storage_type", "json"
+    ),
+    "fields", List.of(
+        Map.of("name", "name", "type", "tag"),
+        Map.of("name", "age", "type", "numeric"),
+        Map.of("name", "job", "type", "text"),
+        Map.of(
+            "name", "embedding",
+            "type", "vector",
+            "attrs", Map.of(
+                "dims", 3,
+                "distance_metric", "cosine",
+                "algorithm", "flat",
+                "datatype", "float32"
+            )
+        )
+    )
+);
+
+IndexSchema indexSchema = new IndexSchema(schema);
+----
+
+== Create a Search Index
+
+Now that you have a schema, create a search index in Redis:
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import redis.clients.jedis.UnifiedJedis;
+
+// Connect to Redis
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+// Load schema from YAML
+IndexSchema schema = IndexSchema.fromYaml("user-schema.yaml");
+
+// Create the search index
+SearchIndex index = new SearchIndex(schema, jedis);
+index.create(true);  // true = overwrite if exists
+----
+
+== Load Data
+
+Load your data into Redis:
+
+[source,java]
+----
+List<Map<String, Object>> users = List.of(
+    Map.of(
+        "name", "john",
+        "age", 25,
+        "job", "software engineer",
+        "embedding", new float[]{0.1f, 0.2f, 0.3f}
+    ),
+    Map.of(
+        "name", "jane",
+        "age", 30,
+        "job", "data scientist",
+        "embedding", new float[]{0.4f, 0.5f, 0.6f}
+    ),
+    Map.of(
+        "name", "joe",
+        "age", 35,
+        "job", "product manager",
+        "embedding", new float[]{0.7f, 0.8f, 0.9f}
+    )
+);
+
+// Load data with auto-generated IDs
+List<String> keys = index.load(users);
+System.out.println("Loaded " + keys.size() + " documents");
+
+// Or specify an ID field
+List<String> keys = index.load(users, "name");
+----
+
+== Perform Vector Search
+
+Now you can search for similar items using vector similarity:
+
+[source,java]
+----
+import com.redis.vl.query.VectorQuery;
+
+// Create a query vector
+float[] queryVector = new float[]{0.15f, 0.25f, 0.35f};
+
+// Build the query
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .numResults(5)
+    .returnFields("name", "age", "job")
+    .build();
+
+// Execute the search
+List<Map<String, Object>> results = index.query(query);
+
+// Display results
+for (Map<String, Object> result : results) {
+    System.out.println("Name: " + result.get("name"));
+    System.out.println("Age: " + result.get("age"));
+    System.out.println("Job: " + result.get("job"));
+    System.out.println("Distance: " + result.get("vector_distance"));
+    System.out.println("---");
+}
+----
+
+== Add Filters
+
+Combine vector search with metadata filters for more precise results:
+
+[source,java]
+----
+import com.redis.vl.query.Filter;
+
+// Create filters (use $.field for JSON storage)
+Filter ageFilter = Filter.numeric("$.age").between(20, 35);
+Filter jobFilter = Filter.text("$.job", "engineer");
+
+// Combine filters
+Filter combined = Filter.and(ageFilter, jobFilter);
+
+// Add filter to vector query
+VectorQuery hybridQuery = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .withPreFilter(combined.build())
+    .numResults(5)
+    .returnFields("$.name", "$.age", "$.job")
+    .build();
+
+List<Map<String, Object>> filteredResults = index.query(hybridQuery);
+----
+
+NOTE: For JSON storage, field names in filters and return fields must use JSONPath notation with `$.` prefix.
+
+== Fetch Documents
+
+Retrieve specific documents by their keys:
+
+[source,java]
+----
+// Fetch a single document
+Map<String, Object> user = index.fetch("user:john");
+
+// Fetch multiple documents (must iterate)
+Map<String, Object> john = index.fetch("user:john");
+Map<String, Object> jane = index.fetch("user:jane");
+----
+
+== Index Operations
+
+Useful operations for managing your index:
+
+[source,java]
+----
+// Check if index exists
+boolean exists = index.exists();
+
+// Get index information
+Map<String, Object> info = index.info();
+System.out.println("Index has " + info.get("num_docs") + " documents");
+
+// Delete specific keys (requires a List)
+index.dropKeys(List.of("user:john", "user:jane"));
+
+// Delete the entire index (with or without data)
+index.delete(false);  // false = keep the data
+index.delete(true);   // true = also delete the data
+----
+
+== Complete Example
+
+Here's a complete working example:
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.query.VectorQuery;
+import com.redis.vl.query.FilterQuery;
+import redis.clients.jedis.UnifiedJedis;
+
+public class GettingStarted {
+    public static void main(String[] args) {
+        // Connect to Redis
+        UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+        // Load schema
+        IndexSchema schema = IndexSchema.fromYaml("user-schema.yaml");
+
+        // Create index
+        SearchIndex index = new SearchIndex(schema, jedis);
+        index.create(true);
+
+        // Prepare data
+        List<Map<String, Object>> users = List.of(
+            Map.of("name", "john", "age", 25, "job", "software engineer",
+                   "embedding", new float[]{0.1f, 0.2f, 0.3f}),
+            Map.of("name", "jane", "age", 30, "job", "data scientist",
+                   "embedding", new float[]{0.4f, 0.5f, 0.6f}),
+            Map.of("name", "joe", "age", 35, "job", "product manager",
+                   "embedding", new float[]{0.7f, 0.8f, 0.9f})
+        );
+
+        // Load data
+        index.load(users, "name");
+
+        // Vector search
+        VectorQuery query = VectorQuery.builder()
+            .vector(new float[]{0.15f, 0.25f, 0.35f})
+            .field("embedding")
+            .numResults(3)
+            .returnFields("$.name", "$.age", "$.job")
+            .build();
+
+        List<Map<String, Object>> results = index.query(query);
+
+        // Display results
+        System.out.println("Found " + results.size() + " results:");
+        for (Map<String, Object> result : results) {
+            System.out.println(result);
+        }
+
+        // Clean up
+        jedis.close();
+    }
+}
+----
+
+== Next Steps
+
+Now that you've learned the basics, explore more advanced features:
+
+* xref:hybrid-queries.adoc[Hybrid Queries] - Learn about complex filtering and search
+* xref:llmcache.adoc[LLM Cache] - Implement semantic caching for your LLM applications
+* xref:vectorizers.adoc[Vectorizers] - Learn how to generate embeddings
+* xref:hash-vs-json.adoc[Hash vs JSON] - Choose the right storage type for your use case

@@ -1,0 +1,128 @@
+= API Reference
+:page-layout: default
+:page-description: Complete API documentation for RedisVL
+:page-keywords: API, Javadoc, RedisVL, Documentation
+
+[.lead]
+Comprehensive API documentation for RedisVL, generated from source code comments.
+
+[NOTE]
+====
+The API documentation is automatically generated from the latest release and includes:
+
+* **Complete method signatures** with parameter descriptions
+* **Usage examples** and code samples
+* **Cross-references** between related classes
+* **Since tags** indicating version availability
+* **See also** links to related functionality
+====
+
+== Core Module
+
+The RedisVL core module provides comprehensive functionality for vector search, semantic caching, and AI-native Redis applications.
+
+xref:attachment$javadoc/modules/core/index.html[RedisVL Core API^, role="external", window="_blank"]
+
+=== Key Packages
+
+* **Index**: `com.redis.vl.index` - Search index creation and management
+* **Query**: `com.redis.vl.query` - Vector and hybrid query builders
+* **Schema**: `com.redis.vl.schema` - Index schema definition and validation
+* **Cache**: `com.redis.vl.extensions.cache` - Semantic and embeddings caching
+* **Vectorizers**: `com.redis.vl.utils.vectorize` - Embedding generation with LangChain4J and ONNX
+
+== Complete API Reference
+
+For a unified view of all packages and their interactions:
+
+xref:attachment$javadoc/aggregate/index.html[Complete API Reference^, role="external", window="_blank"]
+
+This aggregated documentation provides:
+
+* **Complete inheritance hierarchies** across packages
+* **Unified search** across all classes
+* **Package overview** documentation for the entire library
+
+== Most Important Classes
+
+=== Core Classes
+
+[cols="1,3"]
+|===
+| Class | Description
+
+| `SearchIndex`
+| Main class for creating and managing vector search indexes
+
+| `IndexSchema`
+| Schema definition for indexes, supports YAML and programmatic configuration
+
+| `VectorQuery`
+| Builder for vector similarity queries with filtering
+
+| `Filter`
+| Query filter builder for hybrid search (tag, numeric, text filters)
+|===
+
+=== Caching Classes
+
+[cols="1,3"]
+|===
+| Class | Description
+
+| `SemanticCache`
+| LLM response caching with semantic similarity matching
+
+| `EmbeddingsCache`
+| Cache for storing and retrieving embeddings to avoid recomputation
+
+| `CacheHit`
+| Result object containing cached data and metadata
+|===
+
+=== Vectorizer Classes
+
+[cols="1,3"]
+|===
+| Class | Description
+
+| `LangChain4JVectorizer`
+| Vectorizer using LangChain4J embedding models (OpenAI, Azure, Ollama, etc.)
+
+| `SentenceTransformersVectorizer`
+| Local ONNX-based vectorizer for Sentence Transformers models
+
+| `BaseVectorizer`
+| Abstract base class for custom vectorizer implementations
+
+| `HuggingFaceModelDownloader`
+| Utility for downloading ONNX models from Hugging Face
+|===
+
+== Download API Documentation
+
+The API documentation is also available for offline use:
+
+* link:https://repo1.maven.org/maven2/com/redis/redisvl/{redisvl-version}/redisvl-{redisvl-version}-javadoc.jar[RedisVL Javadoc JAR^]
+
+== Integration with IDE
+
+For the best development experience, add the Javadoc JAR to your IDE:
+
+=== IntelliJ IDEA
+
+1. Go to **File** → **Project Structure** → **Libraries**
+2. Select the RedisVL library
+3. Click **+** and add the Javadoc JAR
+4. Apply changes
+
+=== Eclipse
+
+1. Right-click on the RedisVL JAR in **Package Explorer**
+2. Select **Properties** → **Javadoc Location**
+3. Choose **Javadoc in archive** and select the Javadoc JAR
+4. Apply changes
+
+=== VS Code
+
+Install the **Extension Pack for Java** which automatically downloads and integrates Javadoc documentation when available.

@@ -1,0 +1,421 @@
+= LLM Cache
+:navtitle: LLM Cache
+
+RedisVL provides powerful caching mechanisms to optimize Large Language Model (LLM) applications. By caching responses and embeddings, you can significantly reduce costs, improve latency, and increase throughput.
+
+== Why Cache LLM Responses?
+
+LLM API calls are:
+
+* *Expensive* - Each API call costs money
+* *Slow* - Network latency and inference time add up
+* *Repetitive* - Users often ask similar questions
+
+Caching helps address all three issues by storing and reusing results for similar queries.
+
+== Semantic Cache
+
+Semantic Cache stores LLM responses and retrieves them based on semantic similarity rather than exact matches. This allows you to serve cached responses for questions that are *similar in meaning* even if they're worded differently.
+
+=== How It Works
+
+. User asks a question
+. Convert question to an embedding vector
+. Search for semantically similar cached questions
+. If found (above threshold), return cached response
+. Otherwise, call LLM and cache the new result
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.extensions.cache.SemanticCache;
+import com.redis.vl.utils.vectorize.BaseVectorizer;
+import redis.clients.jedis.UnifiedJedis;
+
+// Connect to Redis
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+// Create a vectorizer (using LangChain4J or ONNX)
+BaseVectorizer vectorizer = /* create your vectorizer */;
+
+// Create semantic cache
+SemanticCache cache = new SemanticCache(
+    jedis,
+    vectorizer,
+    "llm-cache",  // index name
+    0.9           // similarity threshold (0-1)
+);
+
+// Check for cached response
+String prompt = "What is Redis?";
+Optional<CacheHit> hit = cache.check(prompt);
+
+if (hit.isPresent()) {
+    // Cache hit! Use cached response
+    System.out.println("Cache hit! Response: " + hit.get().getResponse());
+} else {
+    // Cache miss - call LLM
+    String response = callLLM(prompt);  // your LLM call
+
+    // Store in cache for future use
+    cache.store(prompt, response);
+    System.out.println("Cached new response: " + response);
+}
+----
+
+=== Configuration Options
+
+[source,java]
+----
+// Create with custom configuration
+SemanticCache cache = SemanticCache.builder()
+    .jedis(jedis)
+    .vectorizer(vectorizer)
+    .name("my-llm-cache")
+    .threshold(0.85)           // Similarity threshold (default: 0.9)
+    .ttl(3600)                 // Time-to-live in seconds (optional)
+    .returnFields("prompt", "response", "timestamp")
+    .build();
+----
+
+=== Threshold Selection
+
+The threshold determines how similar a query must be to return a cached result:
+
+* *0.95-1.0* - Very strict, almost exact matches
+* *0.85-0.95* - Balanced, good for most use cases
+* *0.70-0.85* - Loose, more cache hits but less precision
+* *< 0.70* - Too loose, may return irrelevant results
+
+TIP: Start with 0.9 and adjust based on your use case. Monitor cache hit rates and response quality.
+
+=== Example: Customer Support Bot
+
+[source,java]
+----
+import com.redis.vl.extensions.cache.SemanticCache;
+
+public class SupportBot {
+    private final SemanticCache cache;
+    private final LLMClient llmClient;
+
+    public SupportBot(UnifiedJedis jedis, BaseVectorizer vectorizer) {
+        this.cache = new SemanticCache(jedis, vectorizer, "support-cache", 0.88);
+        this.llmClient = new LLMClient(); // your LLM client
+    }
+
+    public String answerQuestion(String userQuestion) {
+        // Check cache first
+        Optional<CacheHit> hit = cache.check(userQuestion);
+
+        if (hit.isPresent()) {
+            System.out.println("✓ Cache hit! Saved API call and time.");
+            return hit.get().getResponse();
+        }
+
+        // Cache miss - call LLM
+        System.out.println("✗ Cache miss - calling LLM...");
+        String response = llmClient.complete(userQuestion);
+
+        // Store for future use
+        cache.store(userQuestion, response);
+
+        return response;
+    }
+
+    public void clearOldEntries() {
+        // Clear cache entries older than 7 days
+        cache.clear();
+    }
+}
+
+// Usage
+SupportBot bot = new SupportBot(jedis, vectorizer);
+
+// These semantically similar questions will hit the cache
+String answer1 = bot.answerQuestion("How do I reset my password?");
+String answer2 = bot.answerQuestion("I forgot my password, what should I do?");
+String answer3 = bot.answerQuestion("Password reset procedure?");
+// answer2 and answer3 will be cache hits if threshold allows
+----
+
+== Embeddings Cache
+
+Embeddings Cache stores vector embeddings to avoid recomputing them. This is useful when you frequently need embeddings for the same text.
+
+=== How It Works
+
+. Convert text to a cache key (hash of text)
+. Check if embedding exists in cache
+. If found, return cached embedding
+. Otherwise, compute embedding and cache it
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.extensions.cache.EmbeddingsCache;
+
+// Create embeddings cache
+EmbeddingsCache embCache = new EmbeddingsCache(
+    jedis,
+    vectorizer,
+    "embeddings-cache"
+);
+
+// Get embedding (will cache automatically)
+String text = "Redis is an in-memory database";
+float[] embedding = embCache.embed(text);
+
+// Second call will hit cache
+float[] cachedEmbedding = embCache.embed(text);  // Much faster!
+
+// Batch embedding with caching
+List<String> texts = List.of(
+    "First document",
+    "Second document",
+    "First document"  // Will hit cache
+);
+List<float[]> embeddings = embCache.embed(texts);
+----
+
+=== Configuration
+
+[source,java]
+----
+// Create with custom configuration
+EmbeddingsCache embCache = EmbeddingsCache.builder()
+    .jedis(jedis)
+    .vectorizer(vectorizer)
+    .name("my-emb-cache")
+    .ttl(86400)  // 24 hours
+    .build();
+----
+
+=== Example: Document Processing Pipeline
+
+[source,java]
+----
+public class DocumentProcessor {
+    private final EmbeddingsCache embCache;
+    private final SearchIndex index;
+
+    public DocumentProcessor(UnifiedJedis jedis, BaseVectorizer vectorizer) {
+        this.embCache = new EmbeddingsCache(jedis, vectorizer, "doc-embeddings");
+        this.index = /* your search index */;
+    }
+
+    public void processDocuments(List<String> documents) {
+        List<Map<String, Object>> data = new ArrayList<>();
+
+        for (String doc : documents) {
+            // Get embedding (cached if possible)
+            float[] embedding = embCache.embed(doc);
+
+            data.add(Map.of(
+                "content", doc,
+                "embedding", embedding,
+                "processed_at", System.currentTimeMillis()
+            ));
+        }
+
+        // Load into search index
+        index.load(data);
+    }
+
+    public void updateDocument(String oldContent, String newContent) {
+        // Clear old embedding from cache
+        embCache.delete(oldContent);
+
+        // Process new content
+        float[] newEmbedding = embCache.embed(newContent);
+
+        // Update in index...
+    }
+}
+----
+
+== Cache Statistics
+
+Monitor your cache performance:
+
+[source,java]
+----
+// Semantic Cache stats
+Map<String, Object> stats = cache.getStats();
+System.out.println("Cache hits: " + stats.get("hits"));
+System.out.println("Cache misses: " + stats.get("misses"));
+System.out.println("Hit rate: " + stats.get("hit_rate") + "%");
+
+// Check cache size
+int size = cache.size();
+System.out.println("Cached entries: " + size);
+----
+
+== Cache Management
+
+=== Clear Cache
+
+[source,java]
+----
+// Clear all entries
+cache.clear();
+
+// Clear specific entries (Semantic Cache)
+cache.delete(prompt);
+
+// Clear specific embeddings (Embeddings Cache)
+embCache.delete(text);
+----
+
+=== Set Expiration
+
+[source,java]
+----
+// Set TTL when creating cache
+SemanticCache cache = SemanticCache.builder()
+    .ttl(3600)  // 1 hour
+    .build();
+
+// Or update TTL for existing entries
+cache.setTTL(7200);  // 2 hours
+----
+
+== Best Practices
+
+. *Choose Appropriate Thresholds*
++
+--
+* Start with 0.9 for semantic cache
+* Adjust based on cache hit rate and quality
+* Monitor false positives
+--
+
+. *Set Reasonable TTLs*
++
+--
+* Short TTLs (minutes-hours) for frequently changing content
+* Long TTLs (days-weeks) for stable content
+* No TTL for permanent caching
+--
+
+. *Monitor Performance*
++
+--
+* Track cache hit rates
+* Measure latency improvements
+* Calculate cost savings
+--
+
+. *Handle Cache Misses Gracefully*
++
+--
+[source,java]
+----
+try {
+    CacheHit hit = cache.check(prompt);
+    if (hit != null) {
+        return hit.getResponse();
+    }
+} catch (Exception e) {
+    logger.warn("Cache check failed, falling back to LLM", e);
+}
+// Always have fallback to LLM
+return callLLM(prompt);
+----
+--
+
+. *Clear Stale Data*
++
+--
+[source,java]
+----
+// Periodic cache cleanup
+ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+scheduler.scheduleAtFixedRate(() -> {
+    cache.clear();  // or selective cleanup
+}, 0, 24, TimeUnit.HOURS);
+----
+--
+
+== Performance Impact
+
+Expected improvements with semantic caching:
+
+[cols="1,1,1"]
+|===
+| Metric | Without Cache | With Cache (80% hit rate)
+
+| API Calls
+| 10,000/day
+| 2,000/day (-80%)
+
+| Avg Latency
+| 500ms
+| ~150ms (-70%)
+
+| Daily Cost
+| $50
+| $10 (-80%)
+
+| Throughput
+| 100 req/s
+| 400+ req/s (+300%)
+|===
+
+== Complete Example: Chatbot with Caching
+
+[source,java]
+----
+public class CachedChatbot {
+    private final SemanticCache semanticCache;
+    private final EmbeddingsCache embeddingsCache;
+    private final LLMClient llmClient;
+
+    public CachedChatbot(UnifiedJedis jedis, BaseVectorizer vectorizer) {
+        this.semanticCache = new SemanticCache(
+            jedis, vectorizer, "chat-cache", 0.9
+        );
+        this.embeddingsCache = new EmbeddingsCache(
+            jedis, vectorizer, "chat-embeddings"
+        );
+        this.llmClient = new LLMClient();
+    }
+
+    public String chat(String userMessage, List<String> conversationHistory) {
+        // Check semantic cache
+        Optional<CacheHit> hit = semanticCache.check(userMessage);
+        if (hit.isPresent()) {
+            return hit.get().getResponse();
+        }
+
+        // Build context with cached embeddings
+        List<float[]> historyEmbeddings = embeddingsCache.embed(conversationHistory);
+
+        // Call LLM with context
+        String response = llmClient.complete(userMessage, conversationHistory);
+
+        // Cache the response
+        semanticCache.store(userMessage, response);
+
+        // Cache embeddings for this message
+        embeddingsCache.embed(userMessage);
+        embeddingsCache.embed(response);
+
+        return response;
+    }
+
+    public void showStats() {
+        System.out.println("=== Cache Statistics ===");
+        System.out.println("Semantic cache size: " + semanticCache.size());
+        System.out.println("Embeddings cache size: " + embeddingsCache.size());
+    }
+}
+----
+
+== Next Steps
+
+* xref:vectorizers.adoc[Vectorizers] - Learn about embedding generation options
+* xref:hybrid-queries.adoc[Hybrid Queries] - Combine caching with vector search
+* xref:hash-vs-json.adoc[Hash vs JSON] - Understand storage options

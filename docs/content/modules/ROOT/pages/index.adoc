@@ -1,0 +1,160 @@
+= RedisVL
+:!sectids:
+:imagesdir: ./images
+
+[.lead]
+A powerful, AI-native Java client library for https://redis.io[Redis^]. Leverage the speed, flexibility, and reliability of Redis for real-time data to supercharge your AI application.
+
+== What is RedisVL?
+
+RedisVL is a comprehensive Java library for building AI-native applications with Redis. It provides a high-level interface for:
+
+* Vector similarity search with advanced filtering
+* Schema-based index management from YAML or programmatic configuration
+* Hybrid queries combining vector search with metadata filters
+* Semantic and embedding caching for LLM applications
+* Multiple vectorization options (LangChain4J, local ONNX models)
+* Flexible storage with both Redis Hash and JSON support
+
+RedisVL is a port of the popular Python https://github.com/redis/redis-vl-python[RedisVL library^], bringing these powerful capabilities to the Java ecosystem.
+
+== Resources
+
+++++
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title">Getting Started</h3>
+      <p>Learn the basics and create your first vector search application.</p>
+      <a href="getting-started.html" class="arrow-link">
+        <span class="title-container">
+          <span class="title">Get Started</span>
+        </span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title">Hybrid Queries</h3>
+      <p>Combine vector search with powerful metadata filtering.</p>
+      <a href="hybrid-queries.html" class="arrow-link">
+        <span class="title-container">
+          <span class="title">Learn More</span>
+        </span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title">LLM Cache</h3>
+      <p>Implement semantic caching to reduce costs and increase performance.</p>
+      <a href="llmcache.html" class="arrow-link">
+        <span class="title-container">
+          <span class="title">Explore Caching</span>
+        </span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title">Vectorizers</h3>
+      <p>Create embeddings with LangChain4J or local ONNX models.</p>
+      <a href="vectorizers.html" class="arrow-link">
+        <span class="title-container">
+          <span class="title">Choose a Vectorizer</span>
+        </span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
+</div>
+<style>
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 768px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+++++
+
+== Features
+
+RedisVL for Java offers powerful features for AI-native applications:
+
+* *Index Management* - Design search schema and indices with ease from YAML or programmatic configuration
+* *Advanced Vector Search* - Perform powerful vector search queries with complex filtering support
+* *Embedding Creation* - Use LangChain4J, local ONNX models, or any of the other supported vectorizers to create embeddings
+* *Semantic Caching* - Cache LLM responses with semantic similarity, increasing QPS and decreasing system cost
+* *Embeddings Cache* - Cache vector embeddings to avoid redundant computation
+* *Storage Flexibility* - Choose between Hash and JSON storage based on your needs
+* *Pagination* - Efficiently handle large result sets
+
+== Installation
+
+Add RedisVL to your project:
+
+[tabs]
+====
+Maven::
++
+[source,xml,subs="attributes+"]
+----
+<dependency>
+    <groupId>com.redis</groupId>
+    <artifactId>redisvl</artifactId>
+    <version>{redisvl-version}</version>
+</dependency>
+----
+
+Gradle::
++
+[source,gradle,subs="attributes+"]
+----
+implementation 'com.redis:redisvl:{redisvl-version}'
+----
+====
+
+== Quick Example
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.query.VectorQuery;
+
+// Load schema from YAML
+IndexSchema schema = IndexSchema.fromYaml("schema.yaml");
+
+// Create index
+SearchIndex index = new SearchIndex(schema, jedis);
+index.create(true);
+
+// Load data
+index.load(data);
+
+// Vector search with filters
+VectorQuery query = VectorQuery.builder()
+    .vector(queryVector)
+    .field("embedding")
+    .numResults(5)
+    .withPreFilter("@age:[20 35]")
+    .build();
+
+List<Map<String, Object>> results = index.query(query);
+----
+
+== Connecting with the Community
+
+Join the Redis community to get help, share your experiences, and contribute:
+
+* https://discord.gg/redis[Redis Discord Server^]
+* {url-redisvl-java}[GitHub Repository^]
+* https://stackoverflow.com/questions/tagged/redis[Stack Overflow^]
