@@ -23,7 +23,11 @@ public class TextField extends BaseField {
   @JsonProperty("phonetic")
   private final String phonetic;
 
-  /** Create a TextField with just a name */
+  /**
+   * Create a TextField with just a name
+   *
+   * @param name Field name
+   */
   public TextField(String name) {
     this(name, null, true, false, 1.0, false, null);
   }
@@ -43,12 +47,21 @@ public class TextField extends BaseField {
     this.phonetic = phonetic;
   }
 
-  /** Create a TextField with fluent API */
+  /**
+   * Create a TextField with fluent API
+   *
+   * @param name Field name
+   * @return TextField builder
+   */
   public static TextFieldBuilder of(String name) {
     return new TextFieldBuilder(name);
   }
 
-  /** Create a TextField builder (Lombok-style) */
+  /**
+   * Create a TextField builder (Lombok-style)
+   *
+   * @return TextField builder
+   */
   public static TextFieldBuilder builder() {
     return new TextFieldBuilder(null);
   }
@@ -104,66 +117,141 @@ public class TextField extends BaseField {
       this.name = name;
     }
 
+    /**
+     * Set the field name
+     *
+     * @param name Field name
+     * @return This builder
+     */
     public TextFieldBuilder name(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Set the field alias
+     *
+     * @param alias Field alias
+     * @return This builder
+     */
     public TextFieldBuilder alias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set the field alias (alternative method)
+     *
+     * @param alias Field alias
+     * @return This builder
+     */
     public TextFieldBuilder withAlias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set whether the field is indexed
+     *
+     * @param indexed True if indexed
+     * @return This builder
+     */
     public TextFieldBuilder indexed(boolean indexed) {
       this.indexed = indexed;
       return this;
     }
 
+    /**
+     * Set whether the field is sortable
+     *
+     * @param sortable True if sortable
+     * @return This builder
+     */
     public TextFieldBuilder sortable(boolean sortable) {
       this.sortable = sortable;
       return this;
     }
 
+    /**
+     * Set the field as sortable
+     *
+     * @return This builder
+     */
     public TextFieldBuilder sortable() {
       this.sortable = true;
       return this;
     }
 
+    /**
+     * Set the weight for scoring in full-text search
+     *
+     * @param weight Weight value
+     * @return This builder
+     */
     public TextFieldBuilder weight(double weight) {
       this.weight = weight;
       return this;
     }
 
+    /**
+     * Set the weight for scoring in full-text search (alternative method)
+     *
+     * @param weight Weight value
+     * @return This builder
+     */
     public TextFieldBuilder withWeight(double weight) {
       this.weight = weight;
       return this;
     }
 
+    /**
+     * Set whether to disable stemming
+     *
+     * @param noStem True to disable stemming
+     * @return This builder
+     */
     public TextFieldBuilder noStem(boolean noStem) {
       this.noStem = noStem;
       return this;
     }
 
+    /**
+     * Disable stemming for this field
+     *
+     * @return This builder
+     */
     public TextFieldBuilder noStem() {
       this.noStem = true;
       return this;
     }
 
+    /**
+     * Set the phonetic matcher
+     *
+     * @param phonetic Phonetic matcher (e.g., "dm:en" for Double Metaphone English)
+     * @return This builder
+     */
     public TextFieldBuilder phonetic(String phonetic) {
       this.phonetic = phonetic;
       return this;
     }
 
+    /**
+     * Set the phonetic matcher (alternative method)
+     *
+     * @param phonetic Phonetic matcher (e.g., "dm:en" for Double Metaphone English)
+     * @return This builder
+     */
     public TextFieldBuilder withPhonetic(String phonetic) {
       this.phonetic = phonetic;
       return this;
     }
 
+    /**
+     * Build the TextField
+     *
+     * @return TextField instance
+     */
     public TextField build() {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");

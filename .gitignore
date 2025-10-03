@@ -46,6 +46,20 @@ build/
 compile_debug.log
 docs/.cache/*
 reports/*
+### Security - API Keys and Secrets ###
+# Never commit API keys, tokens, or credentials
+*.env
+.env
+.env.*
+!.env.example
+config.properties
+secrets.properties
+application-local.properties
+application-secrets.yml
+credentials.json
+api-keys.txt
+
+# Notebook environment files
 notebooks/.env
 
 ### JupyterNotebooks ###

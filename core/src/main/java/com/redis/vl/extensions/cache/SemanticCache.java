@@ -497,31 +497,71 @@ public class SemanticCache extends BaseCache {
     private float distanceThreshold = 0.2f;
     private Integer ttl;
 
+    /** Create a new Builder instance */
+    public Builder() {
+      // Default constructor
+    }
+
+    /**
+     * Set the cache name
+     *
+     * @param name Cache name
+     * @return This builder
+     */
     public Builder name(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Set the Redis client
+     *
+     * @param redisClient UnifiedJedis client
+     * @return This builder
+     */
     public Builder redisClient(UnifiedJedis redisClient) {
       this.redisClient = redisClient;
       return this;
     }
 
+    /**
+     * Set the vectorizer
+     *
+     * @param vectorizer Vectorizer to use for embedding prompts
+     * @return This builder
+     */
     public Builder vectorizer(BaseVectorizer vectorizer) {
       this.vectorizer = vectorizer;
       return this;
     }
 
+    /**
+     * Set the distance threshold for semantic similarity
+     *
+     * @param threshold Distance threshold (default: 0.2)
+     * @return This builder
+     */
     public Builder distanceThreshold(float threshold) {
       this.distanceThreshold = threshold;
       return this;
     }
 
+    /**
+     * Set the TTL for cache entries
+     *
+     * @param ttl Time-to-live in seconds
+     * @return This builder
+     */
     public Builder ttl(Integer ttl) {
       this.ttl = ttl;
       return this;
     }
 
+    /**
+     * Build the SemanticCache
+     *
+     * @return SemanticCache instance
+     */
     public SemanticCache build() {
       if (name == null || name.isEmpty()) {
         throw new IllegalArgumentException("Cache name is required");

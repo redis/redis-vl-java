@@ -17,21 +17,31 @@ import java.util.stream.Collectors;
  * <p>Example usage:
  *
  * <pre>
- * // Using OpenAI
- * EmbeddingModel openAI = OpenAiEmbeddingModel.withApiKey("your-api-key");
- * LangChain4JVectorizer vectorizer = new LangChain4JVectorizer("text-embedding-ada-002", openAI);
+ * // Using OpenAI (API key from environment variable - recommended)
+ * EmbeddingModel openAI = OpenAiEmbeddingModel.builder()
+ *     .apiKey(System.getenv("OPENAI_API_KEY"))
+ *     .modelName("text-embedding-3-small")
+ *     .build();
+ * LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+ *     "text-embedding-3-small",
+ *     openAI,
+ *     1536
+ * );
  *
- * // Using local model
+ * // Using local model (no API key needed)
  * EmbeddingModel local = new AllMiniLmL6V2EmbeddingModel();
  * LangChain4JVectorizer vectorizer = new LangChain4JVectorizer("all-minilm-l6-v2", local);
  *
- * // With cache
+ * // With cache for better performance
  * EmbeddingsCache cache = new EmbeddingsCache("my-cache", redisClient);
  * vectorizer.setCache(cache);
  *
  * // Embed text
  * float[] embedding = vectorizer.embed("Hello world");
  * </pre>
+ *
+ * <p><strong>Security Best Practice:</strong> Always use environment variables or secure
+ * configuration management for API keys. Never hardcode keys in your source code.
  */
 public class LangChain4JVectorizer extends BaseVectorizer {
 

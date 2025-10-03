@@ -10,9 +10,16 @@ import java.util.function.Function;
  */
 public abstract class BaseVectorizer {
 
+  /** The name of the embedding model. */
   protected final String modelName;
+
+  /** The data type for embeddings (e.g., "float32"). */
   protected final String dtype;
+
+  /** The dimension of the embedding vectors. */
   protected int dimensions;
+
+  /** Optional cache for storing embeddings. */
   protected Optional<EmbeddingsCache> cache;
 
   /**
@@ -281,10 +288,22 @@ public abstract class BaseVectorizer {
 
   /** Helper class to hold batch cache results. */
   protected static class BatchCacheResult {
+    /** The results list with nulls for cache misses. */
     public final List<float[]> results;
+
+    /** The texts that were not found in cache. */
     public final List<String> cacheMisses;
+
+    /** The indices of cache misses in the results list. */
     public final List<Integer> cacheMissIndices;
 
+    /**
+     * Creates a new batch cache result.
+     *
+     * @param results The results list with nulls for cache misses
+     * @param cacheMisses The texts that were not found in cache
+     * @param cacheMissIndices The indices of cache misses in the results list
+     */
     public BatchCacheResult(
         List<float[]> results, List<String> cacheMisses, List<Integer> cacheMissIndices) {
       this.results = results;

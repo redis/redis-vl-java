@@ -18,6 +18,11 @@ import redis.clients.jedis.json.Path2;
  */
 public class JsonStorage extends BaseStorage {
 
+  /**
+   * Creates a new JsonStorage instance for managing Redis JSON data structures.
+   *
+   * @param indexSchema The index schema defining the structure of data to be stored
+   */
   public JsonStorage(IndexSchema indexSchema) {
     super(indexSchema);
   }

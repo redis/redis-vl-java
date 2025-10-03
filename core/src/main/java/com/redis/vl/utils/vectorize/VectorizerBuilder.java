@@ -97,13 +97,29 @@ public class VectorizerBuilder {
     return new CustomVectorizerBuilder(modelName, embeddingModel);
   }
 
-  // Abstract base builder
+  /**
+   * Abstract base builder for all vectorizer builders.
+   *
+   * @param <T> The concrete builder type for method chaining
+   */
   public abstract static class AbstractVectorizerBuilder<T extends AbstractVectorizerBuilder<T>> {
+    /** Model name for this vectorizer. */
     protected String modelName;
+
+    /** Optional embeddings cache. */
     protected EmbeddingsCache cache;
+
+    /** Optional embedding dimensions override. */
     protected Integer dimensions;
+
+    /** Data type for embeddings (default: float32). */
     protected String dtype = "float32";
 
+    /**
+     * Protected constructor for subclasses.
+     *
+     * @param modelName Model name for this vectorizer
+     */
     protected AbstractVectorizerBuilder(String modelName) {
       this.modelName = modelName;
     }
@@ -156,7 +172,7 @@ public class VectorizerBuilder {
     public abstract BaseVectorizer build();
   }
 
-  // Specific builders for different providers
+  /** Builder for OpenAI embedding vectorizers. */
   public static class OpenAIVectorizerBuilder
       extends AbstractVectorizerBuilder<OpenAIVectorizerBuilder> {
     private final String apiKey;
@@ -164,22 +180,45 @@ public class VectorizerBuilder {
     private String baseUrl;
     private String organizationId;
 
+    /**
+     * Package-private constructor.
+     *
+     * @param apiKey OpenAI API key
+     */
     private OpenAIVectorizerBuilder(String apiKey) {
       super("openai");
       this.apiKey = apiKey;
     }
 
+    /**
+     * Set the OpenAI model to use.
+     *
+     * @param model Model name (e.g., "text-embedding-ada-002")
+     * @return This builder
+     */
     public OpenAIVectorizerBuilder model(String model) {
       this.model = model;
       this.modelName = model;
       return this;
     }
 
+    /**
+     * Set the base URL for OpenAI API.
+     *
+     * @param baseUrl Base URL for API requests
+     * @return This builder
+     */
     public OpenAIVectorizerBuilder baseUrl(String baseUrl) {
       this.baseUrl = baseUrl;
       return this;
     }
 
+    /**
+     * Set the OpenAI organization ID.
+     *
+     * @param organizationId Organization ID
+     * @return This builder
+     */
     public OpenAIVectorizerBuilder organizationId(String organizationId) {
       this.organizationId = organizationId;
       return this;
@@ -240,18 +279,31 @@ public class VectorizerBuilder {
     }
   }
 
+  /** Builder for Azure OpenAI embedding vectorizers. */
   public static class AzureOpenAIVectorizerBuilder
       extends AbstractVectorizerBuilder<AzureOpenAIVectorizerBuilder> {
     private final String endpoint;
     private final String apiKey;
     private String deploymentName = "text-embedding-ada-002";
 
+    /**
+     * Package-private constructor.
+     *
+     * @param endpoint Azure OpenAI endpoint
+     * @param apiKey Azure OpenAI API key
+     */
     private AzureOpenAIVectorizerBuilder(String endpoint, String apiKey) {
       super("azure-openai");
       this.endpoint = endpoint;
       this.apiKey = apiKey;
     }
 
+    /**
+     * Set the Azure deployment name.
+     *
+     * @param deploymentName Deployment name
+     * @return This builder
+     */
     public AzureOpenAIVectorizerBuilder deploymentName(String deploymentName) {
       this.deploymentName = deploymentName;
       this.modelName = deploymentName;
@@ -302,16 +354,28 @@ public class VectorizerBuilder {
     }
   }
 
+  /** Builder for HuggingFace embedding vectorizers. */
   public static class HuggingFaceVectorizerBuilder
       extends AbstractVectorizerBuilder<HuggingFaceVectorizerBuilder> {
     private final String apiKey;
     private String model = "sentence-transformers/all-mpnet-base-v2";
 
+    /**
+     * Package-private constructor.
+     *
+     * @param apiKey HuggingFace API access token
+     */
     private HuggingFaceVectorizerBuilder(String apiKey) {
       super("huggingface");
       this.apiKey = apiKey;
     }
 
+    /**
+     * Set the HuggingFace model to use.
+     *
+     * @param model Model ID (e.g., "sentence-transformers/all-mpnet-base-v2")
+     * @return This builder
+     */
     public HuggingFaceVectorizerBuilder model(String model) {
       this.model = model;
       this.modelName = model;
@@ -361,16 +425,28 @@ public class VectorizerBuilder {
     }
   }
 
+  /** Builder for Ollama embedding vectorizers. */
   public static class OllamaVectorizerBuilder
       extends AbstractVectorizerBuilder<OllamaVectorizerBuilder> {
     private final String baseUrl;
     private String model = "nomic-embed-text";
 
+    /**
+     * Package-private constructor.
+     *
+     * @param baseUrl Ollama server base URL
+     */
     private OllamaVectorizerBuilder(String baseUrl) {
       super("ollama");
       this.baseUrl = baseUrl;
     }
 
+    /**
+     * Set the Ollama model to use.
+     *
+     * @param model Model name (e.g., "nomic-embed-text")
+     * @return This builder
+     */
     public OllamaVectorizerBuilder model(String model) {
       this.model = model;
       this.modelName = model;
@@ -420,10 +496,16 @@ public class VectorizerBuilder {
     }
   }
 
+  /** Builder for local ONNX embedding vectorizers. */
   public static class LocalVectorizerBuilder
       extends AbstractVectorizerBuilder<LocalVectorizerBuilder> {
     private final String modelName;
 
+    /**
+     * Package-private constructor.
+     *
+     * @param modelName Local model name (all-minilm-l6-v2, bge-small-en-v15, e5-small-v2)
+     */
     private LocalVectorizerBuilder(String modelName) {
       super(modelName);
       this.modelName = modelName;
@@ -492,10 +574,17 @@ public class VectorizerBuilder {
     }
   }
 
+  /** Builder for custom LangChain4J embedding vectorizers. */
   public static class CustomVectorizerBuilder
       extends AbstractVectorizerBuilder<CustomVectorizerBuilder> {
     private final Object embeddingModel;
 
+    /**
+     * Package-private constructor.
+     *
+     * @param modelName Model name for this vectorizer
+     * @param embeddingModel LangChain4J embedding model instance
+     */
     private CustomVectorizerBuilder(String modelName, Object embeddingModel) {
       super(modelName);
       this.embeddingModel = embeddingModel;

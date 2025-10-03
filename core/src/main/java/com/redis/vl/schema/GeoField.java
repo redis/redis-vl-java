@@ -10,22 +10,42 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 @Getter
 public class GeoField extends BaseField {
 
-  /** Create a GeoField with just a name */
+  /**
+   * Create a GeoField with just a name.
+   *
+   * @param name The field name
+   */
   public GeoField(String name) {
     super(name);
   }
 
-  /** Create a GeoField with all properties */
+  /**
+   * Create a GeoField with all properties.
+   *
+   * @param name The field name
+   * @param alias The field alias
+   * @param indexed Whether the field is indexed
+   * @param sortable Whether the field is sortable
+   */
   private GeoField(String name, String alias, Boolean indexed, Boolean sortable) {
     super(name, alias, indexed != null ? indexed : true, sortable != null && sortable);
   }
 
-  /** Create a GeoField with fluent API */
+  /**
+   * Create a GeoField with fluent API.
+   *
+   * @param name The field name
+   * @return A GeoFieldBuilder for fluent configuration
+   */
   public static GeoFieldBuilder of(String name) {
     return new GeoFieldBuilder(name);
   }
 
-  /** Create a GeoField builder (Lombok-style) */
+  /**
+   * Create a GeoField builder (Lombok-style).
+   *
+   * @return A GeoFieldBuilder for fluent configuration
+   */
   public static GeoFieldBuilder builder() {
     return new GeoFieldBuilder(null);
   }
@@ -66,36 +86,77 @@ public class GeoField extends BaseField {
       this.name = name;
     }
 
+    /**
+     * Set the field name.
+     *
+     * @param name The name for this field
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder name(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Set the field alias.
+     *
+     * @param alias The alias for this field
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder alias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set the field alias (alternative method name).
+     *
+     * @param alias The alias for this field
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder withAlias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set whether the field is indexed.
+     *
+     * @param indexed True if the field should be indexed
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder indexed(boolean indexed) {
       this.indexed = indexed;
       return this;
     }
 
+    /**
+     * Set whether the field is sortable.
+     *
+     * @param sortable True if the field should be sortable
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder sortable(boolean sortable) {
       this.sortable = sortable;
       return this;
     }
 
+    /**
+     * Make the field sortable.
+     *
+     * @return This builder for chaining
+     */
     public GeoFieldBuilder sortable() {
       this.sortable = true;
       return this;
     }
 
+    /**
+     * Build the GeoField.
+     *
+     * @return A new GeoField instance
+     * @throws IllegalArgumentException if the field name is null or empty
+     */
     public GeoField build() {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");

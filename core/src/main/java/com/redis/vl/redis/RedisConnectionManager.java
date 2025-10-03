@@ -14,23 +14,43 @@ public class RedisConnectionManager implements Closeable {
 
   private final JedisPool jedisPool;
 
-  /** Create a new connection manager with the given configuration */
+  /**
+   * Create a new connection manager with the given configuration.
+   *
+   * @param config The Redis connection configuration
+   */
   public RedisConnectionManager(RedisConnectionConfig config) {
     this.jedisPool = createJedisPool(config);
     log.info("Redis connection manager initialized");
   }
 
-  /** Create a connection manager from a URI */
+  /**
+   * Create a connection manager from a URI.
+   *
+   * @param uri The Redis connection URI (e.g., redis://localhost:6379)
+   * @return A new RedisConnectionManager instance
+   */
   public static RedisConnectionManager from(String uri) {
     return new RedisConnectionManager(RedisConnectionConfig.fromUri(uri));
   }
 
-  /** Create a connection manager from host and port */
+  /**
+   * Create a connection manager from host and port.
+   *
+   * @param host The Redis host
+   * @param port The Redis port
+   * @return A new RedisConnectionManager instance
+   */
   public static RedisConnectionManager from(String host, int port) {
     return new RedisConnectionManager(RedisConnectionConfig.fromHostPort(host, port));
   }
 
-  /** Create a connection manager from configuration */
+  /**
+   * Create a connection manager from configuration.
+   *
+   * @param config The Redis connection configuration
+   * @return A new RedisConnectionManager instance
+   */
   public static RedisConnectionManager from(RedisConnectionConfig config) {
     return new RedisConnectionManager(config);
   }
@@ -52,12 +72,21 @@ public class RedisConnectionManager implements Closeable {
     }
   }
 
-  /** Check if the connection manager is connected */
+  /**
+   * Check if the connection manager is connected.
+   *
+   * @return True if connected and pool is not closed, false otherwise
+   */
   public boolean isConnected() {
     return jedisPool != null && !jedisPool.isClosed();
   }
 
-  /** Get a Jedis connection from the pool */
+  /**
+   * Get a Jedis connection from the pool.
+   *
+   * @return A Jedis connection from the pool
+   * @throws IllegalStateException if the connection manager is not connected
+   */
   public Jedis getJedis() {
     if (!isConnected()) {
       throw new IllegalStateException("Connection manager is not connected");
@@ -66,8 +95,12 @@ public class RedisConnectionManager implements Closeable {
   }
 
   /**
-   * Execute a command with a Jedis connection The connection is automatically returned to the pool
-   * after execution
+   * Execute a command with a Jedis connection. The connection is automatically returned to the pool
+   * after execution.
+   *
+   * @param <T> The return type of the command
+   * @param command The function to execute with the Jedis connection
+   * @return The result of the command execution
    */
   public <T> T execute(Function<Jedis, T> command) {
     try (Jedis jedis = getJedis()) {
@@ -75,7 +108,11 @@ public class RedisConnectionManager implements Closeable {
     }
   }
 
-  /** Execute a command without a return value */
+  /**
+   * Execute a command without a return value.
+   *
+   * @param command The consumer to execute with the Jedis connection
+   */
   public void executeVoid(java.util.function.Consumer<Jedis> command) {
     try (Jedis jedis = getJedis()) {
       command.accept(jedis);

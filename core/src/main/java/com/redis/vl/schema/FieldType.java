@@ -26,7 +26,13 @@ public enum FieldType {
   /** The Redis field type name */
   private final String redisType;
 
-  /** Get the FieldType from its Redis type name */
+  /**
+   * Get the FieldType from its Redis type name.
+   *
+   * @param redisType The Redis type name (e.g., "text", "tag", "numeric")
+   * @return The corresponding FieldType
+   * @throws IllegalArgumentException if the Redis type is unknown
+   */
   public static FieldType fromRedisType(String redisType) {
     for (FieldType type : values()) {
       if (type.redisType.equalsIgnoreCase(redisType)) {

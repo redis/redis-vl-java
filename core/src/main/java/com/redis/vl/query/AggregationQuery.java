@@ -29,6 +29,9 @@ import redis.clients.jedis.search.aggr.AggregationBuilder;
  */
 public abstract class AggregationQuery {
 
+  /** Protected constructor for subclasses. */
+  protected AggregationQuery() {}
+
   /**
    * Build the Redis AggregationBuilder for this query.
    *

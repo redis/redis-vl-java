@@ -86,7 +86,7 @@ List<String> texts = List.of(
     "Third document about databases"
 );
 
-List<float[]> embeddings = vectorizer.embed(texts);
+List<float[]> embeddings = vectorizer.embedBatch(texts);
 
 for (int i = 0; i < texts.size(); i++) {
     System.out.println("Text: " + texts.get(i));
@@ -96,9 +96,19 @@ for (int i = 0; i < texts.size(); i++) {
 
 === Supported Providers
 
-LangChain4J supports many providers. Here are some examples:
+LangChain4J supports many providers. RedisVL4J provides a unified interface to all of them through `LangChain4JVectorizer`.
 
 ==== OpenAI
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-open-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
 
 [source,java]
 ----
@@ -106,28 +116,226 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 
 EmbeddingModel model = OpenAiEmbeddingModel.builder()
     .apiKey(System.getenv("OPENAI_API_KEY"))
-    .modelName("text-embedding-3-small")  // or text-embedding-3-large
+    .modelName("text-embedding-3-small")  // or text-embedding-3-large, text-embedding-ada-002
     .build();
 
-LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "text-embedding-3-small",  // model name
+    model,                      // embedding model
+    1536                        // dimensions
+);
 ----
 
 ==== Azure OpenAI
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-azure-open-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
 
 [source,java]
 ----
 import dev.langchain4j.model.azure.AzureOpenAiEmbeddingModel;
 
 EmbeddingModel model = AzureOpenAiEmbeddingModel.builder()
-    .apiKey(System.getenv("AZURE_OPENAI_KEY"))
+    .apiKey(System.getenv("AZURE_OPENAI_API_KEY"))
     .endpoint(System.getenv("AZURE_OPENAI_ENDPOINT"))
     .deploymentName("text-embedding-ada-002")
     .build();
 
-LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "text-embedding-ada-002",
+    model,
+    1536
+);
+----
+
+==== Cohere
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-cohere</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.cohere.CohereEmbeddingModel;
+
+EmbeddingModel model = CohereEmbeddingModel.builder()
+    .apiKey(System.getenv("COHERE_API_KEY"))
+    .modelName("embed-english-v3.0")  // or embed-multilingual-v3.0
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "embed-english-v3.0",
+    model,
+    1024
+);
+----
+
+==== HuggingFace (Remote API)
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-hugging-face</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.huggingface.HuggingFaceEmbeddingModel;
+
+EmbeddingModel model = HuggingFaceEmbeddingModel.builder()
+    .accessToken(System.getenv("HUGGINGFACE_API_KEY"))
+    .modelId("sentence-transformers/all-MiniLM-L6-v2")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "sentence-transformers/all-MiniLM-L6-v2",
+    model,
+    384
+);
+----
+
+==== Mistral AI
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-mistral-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.mistralai.MistralAiEmbeddingModel;
+
+EmbeddingModel model = MistralAiEmbeddingModel.builder()
+    .apiKey(System.getenv("MISTRAL_API_KEY"))
+    .modelName("mistral-embed")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "mistral-embed",
+    model,
+    1024
+);
+----
+
+==== Google Vertex AI
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-vertex-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.vertexai.VertexAiEmbeddingModel;
+
+EmbeddingModel model = VertexAiEmbeddingModel.builder()
+    .project(System.getenv("GCP_PROJECT_ID"))
+    .location("us-central1")  // or your preferred location
+    .modelName("textembedding-gecko@003")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "textembedding-gecko@003",
+    model,
+    768
+);
+----
+
+==== Voyage AI
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-voyage-ai</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.voyageai.VoyageAiEmbeddingModel;
+
+EmbeddingModel model = VoyageAiEmbeddingModel.builder()
+    .apiKey(System.getenv("VOYAGE_API_KEY"))
+    .modelName("voyage-large-2")  // or voyage-2, voyage-code-2
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "voyage-large-2",
+    model,
+    1536
+);
+----
+
+==== AWS Bedrock
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-bedrock</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
+
+[source,java]
+----
+import dev.langchain4j.model.bedrock.BedrockEmbeddingModel;
+
+// AWS credentials are typically configured via AWS SDK default credential chain
+EmbeddingModel model = BedrockEmbeddingModel.builder()
+    .region("us-east-1")  // or your preferred region
+    .model("amazon.titan-embed-text-v2:0")
+    .build();
+
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "amazon.titan-embed-text-v2:0",
+    model,
+    1024
+);
 ----
 
 ==== Ollama (Local)
+
+[source,xml]
+----
+<!-- Maven dependency -->
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j-ollama</artifactId>
+    <version>0.35.0</version>
+</dependency>
+----
 
 [source,java]
 ----
@@ -135,10 +343,119 @@ import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 
 EmbeddingModel model = OllamaEmbeddingModel.builder()
     .baseUrl("http://localhost:11434")
-    .modelName("nomic-embed-text")
+    .modelName("nomic-embed-text")  // or mxbai-embed-large, all-minilm
     .build();
 
-LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(model);
+LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+    "nomic-embed-text",
+    model,
+    768  // dimensions vary by model
+);
+----
+
+== Caching Embeddings
+
+Cache embeddings to improve performance and reduce API costs:
+
+[source,java]
+----
+import com.redis.vl.extensions.cache.EmbeddingsCache;
+import redis.clients.jedis.UnifiedJedis;
+
+// Create cache
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+EmbeddingsCache cache = new EmbeddingsCache("my-embeddings-cache", jedis);
+
+// Set cache on vectorizer
+vectorizer.setCache(cache);
+
+// First call - generates embedding and stores in cache
+float[] embedding1 = vectorizer.embed("Redis vector search");
+
+// Second call - retrieves from cache (much faster!)
+float[] embedding2 = vectorizer.embed("Redis vector search");
+
+// embeddings are identical
+assert Arrays.equals(embedding1, embedding2);
+----
+
+The cache works automatically with batch operations too:
+
+[source,java]
+----
+List<String> texts = List.of(
+    "Redis is fast",
+    "Vector search is powerful",
+    "Redis is fast"  // Duplicate - will be cached
+);
+
+List<float[]> embeddings = vectorizer.embedBatch(texts);
+
+// First and third embeddings are identical (from cache)
+assert Arrays.equals(embeddings.get(0), embeddings.get(2));
+----
+
+== Custom Vectorizers
+
+Create your own vectorizer by extending `BaseVectorizer`:
+
+[source,java]
+----
+import com.redis.vl.utils.vectorize.BaseVectorizer;
+import java.util.ArrayList;
+import java.util.List;
+
+public class MyCustomVectorizer extends BaseVectorizer {
+
+    public MyCustomVectorizer() {
+        super("my-custom-model", 384, "float32");
+    }
+
+    @Override
+    protected float[] generateEmbedding(String text) {
+        // Implement your custom embedding logic
+        // This could call your own API, use a custom model, etc.
+
+        // Example: Simple hash-based embedding (not recommended for production!)
+        float[] embedding = new float[384];
+        int hash = text.hashCode();
+        for (int i = 0; i < 384; i++) {
+            embedding[i] = (float) Math.sin(hash + i);
+        }
+        return embedding;
+    }
+
+    @Override
+    protected List<float[]> generateEmbeddingsBatch(List<String> texts, int batchSize) {
+        // Implement batch processing
+        // You can optimize this for your specific use case
+        List<float[]> results = new ArrayList<>();
+        for (String text : texts) {
+            results.add(generateEmbedding(text));
+        }
+        return results;
+    }
+}
+
+// Usage
+MyCustomVectorizer vectorizer = new MyCustomVectorizer();
+float[] embedding = vectorizer.embed("Hello world");
+----
+
+Custom vectorizers automatically support caching and preprocessing:
+
+[source,java]
+----
+// Add cache
+vectorizer.setCache(cache);
+
+// Use preprocessing
+float[] embedding = vectorizer.embed(
+    "Hello World",
+    text -> text.toLowerCase(),  // Preprocess: convert to lowercase
+    false,                        // asBuffer (not used in Java)
+    false                         // skipCache
+);
 ----
 
 == Local ONNX Vectorizer
@@ -235,7 +552,7 @@ public class LocalVectorizerExample {
         );
 
         // Generate embeddings
-        List<float[]> embeddings = vectorizer.embed(documents);
+        List<float[]> embeddings = vectorizer.embedBatch(documents);
 
         // Create search index (JSON storage uses $.field notation)
         Map<String, Object> schema = Map.of(
@@ -319,6 +636,63 @@ SentenceTransformersVectorizer onnxVectorizer = VectorizerBuilder
     .modelPath(modelPath)
     .build();
 ----
+
+=== Provider Comparison
+
+[cols="1,1,1,2"]
+|===
+| Provider | Dimensions | Cost | Best For
+
+| *OpenAI*
+| 1536
+| Pay per token
+| High quality, production apps, latest models
+
+| *Azure OpenAI*
+| 1536
+| Pay per token
+| Enterprise apps, Azure ecosystem, compliance
+
+| *Cohere*
+| 1024
+| Pay per token
+| Multilingual support, semantic search
+
+| *HuggingFace*
+| 384-768
+| Pay per API call or free (self-hosted)
+| Wide model selection, experimentation
+
+| *Mistral AI*
+| 1024
+| Pay per token
+| European provider, privacy-focused
+
+| *Vertex AI*
+| 768
+| Pay per token
+| Google Cloud ecosystem, scalability
+
+| *Voyage AI*
+| 1536
+| Pay per token
+| Domain-specific models, high accuracy
+
+| *AWS Bedrock*
+| 1024
+| Pay per token
+| AWS ecosystem, managed service
+
+| *Ollama*
+| Varies
+| Free (self-hosted)
+| Local development, privacy, no internet
+
+| *ONNX (Local)*
+| 384-768
+| Free
+| Complete privacy, offline, high volume
+|===
 
 == Choosing a Vectorizer
 
@@ -411,6 +785,112 @@ List<Map<String, Object>> results = vsi.search(
 );
 ----
 
+== Security Best Practices
+
+=== API Key Management
+
+**🔒 NEVER hardcode API keys in your code!** Always use secure configuration methods:
+
+==== ✅ Recommended: Environment Variables
+
+[source,java]
+----
+// GOOD - Uses environment variable
+EmbeddingModel model = OpenAiEmbeddingModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .build();
+----
+
+Set environment variables in your shell:
+
+[source,bash]
+----
+# Add to ~/.zshrc or ~/.bashrc
+export OPENAI_API_KEY="sk-..."
+export HUGGINGFACE_API_KEY="hf_..."
+export COHERE_API_KEY="..."
+
+# Reload configuration
+source ~/.zshrc
+----
+
+==== ✅ Alternative: Properties File (Not in Git)
+
+Create `config.properties` (add to `.gitignore`):
+
+[source,properties]
+----
+openai.api.key=${OPENAI_API_KEY}
+cohere.api.key=${COHERE_API_KEY}
+----
+
+[source,java]
+----
+// Load from properties file
+Properties props = new Properties();
+props.load(new FileInputStream("config.properties"));
+
+EmbeddingModel model = OpenAiEmbeddingModel.builder()
+    .apiKey(props.getProperty("openai.api.key"))
+    .build();
+----
+
+**Important:** Always add secret files to `.gitignore`:
+
+[source,gitignore]
+----
+*.env
+.env.*
+config.properties
+secrets.properties
+api-keys.txt
+----
+
+==== ✅ Production: Secret Management Services
+
+For production deployments, use proper secret management:
+
+- **AWS Secrets Manager**
+- **Azure Key Vault**
+- **Google Cloud Secret Manager**
+- **HashiCorp Vault**
+- **Kubernetes Secrets**
+
+[source,java]
+----
+// Example with AWS Secrets Manager
+String apiKey = awsSecretsManager.getSecretValue(
+    new GetSecretValueRequest().withSecretId("openai-api-key")
+).getSecretString();
+
+EmbeddingModel model = OpenAiEmbeddingModel.builder()
+    .apiKey(apiKey)
+    .build();
+----
+
+==== ❌ NEVER Do This
+
+[source,java]
+----
+// BAD - Hardcoded key will be committed to git
+EmbeddingModel model = OpenAiEmbeddingModel.builder()
+    .apiKey("sk-1234567890abcdef")  // ❌ NEVER DO THIS!
+    .build();
+----
+
+=== Key Rotation
+
+Rotate API keys regularly, especially if:
+- They may have been exposed
+- A team member leaves
+- Best practice schedule (e.g., every 90 days)
+
+=== Least Privilege
+
+Use read-only or scoped API keys when possible. For example:
+- OpenAI: Use separate keys for development and production
+- HuggingFace: Use access tokens with limited permissions
+
 == Best Practices
 
 . *Match Dimensions* - Ensure your index vector field dimensions match your model:
@@ -445,7 +925,7 @@ for (String text : texts) {
 }
 
 // More efficient
-List<float[]> embs = vectorizer.embed(texts);
+List<float[]> embs = vectorizer.embedBatch(texts);
 ----
 
 . *Handle Errors Gracefully*:

@@ -65,12 +65,21 @@ public class SearchIndex {
     this.storage = initializeStorage(schema);
   }
 
-  /** Create a SearchIndex with schema only (no connection) */
+  /**
+   * Create a SearchIndex with schema only (no connection)
+   *
+   * @param schema Index schema definition
+   */
   public SearchIndex(IndexSchema schema) {
     this(schema, false);
   }
 
-  /** Create a SearchIndex with schema and validateOnLoad option */
+  /**
+   * Create a SearchIndex with schema and validateOnLoad option
+   *
+   * @param schema Index schema definition
+   * @param validateOnLoad Whether to validate documents on load
+   */
   public SearchIndex(IndexSchema schema, boolean validateOnLoad) {
     if (schema == null) {
       throw new IllegalArgumentException("Schema cannot be null");
@@ -83,12 +92,23 @@ public class SearchIndex {
     this.storage = initializeStorage(schema);
   }
 
-  /** Create a SearchIndex with schema and Jedis client */
+  /**
+   * Create a SearchIndex with schema and Jedis client
+   *
+   * @param schema Index schema definition
+   * @param client Jedis client for Redis operations
+   */
   public SearchIndex(IndexSchema schema, Jedis client) {
     this(schema, client, false);
   }
 
-  /** Create a SearchIndex with schema, Jedis client, and validateOnLoad option */
+  /**
+   * Create a SearchIndex with schema, Jedis client, and validateOnLoad option
+   *
+   * @param schema Index schema definition
+   * @param client Jedis client for Redis operations
+   * @param validateOnLoad Whether to validate documents on load
+   */
   public SearchIndex(IndexSchema schema, Jedis client, boolean validateOnLoad) {
     if (schema == null) {
       throw new IllegalArgumentException("Must provide a valid IndexSchema object");
@@ -105,12 +125,23 @@ public class SearchIndex {
     this.storage = initializeStorage(schema);
   }
 
-  /** Create a SearchIndex with schema and Redis URL */
+  /**
+   * Create a SearchIndex with schema and Redis URL
+   *
+   * @param schema Index schema definition
+   * @param redisUrl Redis connection URL
+   */
   public SearchIndex(IndexSchema schema, String redisUrl) {
     this(schema, redisUrl, false);
   }
 
-  /** Create a SearchIndex with schema, Redis URL, and validateOnLoad option */
+  /**
+   * Create a SearchIndex with schema, Redis URL, and validateOnLoad option
+   *
+   * @param schema Index schema definition
+   * @param redisUrl Redis connection URL
+   * @param validateOnLoad Whether to validate documents on load
+   */
   public SearchIndex(IndexSchema schema, String redisUrl, boolean validateOnLoad) {
     if (schema == null) {
       throw new IllegalArgumentException("Schema cannot be null");
@@ -127,12 +158,23 @@ public class SearchIndex {
     this.storage = initializeStorage(schema);
   }
 
-  /** Create a SearchIndex with schema and UnifiedJedis client (preferred for RediSearch) */
+  /**
+   * Create a SearchIndex with schema and UnifiedJedis client (preferred for RediSearch)
+   *
+   * @param schema Index schema definition
+   * @param unifiedClient UnifiedJedis client for Redis operations
+   */
   public SearchIndex(IndexSchema schema, UnifiedJedis unifiedClient) {
     this(schema, unifiedClient, false);
   }
 
-  /** Create a SearchIndex with schema, UnifiedJedis client, and validateOnLoad option */
+  /**
+   * Create a SearchIndex with schema, UnifiedJedis client, and validateOnLoad option
+   *
+   * @param schema Index schema definition
+   * @param unifiedClient UnifiedJedis client for Redis operations
+   * @param validateOnLoad Whether to validate documents on load
+   */
   public SearchIndex(IndexSchema schema, UnifiedJedis unifiedClient, boolean validateOnLoad) {
     if (schema == null) {
       throw new IllegalArgumentException("Must provide a valid IndexSchema object");
@@ -149,6 +191,12 @@ public class SearchIndex {
     this.storage = initializeStorage(schema);
   }
 
+  /**
+   * Create a SearchIndex from a YAML file
+   *
+   * @param yamlPath Path to the YAML file containing schema definition
+   * @return SearchIndex instance
+   */
   @SuppressWarnings("unchecked")
   public static SearchIndex fromYaml(String yamlPath) {
     try {
@@ -160,10 +208,23 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Create a SearchIndex from a dictionary/map
+   *
+   * @param dict Schema definition as a map
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromDict(Map<String, Object> dict) {
     return fromDict(dict, (UnifiedJedis) null, false);
   }
 
+  /**
+   * Create a SearchIndex from a dictionary/map with a UnifiedJedis client
+   *
+   * @param dict Schema definition as a map
+   * @param client UnifiedJedis client for Redis operations
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromDict(Map<String, Object> dict, UnifiedJedis client) {
     if (dict == null) {
       throw new IllegalArgumentException("Schema dictionary cannot be null");
@@ -175,6 +236,13 @@ public class SearchIndex {
     return new SearchIndex(schema, client, false);
   }
 
+  /**
+   * Create a SearchIndex from a dictionary/map with a Redis URL
+   *
+   * @param dict Schema definition as a map
+   * @param redisUrl Redis connection URL
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromDict(Map<String, Object> dict, String redisUrl) {
     return fromDict(dict, redisUrl, false);
   }
@@ -199,6 +267,14 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Create a SearchIndex from a dictionary/map with a UnifiedJedis client and validateOnLoad option
+   *
+   * @param dict Schema definition as a map
+   * @param client UnifiedJedis client for Redis operations
+   * @param validateOnLoad Whether to validate documents on load
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromDict(
       Map<String, Object> dict, UnifiedJedis client, boolean validateOnLoad) {
     IndexSchema schema = validateAndParseDict(dict);
@@ -208,6 +284,14 @@ public class SearchIndex {
     return new SearchIndex(schema, client, validateOnLoad);
   }
 
+  /**
+   * Create a SearchIndex from a dictionary/map with a Redis URL and validateOnLoad option
+   *
+   * @param dict Schema definition as a map
+   * @param redisUrl Redis connection URL
+   * @param validateOnLoad Whether to validate documents on load
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromDict(
       Map<String, Object> dict, String redisUrl, boolean validateOnLoad) {
     IndexSchema schema = validateAndParseDict(dict);
@@ -261,6 +345,13 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Create a SearchIndex from an existing index in Redis
+   *
+   * @param indexName Name of the existing index
+   * @param client UnifiedJedis client for Redis operations
+   * @return SearchIndex instance
+   */
   public static SearchIndex fromExisting(String indexName, UnifiedJedis client) {
     // Load index info from Redis
     Map<String, Object> info = client.ftInfo(indexName);
@@ -852,6 +943,11 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Get the index name
+   *
+   * @return Index name
+   */
   public String getName() {
     if (schema == null || schema.getIndex() == null) {
       return null;
@@ -859,6 +955,11 @@ public class SearchIndex {
     return schema.getIndex().getName();
   }
 
+  /**
+   * Get the key prefix for documents
+   *
+   * @return Key prefix
+   */
   public String getPrefix() {
     if (schema == null || schema.getIndex() == null) {
       return null;
@@ -866,6 +967,11 @@ public class SearchIndex {
     return schema.getIndex().getPrefix();
   }
 
+  /**
+   * Get the key separator
+   *
+   * @return Key separator (default is ":")
+   */
   public String getKeySeparator() {
     if (schema == null || schema.getIndex() == null) {
       return ":";
@@ -873,6 +979,11 @@ public class SearchIndex {
     return schema.getIndex().getKeySeparator();
   }
 
+  /**
+   * Get the storage type
+   *
+   * @return Storage type (HASH or JSON)
+   */
   public IndexSchema.StorageType getStorageType() {
     if (schema == null || schema.getIndex() == null) {
       return IndexSchema.StorageType.HASH;
@@ -880,6 +991,12 @@ public class SearchIndex {
     return schema.getIndex().getStorageType();
   }
 
+  /**
+   * Generate a full key from an ID using the index prefix and separator
+   *
+   * @param id Document ID
+   * @return Full key with prefix
+   */
   public String key(String id) {
     if (getPrefix() == null || getPrefix().isEmpty()) {
       return id;
@@ -887,10 +1004,21 @@ public class SearchIndex {
     return getPrefix() + getKeySeparator() + id;
   }
 
+  /**
+   * Create the index with overwrite option
+   *
+   * @param overwrite Whether to overwrite an existing index
+   */
   public void create(boolean overwrite) {
     create(overwrite, false);
   }
 
+  /**
+   * Create the index with overwrite and drop options
+   *
+   * @param overwrite Whether to overwrite an existing index
+   * @param drop Whether to drop existing data when overwriting
+   */
   public void create(boolean overwrite, boolean drop) {
     if (overwrite && exists()) {
       delete(drop);
@@ -900,6 +1028,11 @@ public class SearchIndex {
     create();
   }
 
+  /**
+   * Delete the index
+   *
+   * @param drop Whether to also drop the data
+   */
   public void delete(boolean drop) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
@@ -912,6 +1045,11 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Clear all documents from the index without dropping the index itself
+   *
+   * @return Number of keys deleted
+   */
   public int clear() {
     UnifiedJedis jedis = getUnifiedJedis();
     try {
@@ -990,6 +1128,12 @@ public class SearchIndex {
     return storage.write(jedis, data, idField, null, null, null, combinedPreprocess, false);
   }
 
+  /**
+   * Fetch a document by ID or key
+   *
+   * @param idOrKey Document ID or full key
+   * @return Document fields as a map, or null if not found
+   */
   public Map<String, Object> fetch(String idOrKey) {
     // If input already contains the prefix, use it as-is, otherwise construct the key
     String key;
@@ -1062,6 +1206,12 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Drop a single key
+   *
+   * @param key Key to delete
+   * @return Number of keys deleted (0 or 1)
+   */
   public int dropKeys(String key) {
     UnifiedJedis jedis = getUnifiedJedis();
     try {
@@ -1074,6 +1224,12 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Drop multiple keys
+   *
+   * @param keys List of keys to delete
+   * @return Number of keys deleted
+   */
   public int dropKeys(List<String> keys) {
     if (keys.isEmpty()) {
       return 0;
@@ -1089,6 +1245,11 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Get index information
+   *
+   * @return Index information as a map
+   */
   public Map<String, Object> info() {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
@@ -1096,6 +1257,12 @@ public class SearchIndex {
     return getInfo();
   }
 
+  /**
+   * Search the index using a VectorQuery
+   *
+   * @param query Vector query to execute
+   * @return Search results
+   */
   public SearchResult search(VectorQuery query) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
@@ -1114,10 +1281,23 @@ public class SearchIndex {
     return search(queryString, params);
   }
 
+  /**
+   * Search the index using a query string
+   *
+   * @param query Query string
+   * @return Search results
+   */
   public SearchResult search(String query) {
     return search(query, new HashMap<>());
   }
 
+  /**
+   * Search the index using a query string with parameters
+   *
+   * @param query Query string
+   * @param params Query parameters
+   * @return Search results
+   */
   public SearchResult search(String query, Map<String, Object> params) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
@@ -1156,7 +1336,11 @@ public class SearchIndex {
    * @return Search results
    */
   private SearchResult searchWithSort(
-      String query, Map<String, Object> params, String sortBy, boolean descending, boolean inOrder) {
+      String query,
+      Map<String, Object> params,
+      String sortBy,
+      boolean descending,
+      boolean inOrder) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
     }
@@ -1229,11 +1413,23 @@ public class SearchIndex {
     return result.getTotalResults();
   }
 
+  /**
+   * Query the index and return results as a list of maps
+   *
+   * @param queryString Query string
+   * @return List of document maps
+   */
   public List<Map<String, Object>> query(String queryString) {
     SearchResult result = search(queryString);
     return processSearchResult(result);
   }
 
+  /**
+   * Query the index using various query types and return results as a list of maps
+   *
+   * @param query Query object (VectorQuery, FilterQuery, TextQuery, etc.)
+   * @return List of document maps
+   */
   public List<Map<String, Object>> query(Object query) {
     if (query instanceof CountQuery cq) {
       // For CountQuery, return an empty list but log the count
@@ -1433,10 +1629,23 @@ public class SearchIndex {
     return processed;
   }
 
+  /**
+   * Execute multiple search queries in batch
+   *
+   * @param queries List of query strings
+   * @return List of search results
+   */
   public List<SearchResult> batchSearch(List<String> queries) {
     return batchSearch(queries, Integer.MAX_VALUE);
   }
 
+  /**
+   * Execute multiple search queries in batch with specified batch size
+   *
+   * @param queries List of query strings
+   * @param batchSize Number of queries to process per batch
+   * @return List of search results
+   */
   public List<SearchResult> batchSearch(List<String> queries, int batchSize) {
     List<SearchResult> results = new ArrayList<>();
 
@@ -1454,10 +1663,23 @@ public class SearchIndex {
     return results;
   }
 
+  /**
+   * Execute multiple filter queries in batch
+   *
+   * @param queries List of filter queries
+   * @return List of query results
+   */
   public List<List<Map<String, Object>>> batchQuery(List<Filter> queries) {
     return batchQuery(queries, Integer.MAX_VALUE);
   }
 
+  /**
+   * Execute multiple filter queries in batch with specified batch size
+   *
+   * @param queries List of filter queries
+   * @param batchSize Number of queries to process per batch
+   * @return List of query results
+   */
   public List<List<Map<String, Object>>> batchQuery(List<Filter> queries, int batchSize) {
     List<List<Map<String, Object>>> results = new ArrayList<>();
 
@@ -1475,6 +1697,12 @@ public class SearchIndex {
     return results;
   }
 
+  /**
+   * Set expiration time for a key
+   *
+   * @param key Key to expire
+   * @param seconds Time to live in seconds
+   */
   public void expireKeys(String key, int seconds) {
     UnifiedJedis jedis = getUnifiedJedis();
     try {
@@ -1487,6 +1715,13 @@ public class SearchIndex {
     }
   }
 
+  /**
+   * Set expiration time for multiple keys
+   *
+   * @param keys List of keys to expire
+   * @param seconds Time to live in seconds
+   * @return List of results (1 if successful, 0 if key doesn't exist)
+   */
   public List<Long> expireKeys(List<String> keys, int seconds) {
     List<Long> results = new ArrayList<>();
     UnifiedJedis jedis = getUnifiedJedis();

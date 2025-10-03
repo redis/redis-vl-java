@@ -30,22 +30,55 @@ public class HuggingFaceModelDownloader {
   private final OkHttpClient httpClient;
   private final ProgressListener progressListener;
 
+  /**
+   * Create a downloader with cache directory and default settings.
+   *
+   * @param cacheDir Directory to cache downloaded models
+   */
   public HuggingFaceModelDownloader(String cacheDir) {
     this(cacheDir, DEFAULT_BASE_URL, DEFAULT_TIMEOUT_SECONDS);
   }
 
+  /**
+   * Create a downloader with cache directory and custom base URL.
+   *
+   * @param cacheDir Directory to cache downloaded models
+   * @param baseUrl Base URL for HuggingFace (e.g., "https://huggingface.co/")
+   */
   public HuggingFaceModelDownloader(String cacheDir, String baseUrl) {
     this(cacheDir, baseUrl, DEFAULT_TIMEOUT_SECONDS);
   }
 
+  /**
+   * Create a downloader with cache directory, base URL, and custom timeout.
+   *
+   * @param cacheDir Directory to cache downloaded models
+   * @param baseUrl Base URL for HuggingFace
+   * @param timeoutSeconds Timeout in seconds for HTTP operations
+   */
   public HuggingFaceModelDownloader(String cacheDir, String baseUrl, int timeoutSeconds) {
     this(cacheDir, baseUrl, null, timeoutSeconds);
   }
 
+  /**
+   * Create a downloader with cache directory, base URL, and progress listener.
+   *
+   * @param cacheDir Directory to cache downloaded models
+   * @param baseUrl Base URL for HuggingFace
+   * @param listener Progress listener for tracking downloads
+   */
   public HuggingFaceModelDownloader(String cacheDir, String baseUrl, ProgressListener listener) {
     this(cacheDir, baseUrl, listener, DEFAULT_TIMEOUT_SECONDS);
   }
 
+  /**
+   * Create a downloader with all custom settings.
+   *
+   * @param cacheDir Directory to cache downloaded models
+   * @param baseUrl Base URL for HuggingFace
+   * @param listener Progress listener for tracking downloads (can be null)
+   * @param timeoutSeconds Timeout in seconds for HTTP operations
+   */
   public HuggingFaceModelDownloader(
       String cacheDir, String baseUrl, ProgressListener listener, int timeoutSeconds) {
     this.cacheDir = Paths.get(cacheDir).resolve("models");
@@ -59,12 +92,25 @@ public class HuggingFaceModelDownloader {
             .build();
   }
 
-  /** Download a model from HuggingFace with default revision. */
+  /**
+   * Download a model from HuggingFace with default revision.
+   *
+   * @param modelName The HuggingFace model name (e.g., "sentence-transformers/all-MiniLM-L6-v2")
+   * @return Path to the downloaded model directory
+   * @throws IOException if download fails or network error occurs
+   */
   public Path downloadModel(String modelName) throws IOException {
     return downloadModel(modelName, DEFAULT_REVISION);
   }
 
-  /** Download a model from HuggingFace with specified revision. */
+  /**
+   * Download a model from HuggingFace with specified revision.
+   *
+   * @param modelName The HuggingFace model name
+   * @param revision The model revision/branch (e.g., "main", "v1.0")
+   * @return Path to the downloaded model directory
+   * @throws IOException if download fails or network error occurs
+   */
   public Path downloadModel(String modelName, String revision) throws IOException {
     if (modelName == null || modelName.trim().isEmpty()) {
       throw new IllegalArgumentException("Model name cannot be null or empty");
@@ -277,6 +323,13 @@ public class HuggingFaceModelDownloader {
 
   /** Progress listener for download tracking. */
   public interface ProgressListener {
+    /**
+     * Called periodically during download to report progress.
+     *
+     * @param fileName Name of the file being downloaded
+     * @param bytesDownloaded Number of bytes downloaded so far
+     * @param totalBytes Total number of bytes to download
+     */
     void onProgress(String fileName, long bytesDownloaded, long totalBytes);
   }
 }

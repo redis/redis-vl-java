@@ -33,7 +33,12 @@ public class EmbeddingsCache extends BaseCache {
     super(name, redisClient, ttl);
   }
 
-  /** Creates a new EmbeddingsCache instance without TTL. */
+  /**
+   * Creates a new EmbeddingsCache instance without TTL.
+   *
+   * @param name The name of the cache
+   * @param redisClient The Redis client connection
+   */
   public EmbeddingsCache(String name, UnifiedJedis redisClient) {
     this(name, redisClient, null);
   }

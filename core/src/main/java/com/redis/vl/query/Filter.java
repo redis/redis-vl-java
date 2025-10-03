@@ -354,9 +354,13 @@ public class Filter {
 
   /** Geographic units for radius queries */
   public enum GeoUnit {
+    /** Meters */
     M("m"),
+    /** Kilometers */
     KM("km"),
+    /** Miles */
     MI("mi"),
+    /** Feet */
     FT("ft");
 
     private final String value;
@@ -365,6 +369,11 @@ public class Filter {
       this.value = value;
     }
 
+    /**
+     * Get the string value of this geographic unit.
+     *
+     * @return The unit abbreviation (e.g., "m", "km", "mi", "ft")
+     */
     public String getValue() {
       return value;
     }
@@ -390,6 +399,13 @@ public class Filter {
       this.field = field;
     }
 
+    /**
+     * Create a filter for values between min and max (inclusive).
+     *
+     * @param min Minimum value
+     * @param max Maximum value
+     * @return Filter for range [min, max]
+     */
     public Filter between(double min, double max) {
       // Always format doubles with decimal point for consistency
       String minStr = String.valueOf(min);
@@ -398,52 +414,113 @@ public class Filter {
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values between min and max (inclusive).
+     *
+     * @param min Minimum value
+     * @param max Maximum value
+     * @return Filter for range [min, max]
+     */
     public Filter between(int min, int max) {
       String expr = String.format("@%s:[%d %d]", escapeFieldName(field), min, max);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values greater than the specified value (exclusive).
+     *
+     * @param value The value to compare against
+     * @return Filter for values &gt; value
+     */
     public Filter gt(double value) {
       String expr = String.format("@%s:[(%s +inf]", escapeFieldName(field), formatNumber(value));
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values greater than the specified value (exclusive).
+     *
+     * @param value The value to compare against
+     * @return Filter for values &gt; value
+     */
     public Filter gt(int value) {
       String expr = String.format("@%s:[(%d +inf]", escapeFieldName(field), value);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values greater than or equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values &gt;= value
+     */
     public Filter gte(double value) {
       String valueStr = String.valueOf(value);
       String expr = String.format("@%s:[%s +inf]", escapeFieldName(field), valueStr);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values greater than or equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values &gt;= value
+     */
     public Filter gte(int value) {
       String expr = String.format("@%s:[%d +inf]", escapeFieldName(field), value);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values less than the specified value (exclusive).
+     *
+     * @param value The value to compare against
+     * @return Filter for values &lt; value
+     */
     public Filter lt(double value) {
       String expr = String.format("@%s:[-inf (%s]", escapeFieldName(field), formatNumber(value));
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values less than the specified value (exclusive).
+     *
+     * @param value The value to compare against
+     * @return Filter for values &lt; value
+     */
     public Filter lt(int value) {
       String expr = String.format("@%s:[-inf (%d]", escapeFieldName(field), value);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values less than or equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values &lt;= value
+     */
     public Filter lte(double value) {
       String expr = String.format("@%s:[-inf %s]", escapeFieldName(field), formatNumber(value));
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values less than or equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values &lt;= value
+     */
     public Filter lte(int value) {
       String expr = String.format("@%s:[-inf %d]", escapeFieldName(field), value);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values == value
+     */
     public Filter eq(double value) {
       String expr =
           String.format(
@@ -451,15 +528,33 @@ public class Filter {
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values == value
+     */
     public Filter eq(int value) {
       String expr = String.format("@%s:[%d %d]", escapeFieldName(field), value, value);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for values not equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values != value
+     */
     public Filter ne(double value) {
       return not(eq(value));
     }
 
+    /**
+     * Create a filter for values not equal to the specified value.
+     *
+     * @param value The value to compare against
+     * @return Filter for values != value
+     */
     public Filter ne(int value) {
       return not(eq(value));
     }
@@ -481,6 +576,15 @@ public class Filter {
       this.field = field;
     }
 
+    /**
+     * Create a filter for locations within a radius of a point.
+     *
+     * @param lon Longitude of the center point
+     * @param lat Latitude of the center point
+     * @param radius Radius distance
+     * @param unit Unit of measurement for the radius
+     * @return Filter for locations within the specified radius
+     */
     public Filter radius(double lon, double lat, double radius, GeoUnit unit) {
       // Format coordinates without excessive decimal places
       String lonStr = String.valueOf(lon);
@@ -493,6 +597,15 @@ public class Filter {
       return new Filter(FilterType.GEO, field, expr, null);
     }
 
+    /**
+     * Create a filter for locations within a bounding box.
+     *
+     * @param minLon Minimum longitude
+     * @param minLat Minimum latitude
+     * @param maxLon Maximum longitude
+     * @param maxLat Maximum latitude
+     * @return Filter for locations within the bounding box
+     */
     public Filter box(double minLon, double minLat, double maxLon, double maxLat) {
       String expr =
           String.format(
@@ -500,6 +613,15 @@ public class Filter {
       return new Filter(FilterType.GEO, field, expr, null);
     }
 
+    /**
+     * Create a filter for locations NOT within a radius of a point.
+     *
+     * @param lon Longitude of the center point
+     * @param lat Latitude of the center point
+     * @param radius Radius distance
+     * @param unit Unit of measurement for the radius
+     * @return Filter for locations outside the specified radius
+     */
     public Filter notRadius(double lon, double lat, double radius, GeoUnit unit) {
       return not(radius(lon, lat, radius, unit));
     }
@@ -522,22 +644,47 @@ public class Filter {
     }
 
     // Original methods with long epoch seconds
+    /**
+     * Create a filter for timestamps after a given epoch time.
+     *
+     * @param epochSeconds The epoch time in seconds
+     * @return Filter for timestamps after the given time
+     */
     public Filter after(long epochSeconds) {
       String expr = String.format("@%s:[(%d +inf]", escapeFieldName(field), epochSeconds);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for timestamps before a given epoch time.
+     *
+     * @param epochSeconds The epoch time in seconds
+     * @return Filter for timestamps before the given time
+     */
     public Filter before(long epochSeconds) {
       String expr = String.format("@%s:[-inf (%d]", escapeFieldName(field), epochSeconds);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for timestamps between two epoch times.
+     *
+     * @param startEpochSeconds The start epoch time in seconds
+     * @param endEpochSeconds The end epoch time in seconds
+     * @return Filter for timestamps in the given range
+     */
     public Filter between(long startEpochSeconds, long endEpochSeconds) {
       String expr =
           String.format("@%s:[%d %d]", escapeFieldName(field), startEpochSeconds, endEpochSeconds);
       return new Filter(FilterType.NUMERIC, field, expr, null);
     }
 
+    /**
+     * Create a filter for timestamps equal to a given epoch time.
+     *
+     * @param epochSeconds The epoch time in seconds
+     * @return Filter for timestamps equal to the given time
+     */
     public Filter eq(long epochSeconds) {
       String expr =
           String.format("@%s:[%d %d]", escapeFieldName(field), epochSeconds, epochSeconds);
@@ -546,82 +693,165 @@ public class Filter {
 
     // New overloaded methods for Java 8 time API support
 
-    /** Filter for timestamps after the given instant */
+    /**
+     * Filter for timestamps after the given instant.
+     *
+     * @param instant The instant to compare against
+     * @return Filter for timestamps after the instant
+     */
     public Filter after(Instant instant) {
       return after(instant.getEpochSecond());
     }
 
-    /** Filter for timestamps after the given datetime (assumes UTC) */
+    /**
+     * Filter for timestamps after the given datetime (assumes UTC).
+     *
+     * @param dateTime The datetime to compare against (assumed to be UTC)
+     * @return Filter for timestamps after the datetime
+     */
     public Filter after(LocalDateTime dateTime) {
       return after(dateTime.toInstant(ZoneOffset.UTC));
     }
 
-    /** Filter for timestamps after the given zoned datetime */
+    /**
+     * Filter for timestamps after the given zoned datetime.
+     *
+     * @param zonedDateTime The zoned datetime to compare against
+     * @return Filter for timestamps after the zoned datetime
+     */
     public Filter after(ZonedDateTime zonedDateTime) {
       return after(zonedDateTime.toInstant());
     }
 
-    /** Filter for timestamps before the given instant */
+    /**
+     * Filter for timestamps before the given instant.
+     *
+     * @param instant The instant to compare against
+     * @return Filter for timestamps before the instant
+     */
     public Filter before(Instant instant) {
       return before(instant.getEpochSecond());
     }
 
-    /** Filter for timestamps before the given datetime (assumes UTC) */
+    /**
+     * Filter for timestamps before the given datetime (assumes UTC).
+     *
+     * @param dateTime The datetime to compare against (assumed to be UTC)
+     * @return Filter for timestamps before the datetime
+     */
     public Filter before(LocalDateTime dateTime) {
       return before(dateTime.toInstant(ZoneOffset.UTC));
     }
 
-    /** Filter for timestamps before the given zoned datetime */
+    /**
+     * Filter for timestamps before the given zoned datetime.
+     *
+     * @param zonedDateTime The zoned datetime to compare against
+     * @return Filter for timestamps before the zoned datetime
+     */
     public Filter before(ZonedDateTime zonedDateTime) {
       return before(zonedDateTime.toInstant());
     }
 
-    /** Filter for timestamps between the given instants */
+    /**
+     * Filter for timestamps between the given instants.
+     *
+     * @param start The start instant
+     * @param end The end instant
+     * @return Filter for timestamps in the given range
+     */
     public Filter between(Instant start, Instant end) {
       return between(start.getEpochSecond(), end.getEpochSecond());
     }
 
-    /** Filter for timestamps between the given datetimes (assumes UTC) */
+    /**
+     * Filter for timestamps between the given datetimes (assumes UTC).
+     *
+     * @param start The start datetime (assumed to be UTC)
+     * @param end The end datetime (assumed to be UTC)
+     * @return Filter for timestamps in the given range
+     */
     public Filter between(LocalDateTime start, LocalDateTime end) {
       return between(start.toInstant(ZoneOffset.UTC), end.toInstant(ZoneOffset.UTC));
     }
 
-    /** Filter for timestamps between the given zoned datetimes */
+    /**
+     * Filter for timestamps between the given zoned datetimes.
+     *
+     * @param start The start zoned datetime
+     * @param end The end zoned datetime
+     * @return Filter for timestamps in the given range
+     */
     public Filter between(ZonedDateTime start, ZonedDateTime end) {
       return between(start.toInstant(), end.toInstant());
     }
 
-    /** Filter for timestamps equal to the given instant */
+    /**
+     * Filter for timestamps equal to the given instant.
+     *
+     * @param instant The instant to compare against
+     * @return Filter for timestamps equal to the instant
+     */
     public Filter eq(Instant instant) {
       return eq(instant.getEpochSecond());
     }
 
-    /** Filter for timestamps equal to the given datetime (assumes UTC) */
+    /**
+     * Filter for timestamps equal to the given datetime (assumes UTC).
+     *
+     * @param dateTime The datetime to compare against (assumed to be UTC)
+     * @return Filter for timestamps equal to the datetime
+     */
     public Filter eq(LocalDateTime dateTime) {
       return eq(dateTime.toInstant(ZoneOffset.UTC));
     }
 
-    /** Filter for timestamps equal to the given zoned datetime */
+    /**
+     * Filter for timestamps equal to the given zoned datetime.
+     *
+     * @param zonedDateTime The zoned datetime to compare against
+     * @return Filter for timestamps equal to the zoned datetime
+     */
     public Filter eq(ZonedDateTime zonedDateTime) {
       return eq(zonedDateTime.toInstant());
     }
 
-    /** Filter for timestamps greater than the given instant */
+    /**
+     * Filter for timestamps greater than the given instant.
+     *
+     * @param instant The instant to compare against
+     * @return Filter for timestamps greater than the instant
+     */
     public Filter gt(Instant instant) {
       return after(instant);
     }
 
-    /** Filter for timestamps greater than the given datetime (assumes UTC) */
+    /**
+     * Filter for timestamps greater than the given datetime (assumes UTC).
+     *
+     * @param dateTime The datetime to compare against (assumed to be UTC)
+     * @return Filter for timestamps greater than the datetime
+     */
     public Filter gt(LocalDateTime dateTime) {
       return after(dateTime);
     }
 
-    /** Filter for timestamps less than the given instant */
+    /**
+     * Filter for timestamps less than the given instant.
+     *
+     * @param instant The instant to compare against
+     * @return Filter for timestamps less than the instant
+     */
     public Filter lt(Instant instant) {
       return before(instant);
     }
 
-    /** Filter for timestamps less than the given datetime (assumes UTC) */
+    /**
+     * Filter for timestamps less than the given datetime (assumes UTC).
+     *
+     * @param dateTime The datetime to compare against (assumed to be UTC)
+     * @return Filter for timestamps less than the datetime
+     */
     public Filter lt(LocalDateTime dateTime) {
       return before(dateTime);
     }

@@ -170,10 +170,16 @@ public class HybridQuery extends AggregationQuery {
     }
   }
 
+  /**
+   * Create a new builder for HybridQuery.
+   *
+   * @return A new HybridQueryBuilder instance
+   */
   public static HybridQueryBuilder builder() {
     return new HybridQueryBuilder();
   }
 
+  /** Builder for creating HybridQuery instances with fluent API. */
   public static class HybridQueryBuilder {
     private String text;
     private String textFieldName;
@@ -188,66 +194,147 @@ public class HybridQuery extends AggregationQuery {
     private Set<String> stopwords = loadDefaultStopwords("english");
     private int dialect = 2;
 
+    /** Package-private constructor used by builder() method. */
+    HybridQueryBuilder() {}
+
+    /**
+     * Set the text query string.
+     *
+     * @param text The text to search for
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder text(String text) {
       this.text = text;
       return this;
     }
 
+    /**
+     * Set the name of the text field to search.
+     *
+     * @param textFieldName The field name containing text data
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder textFieldName(String textFieldName) {
       this.textFieldName = textFieldName;
       return this;
     }
 
+    /**
+     * Set the query vector for similarity search.
+     *
+     * @param vector The embedding vector to search with
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder vector(float[] vector) {
       this.vector = vector;
       return this;
     }
 
+    /**
+     * Set the name of the vector field to search.
+     *
+     * @param vectorFieldName The field name containing vector data
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder vectorFieldName(String vectorFieldName) {
       this.vectorFieldName = vectorFieldName;
       return this;
     }
 
+    /**
+     * Set the scoring algorithm for text search.
+     *
+     * @param textScorer The text scorer (e.g., "BM25", "TFIDF")
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder textScorer(String textScorer) {
       this.textScorer = textScorer;
       return this;
     }
 
+    /**
+     * Set an additional filter expression for the query.
+     *
+     * @param filterExpression The filter to apply
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder filterExpression(Filter filterExpression) {
       this.filterExpression = filterExpression;
       return this;
     }
 
+    /**
+     * Set the weight for combining text and vector scores.
+     *
+     * @param alpha Weight between 0.0 (vector only) and 1.0 (text only), default 0.7
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder alpha(float alpha) {
       this.alpha = alpha;
       return this;
     }
 
+    /**
+     * Set the data type for vector storage.
+     *
+     * @param dtype The data type (e.g., "float32", "float64")
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder dtype(String dtype) {
       this.dtype = dtype;
       return this;
     }
 
+    /**
+     * Set the maximum number of results to return.
+     *
+     * @param numResults The result limit
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder numResults(int numResults) {
       this.numResults = numResults;
       return this;
     }
 
+    /**
+     * Set the fields to return in results.
+     *
+     * @param returnFields List of field names to return
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder returnFields(List<String> returnFields) {
       this.returnFields = returnFields;
       return this;
     }
 
+    /**
+     * Set custom stopwords for text search.
+     *
+     * @param stopwords Set of words to exclude from text search
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder stopwords(Set<String> stopwords) {
       this.stopwords = stopwords;
       return this;
     }
 
+    /**
+     * Set the query dialect version.
+     *
+     * @param dialect The dialect version (default 2)
+     * @return This builder for chaining
+     */
     public HybridQueryBuilder dialect(int dialect) {
       this.dialect = dialect;
       return this;
     }
 
+    /**
+     * Build the HybridQuery instance.
+     *
+     * @return The configured HybridQuery
+     * @throws IllegalArgumentException if required fields are missing or invalid
+     */
     public HybridQuery build() {
       return new HybridQuery(this);
     }

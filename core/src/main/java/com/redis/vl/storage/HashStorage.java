@@ -19,6 +19,11 @@ import redis.clients.jedis.Response;
  */
 public class HashStorage extends BaseStorage {
 
+  /**
+   * Creates a new HashStorage instance for managing Redis hash data structures.
+   *
+   * @param indexSchema The index schema defining the structure of data to be stored
+   */
   public HashStorage(IndexSchema indexSchema) {
     super(indexSchema);
   }

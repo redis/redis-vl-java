@@ -35,7 +35,11 @@ public abstract class BaseField {
   @JsonProperty("sortable")
   protected final boolean sortable;
 
-  /** Create a field with just a name (defaults: indexed=true, sortable=false) */
+  /**
+   * Create a field with just a name (defaults: indexed=true, sortable=false).
+   *
+   * @param name The name of the field in Redis
+   */
   protected BaseField(String name) {
     // Validate name before calling other constructor
     if (name == null || name.trim().isEmpty()) {
@@ -47,7 +51,14 @@ public abstract class BaseField {
     this.sortable = false;
   }
 
-  /** Create a field with all properties */
+  /**
+   * Create a field with all properties.
+   *
+   * @param name The name of the field in Redis
+   * @param alias Optional alias for the field
+   * @param indexed Whether this field should be indexed
+   * @param sortable Whether this field is sortable
+   */
   protected BaseField(String name, String alias, boolean indexed, boolean sortable) {
     if (name == null || name.trim().isEmpty()) {
       throw new IllegalArgumentException("Field name cannot be null or empty");
@@ -58,21 +69,37 @@ public abstract class BaseField {
     this.sortable = sortable;
   }
 
-  /** Get the field type */
+  /**
+   * Get the field type.
+   *
+   * @return The field type enumeration
+   */
   @JsonProperty("type")
   public abstract FieldType getFieldType();
 
-  /** Convert to Jedis SchemaField for index creation */
+  /**
+   * Convert to Jedis SchemaField for index creation.
+   *
+   * @return The Jedis schema field representation
+   */
   @JsonIgnore
   public abstract redis.clients.jedis.search.schemafields.SchemaField toJedisSchemaField();
 
-  /** Convert to Jedis FieldName for query building */
+  /**
+   * Convert to Jedis FieldName for query building.
+   *
+   * @return The Jedis field name representation
+   */
   @JsonIgnore
   public FieldName toJedisFieldName() {
     return alias != null ? new FieldName(name, alias) : new FieldName(name);
   }
 
-  /** Serialize this field to JSON */
+  /**
+   * Serialize this field to JSON.
+   *
+   * @return JSON string representation of this field
+   */
   public String toJson() {
     try {
       return objectMapper.writeValueAsString(this);
