@@ -57,6 +57,9 @@ dependencies {
     // JSON parsing for config.json
     implementation("com.google.code.gson:gson:2.10.1")
 
+    // HuggingFace tokenizers for all transformer models (BERT, XLMRoberta, etc)
+    implementation("ai.djl.huggingface:tokenizers:0.30.0")
+
     // Test dependencies for LangChain4J (include in tests to verify integration)
     testImplementation("dev.langchain4j:langchain4j:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")

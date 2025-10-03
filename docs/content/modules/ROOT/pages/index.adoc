@@ -70,6 +70,18 @@ RedisVL is a port of the popular Python https://github.com/redis/redis-vl-python
       </a>
     </div>
   </div>
+  <div class="card">
+    <div class="card-body">
+      <h3 class="card-title">Rerankers</h3>
+      <p>Improve search quality with HuggingFace cross-encoder models.</p>
+      <a href="rerankers.html" class="arrow-link">
+        <span class="title-container">
+          <span class="title">Boost Relevance</span>
+        </span>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+  </div>
 </div>
 <style>
 .cards {
@@ -92,6 +104,7 @@ RedisVL for Java offers powerful features for AI-native applications:
 * *Index Management* - Design search schema and indices with ease from YAML or programmatic configuration
 * *Advanced Vector Search* - Perform powerful vector search queries with complex filtering support
 * *Embedding Creation* - Use LangChain4J, local ONNX models, or any of the other supported vectorizers to create embeddings
+* *Reranking* - Improve search result quality with HuggingFace cross-encoder models via ONNX Runtime
 * *Semantic Caching* - Cache LLM responses with semantic similarity, increasing QPS and decreasing system cost
 * *Embeddings Cache* - Cache vector embeddings to avoid redundant computation
 * *Storage Flexibility* - Choose between Hash and JSON storage based on your needs
