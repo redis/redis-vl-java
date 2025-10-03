@@ -9,6 +9,33 @@ import redis.clients.jedis.JedisPoolConfig;
 @Builder
 public class RedisConnectionConfig {
 
+  /** Private constructor used by Lombok builder. */
+  @SuppressWarnings("unused")
+  private RedisConnectionConfig(
+      String uri,
+      String host,
+      int port,
+      int connectionTimeout,
+      int socketTimeout,
+      int maxTotal,
+      int maxIdle,
+      int minIdle,
+      boolean testOnBorrow,
+      boolean testOnReturn,
+      boolean testWhileIdle) {
+    this.uri = uri;
+    this.host = host;
+    this.port = port;
+    this.connectionTimeout = connectionTimeout;
+    this.socketTimeout = socketTimeout;
+    this.maxTotal = maxTotal;
+    this.maxIdle = maxIdle;
+    this.minIdle = minIdle;
+    this.testOnBorrow = testOnBorrow;
+    this.testOnReturn = testOnReturn;
+    this.testWhileIdle = testWhileIdle;
+  }
+
   /** Redis connection URI (e.g., redis://localhost:6379) */
   private final String uri;
 
@@ -42,17 +69,32 @@ public class RedisConnectionConfig {
   /** Whether to test connections while idle */
   @Builder.Default private final boolean testWhileIdle = true;
 
-  /** Create a default configuration with URI */
+  /**
+   * Create a default configuration with URI.
+   *
+   * @param uri Redis connection URI (e.g., redis://localhost:6379)
+   * @return RedisConnectionConfig with specified URI
+   */
   public static RedisConnectionConfig fromUri(String uri) {
     return RedisConnectionConfig.builder().uri(uri).build();
   }
 
-  /** Create a default configuration with host and port */
+  /**
+   * Create a default configuration with host and port.
+   *
+   * @param host Redis host
+   * @param port Redis port
+   * @return RedisConnectionConfig with specified host and port
+   */
   public static RedisConnectionConfig fromHostPort(String host, int port) {
     return RedisConnectionConfig.builder().host(host).port(port).build();
   }
 
-  /** Create a JedisPoolConfig from this configuration */
+  /**
+   * Create a JedisPoolConfig from this configuration.
+   *
+   * @return JedisPoolConfig with settings from this configuration
+   */
   public JedisPoolConfig toJedisPoolConfig() {
     JedisPoolConfig config = new JedisPoolConfig();
     config.setMaxTotal(maxTotal);

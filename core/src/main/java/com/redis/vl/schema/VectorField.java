@@ -50,7 +50,12 @@ public class VectorField extends BaseField {
   @JsonProperty("epsilon")
   private final Double epsilon;
 
-  /** Create a VectorField with name and dimensions (defaults to FLAT algorithm, COSINE distance) */
+  /**
+   * Create a VectorField with name and dimensions (defaults to FLAT algorithm, COSINE distance)
+   *
+   * @param name Field name
+   * @param dimensions Number of dimensions in the vector
+   */
   public VectorField(String name, int dimensions) {
     super(name);
     if (dimensions <= 0) {
@@ -100,17 +105,31 @@ public class VectorField extends BaseField {
     this.epsilon = epsilon;
   }
 
-  /** Create a VectorField with fluent API */
+  /**
+   * Create a VectorField with fluent API
+   *
+   * @param name Field name
+   * @param dimensions Number of dimensions in the vector
+   * @return VectorField builder
+   */
   public static VectorFieldBuilder of(String name, int dimensions) {
     return new VectorFieldBuilder(name, dimensions);
   }
 
-  /** Create a VectorField builder (Lombok-style) */
+  /**
+   * Create a VectorField builder (Lombok-style)
+   *
+   * @return VectorField builder
+   */
   public static VectorFieldBuilder builder() {
     return new VectorFieldBuilder(null, 0);
   }
 
-  /** Get the algorithm as our enum type */
+  /**
+   * Get the algorithm as our enum type
+   *
+   * @return Algorithm type
+   */
   public Algorithm getAlgorithm() {
     if (algorithm == VectorAlgorithm.HNSW) {
       return Algorithm.HNSW;
@@ -118,12 +137,20 @@ public class VectorField extends BaseField {
     return Algorithm.FLAT;
   }
 
-  /** Get dimensions */
+  /**
+   * Get dimensions
+   *
+   * @return Number of dimensions
+   */
   public int getDimensions() {
     return dimensions;
   }
 
-  /** Get distance metric */
+  /**
+   * Get distance metric
+   *
+   * @return Distance metric
+   */
   public DistanceMetric getDistanceMetric() {
     return distanceMetric;
   }
@@ -175,7 +202,9 @@ public class VectorField extends BaseField {
 
   /** Vector indexing algorithms */
   public enum Algorithm {
+    /** FLAT algorithm for vector indexing */
     FLAT("FLAT"),
+    /** HNSW algorithm for vector indexing */
     HNSW("HNSW");
 
     private final String value;
@@ -184,6 +213,11 @@ public class VectorField extends BaseField {
       this.value = value;
     }
 
+    /**
+     * Get the algorithm value
+     *
+     * @return Algorithm value
+     */
     public String getValue() {
       return value;
     }
@@ -191,8 +225,11 @@ public class VectorField extends BaseField {
 
   /** Distance metrics for vector similarity */
   public enum DistanceMetric {
+    /** L2 (Euclidean) distance */
     L2("L2"),
+    /** Inner Product distance */
     IP("IP"),
+    /** Cosine distance */
     COSINE("COSINE");
 
     private final String value;
@@ -201,6 +238,11 @@ public class VectorField extends BaseField {
       this.value = value;
     }
 
+    /**
+     * Get the distance metric value
+     *
+     * @return Distance metric value
+     */
     public String getValue() {
       return value;
     }
@@ -208,7 +250,9 @@ public class VectorField extends BaseField {
 
   /** Vector data types */
   public enum VectorDataType {
+    /** 32-bit floating point */
     FLOAT32("FLOAT32"),
+    /** 64-bit floating point */
     FLOAT64("FLOAT64");
 
     private final String value;
@@ -217,6 +261,11 @@ public class VectorField extends BaseField {
       this.value = value;
     }
 
+    /**
+     * Get the data type value
+     *
+     * @return Data type value
+     */
     public String getValue() {
       return value;
     }
@@ -244,103 +293,220 @@ public class VectorField extends BaseField {
       this.dimensions = dimensions;
     }
 
+    /**
+     * Set the field name
+     *
+     * @param name Field name
+     * @return This builder
+     */
     public VectorFieldBuilder name(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Set the field alias
+     *
+     * @param alias Field alias
+     * @return This builder
+     */
     public VectorFieldBuilder alias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set the field alias (alternative method)
+     *
+     * @param alias Field alias
+     * @return This builder
+     */
     public VectorFieldBuilder withAlias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set whether the field is indexed
+     *
+     * @param indexed True if indexed
+     * @return This builder
+     */
     public VectorFieldBuilder indexed(boolean indexed) {
       this.indexed = indexed;
       return this;
     }
 
+    /**
+     * Set whether the field is sortable
+     *
+     * @param sortable True if sortable
+     * @return This builder
+     */
     public VectorFieldBuilder sortable(boolean sortable) {
       this.sortable = sortable;
       return this;
     }
 
+    /**
+     * Set the number of dimensions
+     *
+     * @param dimensions Number of dimensions in the vector
+     * @return This builder
+     */
     public VectorFieldBuilder dimensions(int dimensions) {
       this.dimensions = dimensions;
       return this;
     }
 
+    /**
+     * Set the vector indexing algorithm
+     *
+     * @param algorithm Vector algorithm (FLAT or HNSW)
+     * @return This builder
+     */
     public VectorFieldBuilder algorithm(VectorAlgorithm algorithm) {
       this.algorithm = algorithm;
       return this;
     }
 
+    /**
+     * Set the vector indexing algorithm (alternative method)
+     *
+     * @param algorithm Vector algorithm (FLAT or HNSW)
+     * @return This builder
+     */
     public VectorFieldBuilder withAlgorithm(VectorAlgorithm algorithm) {
       this.algorithm = algorithm;
       return this;
     }
 
+    /**
+     * Set the distance metric
+     *
+     * @param distanceMetric Distance metric (L2, IP, or COSINE)
+     * @return This builder
+     */
     public VectorFieldBuilder distanceMetric(DistanceMetric distanceMetric) {
       this.distanceMetric = distanceMetric;
       return this;
     }
 
+    /**
+     * Set the distance metric (alternative method)
+     *
+     * @param distanceMetric Distance metric (L2, IP, or COSINE)
+     * @return This builder
+     */
     public VectorFieldBuilder withDistanceMetric(DistanceMetric distanceMetric) {
       this.distanceMetric = distanceMetric;
       return this;
     }
 
+    /**
+     * Set the data type
+     *
+     * @param dataType Data type (FLOAT32 or FLOAT64)
+     * @return This builder
+     */
     public VectorFieldBuilder dataType(VectorDataType dataType) {
       this.dataType = dataType;
       return this;
     }
 
-    // FLAT algorithm parameters
+    /**
+     * Set the initial capacity for FLAT algorithm
+     *
+     * @param initialCapacity Initial capacity
+     * @return This builder
+     */
     public VectorFieldBuilder initialCapacity(int initialCapacity) {
       this.initialCapacity = initialCapacity;
       return this;
     }
 
+    /**
+     * Set the block size for FLAT algorithm
+     *
+     * @param blockSize Block size
+     * @return This builder
+     */
     public VectorFieldBuilder blockSize(int blockSize) {
       this.blockSize = blockSize;
       return this;
     }
 
-    // HNSW algorithm parameters
+    /**
+     * Set the M parameter for HNSW algorithm
+     *
+     * @param m M parameter
+     * @return This builder
+     */
     public VectorFieldBuilder hnswM(int m) {
       this.hnswM = m;
       return this;
     }
 
+    /**
+     * Set the M parameter for HNSW algorithm (alternative method)
+     *
+     * @param m M parameter
+     * @return This builder
+     */
     public VectorFieldBuilder withHnswM(int m) {
       this.hnswM = m;
       return this;
     }
 
+    /**
+     * Set the EF_CONSTRUCTION parameter for HNSW algorithm
+     *
+     * @param efConstruction EF_CONSTRUCTION parameter
+     * @return This builder
+     */
     public VectorFieldBuilder hnswEfConstruction(int efConstruction) {
       this.hnswEfConstruction = efConstruction;
       return this;
     }
 
+    /**
+     * Set the EF_CONSTRUCTION parameter for HNSW algorithm (alternative method)
+     *
+     * @param efConstruction EF_CONSTRUCTION parameter
+     * @return This builder
+     */
     public VectorFieldBuilder withHnswEfConstruction(int efConstruction) {
       this.hnswEfConstruction = efConstruction;
       return this;
     }
 
+    /**
+     * Set the EF_RUNTIME parameter for HNSW algorithm
+     *
+     * @param efRuntime EF_RUNTIME parameter
+     * @return This builder
+     */
     public VectorFieldBuilder hnswEfRuntime(int efRuntime) {
       this.hnswEfRuntime = efRuntime;
       return this;
     }
 
+    /**
+     * Set the epsilon parameter for HNSW algorithm
+     *
+     * @param epsilon Epsilon parameter
+     * @return This builder
+     */
     public VectorFieldBuilder epsilon(double epsilon) {
       this.epsilon = epsilon;
       return this;
     }
 
+    /**
+     * Build the VectorField
+     *
+     * @return VectorField instance
+     */
     public VectorField build() {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");

@@ -95,17 +95,33 @@ public class VectorQuery {
     this.inOrder = inOrder;
   }
 
-  /** Create a builder */
+  /**
+   * Create a builder
+   *
+   * @return Vector query builder
+   */
   public static Builder builder() {
     return new Builder();
   }
 
-  /** Create a VectorQuery with fluent API for float array */
+  /**
+   * Create a VectorQuery with fluent API for float array
+   *
+   * @param field Vector field name
+   * @param vector Query vector
+   * @return Vector query builder
+   */
   public static Builder of(String field, float[] vector) {
     return builder().field(field).vector(vector);
   }
 
-  /** Create a VectorQuery with fluent API for double array */
+  /**
+   * Create a VectorQuery with fluent API for double array
+   *
+   * @param field Vector field name
+   * @param vector Query vector
+   * @return Vector query builder
+   */
   public static Builder of(String field, double[] vector) {
     return builder().field(field).vector(toFloatArray(vector));
   }
@@ -135,7 +151,12 @@ public class VectorQuery {
     return field;
   }
 
-  /** Create a copy with modified numResults value */
+  /**
+   * Create a copy with modified numResults value
+   *
+   * @param newNumResults New number of results to return
+   * @return New VectorQuery instance
+   */
   public VectorQuery withNumResults(int newNumResults) {
     return new Builder()
         .field(this.field)
@@ -152,14 +173,23 @@ public class VectorQuery {
   }
 
   /**
+   * Create a copy with modified K value
+   *
    * @deprecated Use withNumResults() instead
+   * @param newK New K value
+   * @return New VectorQuery instance
    */
   @Deprecated
   public VectorQuery withK(int newK) {
     return withNumResults(newK);
   }
 
-  /** Create a copy with modified distance metric */
+  /**
+   * Create a copy with modified distance metric
+   *
+   * @param metric New distance metric
+   * @return New VectorQuery instance
+   */
   public VectorQuery withDistanceMetric(VectorField.DistanceMetric metric) {
     return new Builder()
         .field(this.field)
@@ -175,7 +205,12 @@ public class VectorQuery {
         .build();
   }
 
-  /** Create a copy with modified pre-filter */
+  /**
+   * Create a copy with modified pre-filter
+   *
+   * @param filter New pre-filter expression
+   * @return New VectorQuery instance
+   */
   public VectorQuery withPreFilter(String filter) {
     return new Builder()
         .field(this.field)
@@ -261,98 +296,211 @@ public class VectorQuery {
   }
 
   // Getters
+  /**
+   * Get the vector field name
+   *
+   * @return Field name
+   */
   public String getField() {
     return field;
   }
 
+  /**
+   * Get the query vector
+   *
+   * @return Query vector as float array
+   */
   public float[] getVector() {
     return vector != null ? vector.clone() : null; // Defensive copy
   }
 
+  /**
+   * Get the number of results to return
+   *
+   * @return Number of results
+   */
   public int getNumResults() {
     return numResults;
   }
 
   /**
+   * Get the K value (number of results)
+   *
    * @deprecated Use getNumResults() instead
+   * @return Number of results
    */
   @Deprecated
   public int getK() {
     return numResults;
   }
 
+  /**
+   * Get the distance metric
+   *
+   * @return Distance metric
+   */
   public VectorField.DistanceMetric getDistanceMetric() {
     return distanceMetric;
   }
 
+  /**
+   * Check if distance values should be returned
+   *
+   * @return True if distance values should be returned
+   */
   public boolean isReturnDistance() {
     return returnDistance;
   }
 
+  /**
+   * Check if similarity scores should be returned
+   *
+   * @return True if scores should be returned
+   */
   public boolean isReturnScore() {
     return returnScore;
   }
 
+  /**
+   * Get the pre-filter expression
+   *
+   * @return Pre-filter expression
+   */
   public String getPreFilter() {
     return preFilter;
   }
 
+  /**
+   * Get the hybrid search field
+   *
+   * @return Hybrid field name
+   */
   public String getHybridField() {
     return hybridField;
   }
 
+  /**
+   * Get the hybrid search query
+   *
+   * @return Hybrid query string
+   */
   public String getHybridQuery() {
     return hybridQuery;
   }
 
+  /**
+   * Get the EF runtime parameter for HNSW
+   *
+   * @return EF runtime value
+   */
   public Integer getEfRuntime() {
     return efRuntime;
   }
 
+  /**
+   * Set the EF runtime parameter for HNSW
+   *
+   * @param efRuntime EF runtime value
+   */
   public void setEfRuntime(int efRuntime) {
     this.efRuntime = efRuntime;
   }
 
+  /**
+   * Get the fields to return in results
+   *
+   * @return List of field names
+   */
   public List<String> getReturnFields() {
     return returnFields != null ? new ArrayList<>(returnFields) : null;
   }
 
+  /**
+   * Get the filter query
+   *
+   * @return Filter instance
+   */
   public Filter getFilter() {
     return filter;
   }
 
+  /**
+   * Set the filter query
+   *
+   * @param filter Filter instance
+   */
   public void setFilter(Filter filter) {
     this.filter = filter;
   }
 
+  /**
+   * Get the hybrid search policy
+   *
+   * @return Hybrid policy
+   */
   public String getHybridPolicy() {
     return hybridPolicy;
   }
 
+  /**
+   * Set the hybrid search policy
+   *
+   * @param policy Hybrid policy
+   */
   public void setHybridPolicy(String policy) {
     this.hybridPolicy = policy;
   }
 
+  /**
+   * Get the batch size
+   *
+   * @return Batch size
+   */
   public Integer getBatchSize() {
     return batchSize;
   }
 
+  /**
+   * Set the batch size
+   *
+   * @param batchSize Batch size
+   */
   public void setBatchSize(int batchSize) {
     this.batchSize = batchSize;
   }
 
+  /**
+   * Check if vector distance should be normalized
+   *
+   * @return True if normalization is enabled
+   */
   public boolean isNormalizeVectorDistance() {
     return normalizeVectorDistance;
   }
 
+  /**
+   * Get the sort field
+   *
+   * @return Sort field name
+   */
   public String getSortBy() {
     return sortBy;
   }
 
+  /**
+   * Check if sorting is descending
+   *
+   * @return True if descending
+   */
   public boolean isSortDescending() {
     return sortDescending;
   }
 
+  /**
+   * Check if terms must be in order
+   *
+   * @return True if in-order is required
+   */
   public boolean isInOrder() {
     return inOrder;
   }
@@ -388,6 +536,12 @@ public class VectorQuery {
     private boolean returnDistance = true;
     private boolean returnScore = false;
     private String preFilter;
+
+    /** Create a new Builder instance */
+    public Builder() {
+      // Default constructor
+    }
+
     private String hybridField;
     private String hybridQuery;
     private Integer efRuntime;
@@ -406,28 +560,56 @@ public class VectorQuery {
       return floats;
     }
 
+    /**
+     * Set the vector field name
+     *
+     * @param field Field name
+     * @return This builder
+     */
     public Builder field(String field) {
       this.field = field;
       return this;
     }
 
+    /**
+     * Set the query vector
+     *
+     * @param vector Query vector as float array
+     * @return This builder
+     */
     public Builder vector(float[] vector) {
       this.vector = vector != null ? vector.clone() : null; // Defensive copy
       return this;
     }
 
+    /**
+     * Set the query vector
+     *
+     * @param vector Query vector as double array
+     * @return This builder
+     */
     public Builder vector(double[] vector) {
       this.vector = toFloatArray(vector);
       return this;
     }
 
+    /**
+     * Set the number of results to return
+     *
+     * @param numResults Number of results
+     * @return This builder
+     */
     public Builder numResults(int numResults) {
       this.numResults = numResults;
       return this;
     }
 
     /**
+     * Set the K value (number of results)
+     *
      * @deprecated Use numResults() instead
+     * @param k Number of results
+     * @return This builder
      */
     @Deprecated
     public Builder k(int k) {
@@ -436,7 +618,11 @@ public class VectorQuery {
     }
 
     /**
+     * Set the K value (number of results)
+     *
      * @deprecated Use numResults() instead
+     * @param k Number of results
+     * @return This builder
      */
     @Deprecated
     public Builder withK(int k) {
@@ -444,102 +630,222 @@ public class VectorQuery {
       return this;
     }
 
+    /**
+     * Set the distance metric
+     *
+     * @param distanceMetric Distance metric
+     * @return This builder
+     */
     public Builder distanceMetric(VectorField.DistanceMetric distanceMetric) {
       this.distanceMetric = distanceMetric;
       return this;
     }
 
+    /**
+     * Set the distance metric (alternative method)
+     *
+     * @param metric Distance metric
+     * @return This builder
+     */
     public Builder withDistanceMetric(VectorField.DistanceMetric metric) {
       this.distanceMetric = metric;
       return this;
     }
 
+    /**
+     * Set whether to return distance values
+     *
+     * @param returnDistance True to return distances
+     * @return This builder
+     */
     public Builder returnDistance(boolean returnDistance) {
       this.returnDistance = returnDistance;
       return this;
     }
 
+    /**
+     * Set whether to return distance values (alternative method)
+     *
+     * @param returnDistance True to return distances
+     * @return This builder
+     */
     public Builder withReturnDistance(boolean returnDistance) {
       this.returnDistance = returnDistance;
       return this;
     }
 
+    /**
+     * Set whether to return similarity scores
+     *
+     * @param returnScore True to return scores
+     * @return This builder
+     */
     public Builder returnScore(boolean returnScore) {
       this.returnScore = returnScore;
       return this;
     }
 
+    /**
+     * Set whether to return similarity scores (alternative method)
+     *
+     * @param returnScore True to return scores
+     * @return This builder
+     */
     public Builder withReturnScore(boolean returnScore) {
       this.returnScore = returnScore;
       return this;
     }
 
+    /**
+     * Set the pre-filter expression
+     *
+     * @param preFilter Pre-filter expression
+     * @return This builder
+     */
     public Builder preFilter(String preFilter) {
       this.preFilter = preFilter;
       return this;
     }
 
+    /**
+     * Set the pre-filter expression (alternative method)
+     *
+     * @param filter Pre-filter expression
+     * @return This builder
+     */
     public Builder withPreFilter(String filter) {
       this.preFilter = filter;
       return this;
     }
 
+    /**
+     * Set the hybrid search field
+     *
+     * @param hybridField Hybrid field name
+     * @return This builder
+     */
     public Builder hybridField(String hybridField) {
       this.hybridField = hybridField;
       return this;
     }
 
+    /**
+     * Set the hybrid search query
+     *
+     * @param hybridQuery Hybrid query string
+     * @return This builder
+     */
     public Builder hybridQuery(String hybridQuery) {
       this.hybridQuery = hybridQuery;
       return this;
     }
 
+    /**
+     * Set hybrid search parameters
+     *
+     * @param field Hybrid field name
+     * @param query Hybrid query string
+     * @return This builder
+     */
     public Builder withHybridSearch(String field, String query) {
       this.hybridField = field;
       this.hybridQuery = query;
       return this;
     }
 
+    /**
+     * Set the EF runtime parameter for HNSW
+     *
+     * @param efRuntime EF runtime value
+     * @return This builder
+     */
     public Builder efRuntime(Integer efRuntime) {
       this.efRuntime = efRuntime;
       return this;
     }
 
+    /**
+     * Set the EF runtime parameter for HNSW (alternative method)
+     *
+     * @param efRuntime EF runtime value
+     * @return This builder
+     */
     public Builder withEfRuntime(int efRuntime) {
       this.efRuntime = efRuntime;
       return this;
     }
 
+    /**
+     * Set the fields to return in results
+     *
+     * @param fields Field names
+     * @return This builder
+     */
     public Builder returnFields(String... fields) {
       this.returnFields = Arrays.asList(fields);
       return this;
     }
 
+    /**
+     * Set the fields to return in results
+     *
+     * @param fields List of field names
+     * @return This builder
+     */
     public Builder returnFields(List<String> fields) {
       this.returnFields = fields != null ? new ArrayList<>(fields) : null;
       return this;
     }
 
+    /**
+     * Set whether to normalize vector distance
+     *
+     * @param normalize True to normalize
+     * @return This builder
+     */
     public Builder normalizeVectorDistance(boolean normalize) {
       this.normalizeVectorDistance = normalize;
       return this;
     }
 
+    /**
+     * Set the sort field
+     *
+     * @param sortBy Sort field name
+     * @return This builder
+     */
     public Builder sortBy(String sortBy) {
       this.sortBy = sortBy;
       return this;
     }
 
+    /**
+     * Set whether to sort in descending order
+     *
+     * @param descending True for descending
+     * @return This builder
+     */
     public Builder sortDescending(boolean descending) {
       this.sortDescending = descending;
       return this;
     }
 
+    /**
+     * Set whether terms must be in order
+     *
+     * @param inOrder True for in-order matching
+     * @return This builder
+     */
     public Builder inOrder(boolean inOrder) {
       this.inOrder = inOrder;
       return this;
     }
 
+    /**
+     * Build the VectorQuery
+     *
+     * @return VectorQuery instance
+     */
     public VectorQuery build() {
       // Validate required fields
       if (field == null || field.trim().isEmpty()) {

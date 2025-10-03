@@ -30,16 +30,35 @@ public class OnnxModelLoader {
   private OrtEnvironment environment;
   private boolean normalizeEmbeddings = true;
 
+  /**
+   * Creates a new OnnxModelLoader. The ONNX runtime environment will be provided when loading the
+   * model.
+   */
   public OnnxModelLoader() {
     // Environment will be provided when loading model
   }
 
-  /** Load an ONNX model from the specified directory. */
+  /**
+   * Load an ONNX model from the specified directory.
+   *
+   * @param modelDir Path to the directory containing the ONNX model files
+   * @return The loaded ONNX runtime session
+   * @throws IOException if model files cannot be read
+   * @throws OrtException if the ONNX runtime fails to load the model
+   */
   public OrtSession loadModel(Path modelDir) throws IOException, OrtException {
     return loadModel(modelDir, OrtEnvironment.getEnvironment());
   }
 
-  /** Load an ONNX model from the specified directory with a specific environment. */
+  /**
+   * Load an ONNX model from the specified directory with a specific environment.
+   *
+   * @param modelDir Path to the directory containing the ONNX model files
+   * @param env The ONNX runtime environment to use
+   * @return The loaded ONNX runtime session
+   * @throws IOException if model files cannot be read
+   * @throws OrtException if the ONNX runtime fails to load the model
+   */
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP2",
       justification = "OrtEnvironment is a singleton and immutable")
@@ -100,23 +119,41 @@ public class OnnxModelLoader {
     return session;
   }
 
-  /** Get the hidden size (same as embedding dimension). */
+  /**
+   * Get the hidden size (same as embedding dimension).
+   *
+   * @return The hidden size of the model
+   */
   public int getHiddenSize() {
     return embeddingDimension;
   }
 
-  /** Get a copy of the tokenizer configuration to prevent internal representation exposure. */
+  /**
+   * Get a copy of the tokenizer configuration to prevent internal representation exposure.
+   *
+   * @return A deep copy of the tokenizer configuration
+   */
   public JsonObject getTokenizer() {
     // Return a deep copy to prevent external modification
     return tokenizerConfig.deepCopy();
   }
 
-  /** Tokenize a single text string. */
+  /**
+   * Tokenize a single text string.
+   *
+   * @param text The text to tokenize
+   * @return A 2D array of token IDs (batch size 1)
+   */
   public long[][] tokenize(String text) {
     return tokenizeBatch(Collections.singletonList(text));
   }
 
-  /** Tokenize a batch of text strings. */
+  /**
+   * Tokenize a batch of text strings.
+   *
+   * @param texts List of texts to tokenize
+   * @return A 2D array of token IDs, one row per input text
+   */
   public long[][] tokenizeBatch(List<String> texts) {
     long[][] tokenIds = new long[texts.size()][];
 
@@ -127,7 +164,14 @@ public class OnnxModelLoader {
     return tokenIds;
   }
 
-  /** Run inference on the model with tokenized input. */
+  /**
+   * Run inference on the model with tokenized input.
+   *
+   * @param session The ONNX runtime session
+   * @param inputTensor The input tensor containing token IDs
+   * @return 2D array of embeddings, one row per input
+   * @throws OrtException if inference fails
+   */
   public float[][] runInference(OrtSession session, OnnxTensor inputTensor) throws OrtException {
     // Check what inputs the model expects
     Map<String, OnnxTensor> inputs = new HashMap<>();
@@ -191,7 +235,12 @@ public class OnnxModelLoader {
     }
   }
 
-  /** Apply mean pooling to token embeddings. */
+  /**
+   * Apply mean pooling to token embeddings.
+   *
+   * @param tokenEmbeddings 3D array of token embeddings [batch, sequence, hidden]
+   * @return 2D array of pooled embeddings [batch, hidden]
+   */
   public float[][] meanPooling(float[][][] tokenEmbeddings) {
     int batchSize = tokenEmbeddings.length;
     int hiddenSize = tokenEmbeddings[0][0].length;
@@ -216,7 +265,12 @@ public class OnnxModelLoader {
     return pooled;
   }
 
-  /** Normalize embeddings to unit length. */
+  /**
+   * Normalize embeddings to unit length.
+   *
+   * @param embeddings 2D array of embeddings to normalize
+   * @return Normalized embeddings with unit length
+   */
   public float[][] normalize(float[][] embeddings) {
     for (int i = 0; i < embeddings.length; i++) {
       float magnitude = 0;
@@ -238,13 +292,25 @@ public class OnnxModelLoader {
     return embeddings;
   }
 
-  /** Get embedding for a single text. */
+  /**
+   * Get embedding for a single text.
+   *
+   * @param text The text to generate an embedding for
+   * @return List of floats representing the embedding vector
+   * @throws OrtException if inference fails
+   */
   public List<Float> getEmbedding(String text) throws OrtException {
     List<List<Float>> embeddings = getEmbeddings(Collections.singletonList(text));
     return embeddings.get(0);
   }
 
-  /** Get embeddings for multiple texts. */
+  /**
+   * Get embeddings for multiple texts.
+   *
+   * @param texts List of texts to generate embeddings for
+   * @return List of embedding vectors
+   * @throws OrtException if inference fails
+   */
   public List<List<Float>> getEmbeddings(List<String> texts) throws OrtException {
     // This method would be implemented by SentenceTransformersVectorizer
     // which has access to the OrtSession

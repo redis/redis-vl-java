@@ -37,6 +37,25 @@ import redis.clients.jedis.search.Query;
 @Builder
 public class FilterQuery {
 
+  /** Private constructor used by Lombok builder. */
+  @SuppressWarnings("unused")
+  private FilterQuery(
+      Filter filterExpression,
+      List<String> returnFields,
+      int numResults,
+      int dialect,
+      String sortBy,
+      boolean inOrder,
+      Map<String, Object> params) {
+    this.filterExpression = filterExpression;
+    this.returnFields = returnFields != null ? returnFields : List.of();
+    this.numResults = numResults;
+    this.dialect = dialect;
+    this.sortBy = sortBy;
+    this.inOrder = inOrder;
+    this.params = params != null ? params : Map.of();
+  }
+
   /**
    * The filter expression to query with. Python: filter_expression (Optional[Union[str,
    * FilterExpression]]) Defaults to '*' if null.

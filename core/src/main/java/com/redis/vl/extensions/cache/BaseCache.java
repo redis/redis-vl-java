@@ -10,9 +10,16 @@ import redis.clients.jedis.resps.ScanResult;
 /** Abstract base class for all cache implementations. */
 public abstract class BaseCache {
 
+  /** The name of the cache. */
   protected final String name;
+
+  /** The Redis key prefix for this cache. */
   protected final String prefix;
+
+  /** Default time-to-live in seconds for cache entries. */
   protected Integer ttl;
+
+  /** The Redis client connection. */
   protected UnifiedJedis redisClient;
 
   /**
@@ -36,7 +43,12 @@ public abstract class BaseCache {
     this.ttl = ttl;
   }
 
-  /** Creates a new BaseCache instance without TTL. */
+  /**
+   * Creates a new BaseCache instance without TTL.
+   *
+   * @param name The name of the cache
+   * @param redisClient The Redis client connection
+   */
   protected BaseCache(String name, UnifiedJedis redisClient) {
     this(name, redisClient, null);
   }
@@ -151,7 +163,13 @@ public abstract class BaseCache {
     }
   }
 
-  /** Helper method to set a value with optional TTL. */
+  /**
+   * Helper method to set a value with optional TTL.
+   *
+   * @param key The cache key
+   * @param value The value to store
+   * @param ttl Time-to-live in seconds (null uses default TTL)
+   */
   protected void setWithTtl(String key, String value, Integer ttl) {
     SetParams params = new SetParams();
     Integer effectiveTtl = ttl != null ? ttl : this.ttl;
@@ -161,7 +179,13 @@ public abstract class BaseCache {
     redisClient.set(key, value, params);
   }
 
-  /** Helper method to set a byte array value with optional TTL. */
+  /**
+   * Helper method to set a byte array value with optional TTL.
+   *
+   * @param key The cache key as byte array
+   * @param value The value as byte array
+   * @param ttl Time-to-live in seconds (null uses default TTL)
+   */
   protected void setWithTtl(byte[] key, byte[] value, Integer ttl) {
     if (ttl != null || this.ttl != null) {
       Integer effectiveTtl = ttl != null ? ttl : this.ttl;

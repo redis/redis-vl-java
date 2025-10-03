@@ -19,11 +19,18 @@ import redis.clients.jedis.UnifiedJedis;
  */
 public abstract class BaseStorage {
 
+  /** The index schema for this storage instance. */
   @Getter(AccessLevel.NONE)
   protected final IndexSchema indexSchema;
 
+  /** Default batch size for bulk operations. */
   protected int defaultBatchSize = 200;
 
+  /**
+   * Creates a new BaseStorage instance.
+   *
+   * @param indexSchema The index schema for this storage
+   */
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP2",
       justification = "IndexSchema needs to be mutable for Redis operations")
@@ -63,7 +70,11 @@ public abstract class BaseStorage {
     return obj;
   }
 
-  // Protected getter for subclasses to use
+  /**
+   * Get the index schema.
+   *
+   * @return The index schema for this storage
+   */
   protected IndexSchema getIndexSchema() {
     return indexSchema;
   }
@@ -485,11 +496,25 @@ public abstract class BaseStorage {
   }
 
   // Abstract methods to be implemented by subclasses
+  /**
+   * Set a key-value pair in Redis using a pipeline.
+   *
+   * @param pipeline The Redis pipeline to use
+   * @param key The Redis key
+   * @param obj The object to store
+   */
   protected abstract void set(Pipeline pipeline, String key, Map<String, Object> obj);
 
+  /**
+   * Get a response for retrieving a value from Redis using a pipeline.
+   *
+   * @param pipeline The Redis pipeline to use
+   * @param key The Redis key
+   * @return Response containing the retrieved object
+   */
   protected abstract Response<Map<String, Object>> getResponse(Pipeline pipeline, String key);
 
-  // Helper class for key-value pairs
+  /** Helper class for key-value pairs used during preprocessing and validation. */
   protected static class KeyValuePair {
     final String key;
     final Map<String, Object> value;

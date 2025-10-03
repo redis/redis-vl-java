@@ -10,7 +10,11 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 @Getter
 public class NumericField extends BaseField {
 
-  /** Create a NumericField with just a name */
+  /**
+   * Create a NumericField with just a name.
+   *
+   * @param name The field name
+   */
   public NumericField(String name) {
     super(name);
   }
@@ -20,12 +24,21 @@ public class NumericField extends BaseField {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
   }
 
-  /** Create a NumericField with fluent API */
+  /**
+   * Create a NumericField with fluent API.
+   *
+   * @param name The field name
+   * @return A NumericFieldBuilder for fluent configuration
+   */
   public static NumericFieldBuilder of(String name) {
     return new NumericFieldBuilder(name);
   }
 
-  /** Create a NumericField builder (Lombok-style) */
+  /**
+   * Create a NumericField builder (Lombok-style).
+   *
+   * @return A NumericFieldBuilder for fluent configuration
+   */
   public static NumericFieldBuilder builder() {
     return new NumericFieldBuilder(null);
   }
@@ -66,36 +79,77 @@ public class NumericField extends BaseField {
       this.name = name;
     }
 
+    /**
+     * Set the field name.
+     *
+     * @param name The name for this field
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder name(String name) {
       this.name = name;
       return this;
     }
 
+    /**
+     * Set the field alias.
+     *
+     * @param alias The alias for this field
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder alias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set the field alias (alias for alias() method).
+     *
+     * @param alias The alias for this field
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder withAlias(String alias) {
       this.alias = alias;
       return this;
     }
 
+    /**
+     * Set whether this field should be indexed.
+     *
+     * @param indexed True to index this field, false otherwise
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder indexed(boolean indexed) {
       this.indexed = indexed;
       return this;
     }
 
+    /**
+     * Set whether this field should be sortable.
+     *
+     * @param sortable True to make this field sortable, false otherwise
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder sortable(boolean sortable) {
       this.sortable = sortable;
       return this;
     }
 
+    /**
+     * Make this field sortable (equivalent to sortable(true)).
+     *
+     * @return This builder for chaining
+     */
     public NumericFieldBuilder sortable() {
       this.sortable = true;
       return this;
     }
 
+    /**
+     * Build the NumericField instance.
+     *
+     * @return The configured NumericField
+     * @throws IllegalArgumentException if the field name is null or empty
+     */
     public NumericField build() {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");

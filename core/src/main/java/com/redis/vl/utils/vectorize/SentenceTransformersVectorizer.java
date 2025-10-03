@@ -26,7 +26,11 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
   private OrtSession session;
   private OrtEnvironment environment;
 
-  /** Create a vectorizer with default cache directory. */
+  /**
+   * Create a vectorizer with default cache directory.
+   *
+   * @param modelName Name of the HuggingFace model to use
+   */
   @SuppressFBWarnings(
       value = "CT_CONSTRUCTOR_THROW",
       justification = "Cleanup is handled properly before throwing exception")
@@ -39,7 +43,12 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
     initializeModelSafely();
   }
 
-  /** Create a vectorizer with custom cache directory. */
+  /**
+   * Create a vectorizer with custom cache directory.
+   *
+   * @param modelName Name of the HuggingFace model to use
+   * @param cacheDir Custom cache directory for model storage
+   */
   @SuppressFBWarnings(
       value = "CT_CONSTRUCTOR_THROW",
       justification = "Cleanup is handled properly before throwing exception")
@@ -147,6 +156,9 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
   /**
    * Generate embeddings for a batch of texts with default batch size. Returns List of List of Float
    * for convenience.
+   *
+   * @param texts List of texts to embed
+   * @return List of embeddings as lists of floats
    */
   public List<List<Float>> embedBatchAsLists(List<String> texts) {
     List<float[]> embeddings = generateEmbeddingsBatch(texts, 32);
@@ -179,6 +191,7 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
     }
   }
 
+  /** Close the vectorizer and clean up resources */
   public void close() {
     cleanupResources();
   }
