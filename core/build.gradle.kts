@@ -60,10 +60,16 @@ dependencies {
     // HuggingFace tokenizers for all transformer models (BERT, XLMRoberta, etc)
     implementation("ai.djl.huggingface:tokenizers:0.30.0")
 
+    // Cohere Java SDK for reranking
+    compileOnly("com.cohere:cohere-java:1.8.1")
+
     // Test dependencies for LangChain4J (include in tests to verify integration)
     testImplementation("dev.langchain4j:langchain4j:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-hugging-face:0.36.2")
+
+    // Cohere for integration tests
+    testImplementation("com.cohere:cohere-java:1.8.1")
 
     // Additional test dependencies
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
