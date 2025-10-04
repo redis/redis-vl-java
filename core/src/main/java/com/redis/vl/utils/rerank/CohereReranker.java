@@ -161,6 +161,23 @@ public class CohereReranker extends BaseReranker {
    */
   @Override
   public RerankResult rank(String query, List<?> docs) {
+    return rank(query, docs, Collections.emptyMap());
+  }
+
+  /**
+   * Rerank documents based on query relevance using Cohere's Rerank API with runtime parameter
+   * overrides.
+   *
+   * @param query The search query
+   * @param docs List of documents (either List&lt;String&gt; or List&lt;Map&lt;String,
+   *     Object&gt;&gt;)
+   * @param kwargs Optional parameters to override defaults (limit, return_score, rank_by,
+   *     max_chunks_per_doc)
+   * @return RerankResult with reranked documents and relevance scores
+   * @throws IllegalArgumentException if query or docs are invalid
+   */
+  @SuppressWarnings("unchecked")
+  public RerankResult rank(String query, List<?> docs, Map<String, Object> kwargs) {
     validateQuery(query);
     validateDocs(docs);
 
@@ -173,20 +190,37 @@ public class CohereReranker extends BaseReranker {
       initializeClient();
     }
 
+    // Extract runtime parameters with defaults
+    int effectiveLimit = (Integer) kwargs.getOrDefault("limit", this.limit);
+    boolean effectiveReturnScore = (Boolean) kwargs.getOrDefault("return_score", this.returnScore);
+    Object maxChunksPerDoc = kwargs.get("max_chunks_per_doc");
+
+    // Handle rank_by override
+    List<String> effectiveRankBy = this.rankBy;
+    if (kwargs.containsKey("rank_by")) {
+      Object rankByValue = kwargs.get("rank_by");
+      if (rankByValue instanceof List) {
+        effectiveRankBy = (List<String>) rankByValue;
+      } else if (rankByValue instanceof String) {
+        effectiveRankBy = Collections.singletonList((String) rankByValue);
+      }
+    }
+
     // Determine if we're working with strings or dicts
     boolean isDictDocs = !docs.isEmpty() && docs.get(0) instanceof Map;
 
-    if (isDictDocs && (rankBy == null || rankBy.isEmpty())) {
+    if (isDictDocs && (effectiveRankBy == null || effectiveRankBy.isEmpty())) {
       throw new IllegalArgumentException(
           "If reranking dictionary-like docs, you must provide a list of rankBy fields");
     }
 
     try {
       // Call Cohere rerank API
-      Object response = callRerankApi(query, docs, isDictDocs);
+      Object response =
+          callRerankApi(query, docs, isDictDocs, effectiveLimit, effectiveRankBy, maxChunksPerDoc);
 
       // Extract results
-      return extractResults(docs, response);
+      return extractResults(docs, response, effectiveReturnScore);
 
     } catch (Exception e) {
       throw new RuntimeException("Failed to call Cohere rerank API", e);
@@ -199,10 +233,20 @@ public class CohereReranker extends BaseReranker {
    * @param query The search query
    * @param docs Documents to rerank
    * @param isDictDocs Whether documents are Maps or Strings
+   * @param limit Maximum number of results
+   * @param rankBy Fields to rank by (for dict documents)
+   * @param maxChunksPerDoc Maximum chunks per document (optional)
    * @return Response from Cohere API
    * @throws Exception if API call fails
    */
-  private Object callRerankApi(String query, List<?> docs, boolean isDictDocs) throws Exception {
+  private Object callRerankApi(
+      String query,
+      List<?> docs,
+      boolean isDictDocs,
+      int limit,
+      List<String> rankBy,
+      Object maxChunksPerDoc)
+      throws Exception {
     // Get RerankRequest.builder()
     Class<?> rerankRequestClass = Class.forName("com.cohere.api.requests.RerankRequest");
     Object requestBuilder = rerankRequestClass.getMethod("builder").invoke(null);
@@ -236,6 +280,14 @@ public class CohereReranker extends BaseReranker {
     // Set rankFields for dict documents
     if (isDictDocs && rankBy != null && !rankBy.isEmpty()) {
       finalStage = finalStageClass.getMethod("rankFields", List.class).invoke(finalStage, rankBy);
+    }
+
+    // Set maxChunksPerDoc if provided
+    if (maxChunksPerDoc != null) {
+      finalStage =
+          finalStageClass
+              .getMethod("maxChunksPerDoc", Integer.class)
+              .invoke(finalStage, maxChunksPerDoc);
     }
 
     // Build the request
@@ -284,10 +336,12 @@ public class CohereReranker extends BaseReranker {
    *
    * @param originalDocs Original documents
    * @param response Cohere API response
+   * @param returnScore Whether to return scores
    * @return RerankResult with reranked documents and scores
    * @throws Exception if extraction fails
    */
-  private RerankResult extractResults(List<?> originalDocs, Object response) throws Exception {
+  private RerankResult extractResults(List<?> originalDocs, Object response, boolean returnScore)
+      throws Exception {
     // Get results from response
     Class<?> responseClass = response.getClass();
     List<?> results = (List<?>) responseClass.getMethod("getResults").invoke(response);

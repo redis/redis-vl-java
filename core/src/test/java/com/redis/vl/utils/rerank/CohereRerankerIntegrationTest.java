@@ -170,4 +170,75 @@ class CohereRerankerIntegrationTest {
         Math.abs(topScore - 0.998) < 0.05,
         "Top score should be close to 0.998, but was: " + topScore);
   }
+
+  @Test
+  void testRuntimeLimitOverride() {
+    // Test that limit can be overridden at rank() time
+    Map<String, String> apiConfig = Map.of("api_key", apiKey);
+    CohereReranker reranker =
+        CohereReranker.builder()
+            .limit(5) // Default limit
+            .apiConfig(apiConfig)
+            .build();
+
+    // Override limit to 2 at runtime
+    RerankResult result = reranker.rank(QUERY, STRING_DOCS, Map.of("limit", 2));
+
+    assertNotNull(result);
+    assertEquals(2, result.getDocuments().size(), "Should return 2 results (overridden limit)");
+    assertEquals(2, result.getScores().size(), "Should return 2 scores");
+  }
+
+  @Test
+  void testRuntimeReturnScoreOverride() {
+    // Test that return_score can be overridden at rank() time
+    Map<String, String> apiConfig = Map.of("api_key", apiKey);
+    CohereReranker reranker =
+        CohereReranker.builder()
+            .returnScore(true) // Default return scores
+            .apiConfig(apiConfig)
+            .build();
+
+    // Override to not return scores
+    RerankResult result = reranker.rank(QUERY, STRING_DOCS, Map.of("return_score", false));
+
+    assertNotNull(result);
+    assertNotNull(result.getDocuments());
+    assertNull(result.getScores(), "Scores should be null when return_score=false");
+  }
+
+  @Test
+  void testRuntimeRankByOverride() {
+    // Test that rank_by can be overridden at rank() time
+    List<Map<String, Object>> dictDocs =
+        Arrays.asList(
+            Map.of("title", "Doc 1", "content", "Carson City is the capital of Nevada."),
+            Map.of("title", "Doc 2", "content", "Washington, D.C. is the capital of the US."));
+
+    Map<String, String> apiConfig = Map.of("api_key", apiKey);
+    // Create reranker without rank_by
+    CohereReranker reranker = CohereReranker.builder().apiConfig(apiConfig).build();
+
+    // Provide rank_by at runtime
+    RerankResult result =
+        reranker.rank(QUERY, dictDocs, Map.of("rank_by", Arrays.asList("content", "title")));
+
+    assertNotNull(result);
+    assertTrue(result.getDocuments().size() > 0, "Should return reranked results");
+  }
+
+  @Test
+  void testMaxChunksPerDoc() {
+    // Test max_chunks_per_doc parameter
+    Map<String, String> apiConfig = Map.of("api_key", apiKey);
+    CohereReranker reranker = CohereReranker.builder().apiConfig(apiConfig).build();
+
+    // Pass max_chunks_per_doc parameter
+    RerankResult result =
+        reranker.rank(QUERY, STRING_DOCS, Map.of("max_chunks_per_doc", 10, "limit", 3));
+
+    assertNotNull(result);
+    assertEquals(3, result.getDocuments().size(), "Should return 3 results");
+    assertTrue(result.getScores().size() > 0, "Should return scores");
+  }
 }

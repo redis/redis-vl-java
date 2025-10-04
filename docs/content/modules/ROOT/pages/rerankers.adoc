@@ -1,7 +1,7 @@
 = Rerankers
 :navtitle: Rerankers
 
-Rerankers improve search result quality by reordering documents based on their relevance to a query using specialized models. RedisVL for Java provides powerful reranking capabilities through HuggingFace cross-encoder models.
+Rerankers improve search result quality by reordering documents based on their relevance to a query using specialized models. RedisVL for Java provides powerful reranking capabilities through local HuggingFace cross-encoder models and cloud-based services like Cohere and VoyageAI.
 
 == What are Rerankers?
 
@@ -282,6 +282,535 @@ try {
     reranker.close();
 }
 ----
+
+== CohereReranker
+
+The `CohereReranker` class provides cloud-based reranking using Cohere's powerful Rerank API. Cohere offers state-of-the-art reranking models with excellent multilingual support and advanced features like structured document ranking.
+
+=== Setup
+
+Add the Cohere Java SDK dependency to your project:
+
+[tabs]
+====
+Maven::
++
+[source,xml]
+----
+<dependency>
+    <groupId>com.cohere</groupId>
+    <artifactId>cohere-java</artifactId>
+    <version>1.8.1</version>
+    <scope>runtime</scope>
+</dependency>
+----
+
+Gradle::
++
+[source,gradle]
+----
+runtimeOnly 'com.cohere:cohere-java:1.8.1'
+----
+====
+
+NOTE: The Cohere SDK is loaded dynamically via reflection, so it can be a `runtime` dependency only.
+
+=== API Key Setup
+
+Obtain an API key from https://dashboard.cohere.com/[Cohere Dashboard] and provide it through configuration:
+
+[source,java]
+----
+import com.redis.vl.utils.rerank.CohereReranker;
+import java.util.Map;
+
+// Option 1: Provide API key directly
+Map<String, String> apiConfig = Map.of("api_key", "your-cohere-api-key");
+CohereReranker reranker = CohereReranker.builder()
+    .apiConfig(apiConfig)
+    .build();
+
+// Option 2: Set COHERE_API_KEY environment variable
+// Reranker will automatically use it
+CohereReranker reranker = CohereReranker.builder().build();
+----
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.utils.rerank.CohereReranker;
+import com.redis.vl.utils.rerank.RerankResult;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+// Create reranker
+Map<String, String> apiConfig = Map.of("api_key", "your-api-key");
+CohereReranker reranker = CohereReranker.builder()
+    .model("rerank-english-v3.0")
+    .limit(3)
+    .apiConfig(apiConfig)
+    .build();
+
+// Define query and documents
+String query = "What is the capital of the United States?";
+List<String> docs = Arrays.asList(
+    "Carson City is the capital city of Nevada.",
+    "Washington, D.C. is the capital of the United States.",
+    "Charlotte Amalie is the capital of the US Virgin Islands."
+);
+
+// Rerank documents
+RerankResult result = reranker.rank(query, docs);
+
+// Access results
+List<?> rerankedDocs = result.getDocuments();
+List<Double> scores = result.getScores();
+
+for (int i = 0; i < rerankedDocs.size(); i++) {
+    System.out.println("Score: " + scores.get(i) + " - " + rerankedDocs.get(i));
+}
+----
+
+=== Understanding Cohere Relevance Scores
+
+Cohere relevance scores indicate query-document relevance:
+
+* **Higher scores**: Stronger relevance (typically 0.5 to 1.0 for relevant docs)
+* **Lower scores**: Weaker relevance (typically below 0.5 for less relevant docs)
+* **Score range**: Unbounded, but most relevant documents score between 0.8-1.0
+
+Cohere's reranking models are specifically trained for relevance scoring, providing highly accurate rankings especially for English and multilingual content.
+
+=== Supported Models
+
+Cohere provides several reranking models:
+
+[cols="2,3,1"]
+|===
+| Model | Use Case | Languages
+
+| `rerank-english-v3.0` (default)
+| High-quality English reranking
+| English
+
+| `rerank-multilingual-v3.0`
+| Multilingual reranking
+| 100+ languages
+
+| `rerank-english-v2.0`
+| Previous generation (legacy)
+| English
+|===
+
+[source,java]
+----
+// Use multilingual model
+CohereReranker reranker = CohereReranker.builder()
+    .model("rerank-multilingual-v3.0")
+    .apiConfig(apiConfig)
+    .build();
+----
+
+=== Working with String Documents
+
+Simple string document reranking:
+
+[source,java]
+----
+List<String> docs = Arrays.asList(
+    "Redis is an in-memory database",
+    "PostgreSQL is a relational database",
+    "MongoDB is a document database"
+);
+
+RerankResult result = reranker.rank("What is Redis?", docs);
+List<String> rerankedDocs = (List<String>) result.getDocuments();
+----
+
+=== Working with Structured Documents
+
+Cohere supports reranking structured documents using the `rank_by` parameter to specify which fields to consider:
+
+[source,java]
+----
+import java.util.Map;
+
+// Create structured documents
+List<Map<String, Object>> docs = Arrays.asList(
+    Map.of(
+        "source", "wiki",
+        "passage", "Redis is an in-memory database",
+        "timestamp", "2024-01-15"
+    ),
+    Map.of(
+        "source", "docs",
+        "passage", "PostgreSQL is a relational database",
+        "timestamp", "2024-01-20"
+    )
+);
+
+// Rerank using the 'passage' field
+CohereReranker reranker = CohereReranker.builder()
+    .rankBy(List.of("passage"))  // Specify field(s) to rank by
+    .apiConfig(apiConfig)
+    .build();
+
+RerankResult result = reranker.rank("What is Redis?", docs);
+
+// All fields are preserved in reranked results
+List<Map<String, Object>> reranked = (List<Map<String, Object>>) result.getDocuments();
+Map<String, Object> topDoc = reranked.get(0);
+System.out.println("Source: " + topDoc.get("source"));
+System.out.println("Passage: " + topDoc.get("passage"));
+----
+
+You can rank by multiple fields:
+
+[source,java]
+----
+CohereReranker reranker = CohereReranker.builder()
+    .rankBy(List.of("title", "content", "summary"))
+    .apiConfig(apiConfig)
+    .build();
+----
+
+=== Runtime Parameter Overrides
+
+Override configuration parameters at runtime without creating a new reranker:
+
+[source,java]
+----
+CohereReranker reranker = CohereReranker.builder()
+    .limit(5)  // Default limit
+    .apiConfig(apiConfig)
+    .build();
+
+// Override limit to 2 for this specific query
+RerankResult result = reranker.rank(query, docs, Map.of("limit", 2));
+
+// Override multiple parameters
+RerankResult result2 = reranker.rank(query, docs, Map.of(
+    "limit", 10,
+    "return_score", false,
+    "rank_by", List.of("title", "content"),
+    "max_chunks_per_doc", 10
+));
+----
+
+Supported runtime parameters:
+
+* `limit` (Integer): Maximum number of results to return
+* `return_score` (Boolean): Whether to include relevance scores
+* `rank_by` (List<String> or String): Field(s) to rank by for structured documents
+* `max_chunks_per_doc` (Integer): Maximum chunks per document for long documents
+
+=== Configuration Options
+
+[source,java]
+----
+CohereReranker reranker = CohereReranker.builder()
+    // Model selection
+    .model("rerank-english-v3.0")
+
+    // Limit: Maximum number of results to return (default: 5)
+    .limit(10)
+
+    // Return scores: Include relevance scores (default: true)
+    .returnScore(true)
+
+    // Rank by: Fields to use for ranking structured documents
+    .rankBy(List.of("passage", "title"))
+
+    // API configuration with API key
+    .apiConfig(Map.of("api_key", "your-api-key"))
+
+    .build();
+----
+
+=== Error Handling
+
+[source,java]
+----
+try {
+    RerankResult result = reranker.rank(query, docs);
+} catch (IllegalArgumentException e) {
+    // Missing API key or invalid arguments
+    System.err.println("Configuration error: " + e.getMessage());
+} catch (RuntimeException e) {
+    // API call failure or network error
+    System.err.println("Reranking failed: " + e.getMessage());
+    if (e.getCause() != null) {
+        System.err.println("Cause: " + e.getCause().getMessage());
+    }
+}
+----
+
+Common errors:
+
+* *Missing API key*: Set `COHERE_API_KEY` environment variable or provide in `apiConfig`
+* *Invalid model*: Check model name spelling and availability
+* *API quota exceeded*: Check your Cohere account limits
+* *Network error*: Verify internet connectivity
+
+== VoyageAIReranker
+
+The `VoyageAIReranker` class provides cloud-based reranking using VoyageAI's Rerank API. VoyageAI offers efficient and accurate reranking models optimized for production use.
+
+=== Setup
+
+VoyageAI reranker uses HTTP REST API calls via OkHttp. Add the OkHttp and Jackson dependencies:
+
+[tabs]
+====
+Maven::
++
+[source,xml]
+----
+<dependency>
+    <groupId>com.squareup.okhttp3</groupId>
+    <artifactId>okhttp</artifactId>
+    <version>4.12.0</version>
+</dependency>
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.18.2</version>
+</dependency>
+----
+
+Gradle::
++
+[source,gradle]
+----
+implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+----
+====
+
+NOTE: VoyageAI does not provide an official Java SDK. RedisVL4J uses direct REST API integration via OkHttp.
+
+=== API Key Setup
+
+Obtain an API key from https://dash.voyageai.com/[VoyageAI Dashboard] and provide it through configuration:
+
+[source,java]
+----
+import com.redis.vl.utils.rerank.VoyageAIReranker;
+import java.util.Map;
+
+// Option 1: Provide API key directly
+Map<String, String> apiConfig = Map.of("api_key", "your-voyage-api-key");
+VoyageAIReranker reranker = VoyageAIReranker.builder()
+    .apiConfig(apiConfig)
+    .build();
+
+// Option 2: Set VOYAGE_API_KEY environment variable
+VoyageAIReranker reranker = VoyageAIReranker.builder().build();
+----
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.utils.rerank.VoyageAIReranker;
+import com.redis.vl.utils.rerank.RerankResult;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+// Create reranker
+Map<String, String> apiConfig = Map.of("api_key", "your-api-key");
+VoyageAIReranker reranker = VoyageAIReranker.builder()
+    .model("rerank-lite-1")
+    .limit(3)
+    .apiConfig(apiConfig)
+    .build();
+
+// Define query and documents
+String query = "What is the capital of the United States?";
+List<String> docs = Arrays.asList(
+    "Carson City is the capital city of Nevada.",
+    "Washington, D.C. is the capital of the United States.",
+    "Charlotte Amalie is the capital of the US Virgin Islands."
+);
+
+// Rerank documents
+RerankResult result = reranker.rank(query, docs);
+
+// Access results
+List<?> rerankedDocs = result.getDocuments();
+List<Double> scores = result.getScores();
+
+for (int i = 0; i < rerankedDocs.size(); i++) {
+    System.out.println("Score: " + scores.get(i) + " - " + rerankedDocs.get(i));
+}
+----
+
+=== Understanding VoyageAI Relevance Scores
+
+VoyageAI relevance scores indicate query-document relevance:
+
+* **Score range**: Typically 0.0 to 1.0
+* **High relevance**: Scores above 0.7
+* **Medium relevance**: Scores between 0.4 and 0.7
+* **Low relevance**: Scores below 0.4
+
+VoyageAI's reranking models provide fast, production-ready relevance scoring suitable for real-time applications.
+
+=== Supported Models
+
+VoyageAI provides several reranking models:
+
+[cols="2,3,1"]
+|===
+| Model | Use Case | Speed
+
+| `rerank-lite-1` (default)
+| Fast, efficient reranking
+| Fastest
+
+| `rerank-2`
+| Balanced accuracy and speed
+| Medium
+
+| `rerank-2.5`
+| Highest accuracy
+| Slower
+|===
+
+[source,java]
+----
+// Use higher accuracy model
+VoyageAIReranker reranker = VoyageAIReranker.builder()
+    .model("rerank-2.5")
+    .apiConfig(apiConfig)
+    .build();
+----
+
+=== Working with String Documents
+
+Simple string document reranking:
+
+[source,java]
+----
+List<String> docs = Arrays.asList(
+    "Redis is an in-memory database",
+    "PostgreSQL is a relational database",
+    "MongoDB is a document database"
+);
+
+RerankResult result = reranker.rank("What is Redis?", docs);
+List<String> rerankedDocs = (List<String>) result.getDocuments();
+----
+
+=== Working with Structured Documents
+
+VoyageAI requires structured documents to have a `content` field:
+
+[source,java]
+----
+import java.util.Map;
+
+// Create structured documents with 'content' field
+List<Map<String, Object>> docs = Arrays.asList(
+    Map.of(
+        "source", "wiki",
+        "content", "Redis is an in-memory database",  // Must be 'content'
+        "timestamp", "2024-01-15"
+    ),
+    Map.of(
+        "source", "docs",
+        "content", "PostgreSQL is a relational database",
+        "timestamp", "2024-01-20"
+    )
+);
+
+RerankResult result = reranker.rank("What is Redis?", docs);
+
+// All fields are preserved in reranked results
+List<Map<String, Object>> reranked = (List<Map<String, Object>>) result.getDocuments();
+Map<String, Object> topDoc = reranked.get(0);
+System.out.println("Source: " + topDoc.get("source"));
+System.out.println("Content: " + topDoc.get("content"));
+----
+
+IMPORTANT: Unlike Cohere, VoyageAI does not support custom field selection. Structured documents must use the `content` field for the text to be ranked.
+
+=== Runtime Parameter Overrides
+
+Override configuration parameters at runtime:
+
+[source,java]
+----
+VoyageAIReranker reranker = VoyageAIReranker.builder()
+    .limit(5)  // Default limit
+    .apiConfig(apiConfig)
+    .build();
+
+// Override limit to 2 for this specific query
+RerankResult result = reranker.rank(query, docs, Map.of("limit", 2));
+
+// Override multiple parameters including truncation
+RerankResult result2 = reranker.rank(query, docs, Map.of(
+    "limit", 10,
+    "return_score", false,
+    "truncation", true  // Automatically truncate long documents
+));
+----
+
+Supported runtime parameters:
+
+* `limit` (Integer): Maximum number of results to return
+* `return_score` (Boolean): Whether to include relevance scores
+* `truncation` (Boolean): Automatically truncate documents exceeding token limits
+
+=== Configuration Options
+
+[source,java]
+----
+VoyageAIReranker reranker = VoyageAIReranker.builder()
+    // Model selection
+    .model("rerank-lite-1")
+
+    // Limit: Maximum number of results to return (default: 5)
+    .limit(10)
+
+    // Return scores: Include relevance scores (default: true)
+    .returnScore(true)
+
+    // API configuration with API key
+    .apiConfig(Map.of("api_key", "your-api-key"))
+
+    .build();
+----
+
+=== Error Handling
+
+[source,java]
+----
+try {
+    RerankResult result = reranker.rank(query, docs);
+} catch (IllegalArgumentException e) {
+    // Missing API key, invalid arguments, or missing 'content' field
+    System.err.println("Configuration error: " + e.getMessage());
+} catch (RuntimeException e) {
+    // API call failure or network error
+    System.err.println("Reranking failed: " + e.getMessage());
+    if (e.getCause() != null) {
+        System.err.println("Cause: " + e.getCause().getMessage());
+    }
+}
+----
+
+Common errors:
+
+* *Missing API key*: Set `VOYAGE_API_KEY` environment variable or provide in `apiConfig`
+* *Missing 'content' field*: Structured documents must have a `content` field
+* *Invalid model*: Check model name and availability
+* *API quota exceeded*: Check your VoyageAI account limits
+* *Network error*: Verify internet connectivity
 
 == Integration with SearchIndex
 
