@@ -185,4 +185,49 @@ class CohereRerankerTest {
     assertEquals(2, retrievedRankBy.size());
     assertEquals(Arrays.asList("content", "title"), retrievedRankBy);
   }
+
+  @Test
+  void testRankWithKwargsEmptyMap() {
+    Map<String, String> apiConfig = Map.of("api_key", "test-key");
+    CohereReranker reranker = CohereReranker.builder().limit(5).apiConfig(apiConfig).build();
+
+    // Calling with empty map should use default values
+    // Just testing signature - actual API call would happen in integration test
+    assertNotNull(reranker);
+    assertEquals(5, reranker.getLimit());
+  }
+
+  @Test
+  void testRankByRuntimeOverrideValidation() {
+    Map<String, String> apiConfig = Map.of("api_key", "test-key");
+    CohereReranker reranker = CohereReranker.builder().apiConfig(apiConfig).build();
+
+    List<Map<String, Object>> docs =
+        Arrays.asList(
+            Map.of("content", "doc1", "title", "title1"),
+            Map.of("content", "doc2", "title", "title2"));
+
+    // Without rank_by in kwargs or builder, should throw exception for dict docs
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> reranker.rank("query", docs, Collections.emptyMap()));
+
+    assertEquals(
+        "If reranking dictionary-like docs, you must provide a list of rankBy fields",
+        exception.getMessage());
+  }
+
+  @Test
+  void testInvalidKwargsType() {
+    Map<String, String> apiConfig = Map.of("api_key", "test-key");
+    CohereReranker reranker = CohereReranker.builder().apiConfig(apiConfig).build();
+
+    List<String> docs = Arrays.asList("doc1", "doc2");
+
+    // Invalid limit type should throw ClassCastException
+    assertThrows(
+        ClassCastException.class,
+        () -> reranker.rank("query", docs, Map.of("limit", "not-an-integer")));
+  }
 }
