@@ -30,6 +30,12 @@ public class OnnxModelLoader {
   private OrtEnvironment environment;
   private boolean normalizeEmbeddings = true;
 
+  // Special token IDs (loaded from tokenizer config)
+  private long clsTokenId;
+  private long sepTokenId;
+  private long padTokenId;
+  private long unkTokenId;
+
   /**
    * Creates a new OnnxModelLoader. The ONNX runtime environment will be provided when loading the
    * model.
@@ -91,6 +97,9 @@ public class OnnxModelLoader {
     String tokenizerJson = Files.readString(tokenizerPath);
     this.tokenizerConfig = GSON.fromJson(tokenizerJson, JsonObject.class);
     this.vocabulary = loadVocabulary(tokenizerConfig);
+
+    // Load special token IDs from vocabulary
+    loadSpecialTokenIds();
 
     // Update max sequence length from tokenizer if available
     if (tokenizerConfig.has("truncation")) {
@@ -177,11 +186,13 @@ public class OnnxModelLoader {
     Map<String, OnnxTensor> inputs = new HashMap<>();
     inputs.put("input_ids", inputTensor);
 
+    long[] shape = inputTensor.getInfo().getShape();
+    long[][] attentionMask = null;
+
     // Check if model expects token_type_ids (for BERT-style models)
     boolean needsTokenTypeIds = session.getInputInfo().containsKey("token_type_ids");
     if (needsTokenTypeIds) {
       // Create token_type_ids tensor (all zeros for single sentence)
-      long[] shape = inputTensor.getInfo().getShape();
       long[][] tokenTypeIds = new long[(int) shape[0]][(int) shape[1]];
       // All zeros for single sentence input
       OnnxTensor tokenTypeIdsTensor = OnnxTensor.createTensor(environment, tokenTypeIds);
@@ -192,12 +203,15 @@ public class OnnxModelLoader {
     boolean needsAttentionMask = session.getInputInfo().containsKey("attention_mask");
     if (needsAttentionMask) {
       // Create attention_mask tensor (1s for real tokens, 0s for padding)
-      long[] shape = inputTensor.getInfo().getShape();
-      long[][] attentionMask = new long[(int) shape[0]][(int) shape[1]];
-      // Set all to 1 for now (assuming no padding)
+      // Extract token IDs from input tensor to detect padding
+      long[][] tokenIds = (long[][]) inputTensor.getValue();
+      attentionMask = new long[(int) shape[0]][(int) shape[1]];
+
       for (int i = 0; i < shape[0]; i++) {
         for (int j = 0; j < shape[1]; j++) {
-          attentionMask[i][j] = 1;
+          // Set to 1 for non-padding tokens, 0 for padding
+          // Use padTokenId (e.g., 1 for MPNet, 0 for BERT) to detect padding
+          attentionMask[i][j] = tokenIds[i][j] != padTokenId ? 1 : 0;
         }
       }
       OnnxTensor attentionMaskTensor = OnnxTensor.createTensor(environment, attentionMask);
@@ -220,8 +234,8 @@ public class OnnxModelLoader {
         // Extract embeddings
         float[][][] tokenEmbeddings = (float[][][]) outputTensor.getValue();
 
-        // Apply pooling (mean pooling by default)
-        float[][] pooledEmbeddings = meanPooling(tokenEmbeddings);
+        // Apply attention-masked mean pooling (Sentence Transformers style)
+        float[][] pooledEmbeddings = meanPoolingWithAttention(tokenEmbeddings, attentionMask);
 
         // Normalize if required
         if (normalizeEmbeddings) {
@@ -236,12 +250,14 @@ public class OnnxModelLoader {
   }
 
   /**
-   * Apply mean pooling to token embeddings.
+   * Apply attention-masked mean pooling to token embeddings (Sentence Transformers style). Only
+   * averages over non-padding tokens where attention_mask == 1.
    *
    * @param tokenEmbeddings 3D array of token embeddings [batch, sequence, hidden]
+   * @param attentionMask 2D array of attention mask [batch, sequence] (1=real token, 0=padding)
    * @return 2D array of pooled embeddings [batch, hidden]
    */
-  public float[][] meanPooling(float[][][] tokenEmbeddings) {
+  public float[][] meanPoolingWithAttention(float[][][] tokenEmbeddings, long[][] attentionMask) {
     int batchSize = tokenEmbeddings.length;
     int hiddenSize = tokenEmbeddings[0][0].length;
 
@@ -249,20 +265,45 @@ public class OnnxModelLoader {
 
     for (int b = 0; b < batchSize; b++) {
       int sequenceLength = tokenEmbeddings[b].length;
+      int validTokenCount = 0;
 
+      // Sum only non-masked tokens
       for (int s = 0; s < sequenceLength; s++) {
-        for (int h = 0; h < hiddenSize; h++) {
-          pooled[b][h] += tokenEmbeddings[b][s][h];
+        if (attentionMask != null && attentionMask[b][s] == 1) {
+          validTokenCount++;
+          for (int h = 0; h < hiddenSize; h++) {
+            pooled[b][h] += tokenEmbeddings[b][s][h];
+          }
+        } else if (attentionMask == null) {
+          // No mask provided, count all tokens
+          validTokenCount++;
+          for (int h = 0; h < hiddenSize; h++) {
+            pooled[b][h] += tokenEmbeddings[b][s][h];
+          }
         }
       }
 
-      // Average
-      for (int h = 0; h < hiddenSize; h++) {
-        pooled[b][h] /= sequenceLength;
+      // Average over valid tokens only
+      if (validTokenCount > 0) {
+        for (int h = 0; h < hiddenSize; h++) {
+          pooled[b][h] /= validTokenCount;
+        }
       }
     }
 
     return pooled;
+  }
+
+  /**
+   * Apply mean pooling to token embeddings (legacy method).
+   *
+   * @param tokenEmbeddings 3D array of token embeddings [batch, sequence, hidden]
+   * @return 2D array of pooled embeddings [batch, hidden]
+   * @deprecated Use meanPoolingWithAttention for correct sentence-transformers behavior
+   */
+  @Deprecated
+  public float[][] meanPooling(float[][][] tokenEmbeddings) {
+    return meanPoolingWithAttention(tokenEmbeddings, null);
   }
 
   /**
@@ -333,39 +374,69 @@ public class OnnxModelLoader {
     return vocab;
   }
 
+  /**
+   * Load special token IDs from the vocabulary. Uses common default values if tokens are not found
+   * in the vocabulary.
+   */
+  private void loadSpecialTokenIds() {
+    // MPNet-style tokens (used by all-mpnet-base-v2)
+    this.clsTokenId = getTokenId("<s>", 0L);
+    this.sepTokenId = getTokenId("</s>", 2L);
+    this.padTokenId = getTokenId("<pad>", 1L);
+    this.unkTokenId = getTokenId("<unk>", 104L);
+
+    log.debug(
+        "Special tokens: CLS={}, SEP={}, PAD={}, UNK={}",
+        clsTokenId,
+        sepTokenId,
+        padTokenId,
+        unkTokenId);
+  }
+
   private long[] tokenizeText(String text) {
-    // Simple tokenization - in production, this would use the full tokenizer logic
-    // For now, we'll do basic word splitting and lookup
-
     List<Long> tokens = new ArrayList<>();
+    List<String> tokenStrings = new ArrayList<>(); // For debugging
 
-    // Add [CLS] token
-    tokens.add(getTokenId("[CLS]", 101L));
+    // Add [CLS] token (or <s> for MPNet)
+    tokens.add(clsTokenId);
+    tokenStrings.add("<CLS>:" + clsTokenId);
 
-    // Tokenize text (simplified - real implementation would use WordPiece/SentencePiece)
-    String[] words = text.toLowerCase().split("\\s+");
+    // Basic tokenization: split on whitespace and punctuation
+    List<String> basicTokens = basicTokenize(text);
 
-    for (String word : words) {
-      // Handle punctuation
-      String[] parts = word.split("(?=[.,!?;:])|(?<=[.,!?;:])");
-      for (String part : parts) {
-        if (!part.isEmpty()) {
-          tokens.add(getTokenId(part, 100L)); // 100 is typically [UNK]
+    // Apply WordPiece tokenization to each basic token
+    for (String token : basicTokens) {
+      if (token.isEmpty()) {
+        continue;
+      }
+
+      List<String> wordPieceTokens = wordPieceTokenize(token);
+      for (String subToken : wordPieceTokens) {
+        long tokenId = getTokenId(subToken, unkTokenId);
+        tokens.add(tokenId);
+        tokenStrings.add(subToken + ":" + tokenId);
+
+        // Stop if we're approaching max length (leave room for [SEP])
+        if (tokens.size() >= maxSequenceLength - 1) {
+          break;
         }
       }
 
-      // Stop if we're approaching max length (leave room for [SEP])
       if (tokens.size() >= maxSequenceLength - 1) {
         break;
       }
     }
 
-    // Add [SEP] token
-    tokens.add(getTokenId("[SEP]", 102L));
+    // Add [SEP] token (or </s> for MPNet)
+    tokens.add(sepTokenId);
+    tokenStrings.add("<SEP>:" + sepTokenId);
+
+    // Debug logging
+    log.debug("Tokenized '{}' -> {}", text, String.join(" ", tokenStrings));
 
     // Pad or truncate to max sequence length
     while (tokens.size() < maxSequenceLength) {
-      tokens.add(getTokenId("[PAD]", 0L));
+      tokens.add(padTokenId);
     }
 
     if (tokens.size() > maxSequenceLength) {
@@ -379,6 +450,105 @@ public class OnnxModelLoader {
     }
 
     return tokenArray;
+  }
+
+  /**
+   * Basic tokenization: lowercase, split on whitespace and punctuation.
+   *
+   * @param text Input text
+   * @return List of basic tokens
+   */
+  private List<String> basicTokenize(String text) {
+    List<String> tokens = new ArrayList<>();
+
+    // Lowercase the text
+    text = text.toLowerCase();
+
+    // Split on whitespace
+    String[] words = text.split("\\s+");
+
+    for (String word : words) {
+      if (word.isEmpty()) {
+        continue;
+      }
+
+      // Split punctuation into separate tokens
+      // This regex splits before/after punctuation characters
+      String[] parts = word.split("((?<=[\\p{Punct}])|(?=[\\p{Punct}]))");
+
+      for (String part : parts) {
+        String trimmed = part.trim();
+        if (!trimmed.isEmpty()) {
+          tokens.add(trimmed);
+        }
+      }
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Apply WordPiece tokenization to a single word. Implements the greedy longest-match-first
+   * algorithm used by BERT and similar models.
+   *
+   * @param word The word to tokenize
+   * @return List of WordPiece tokens (may include "##" prefixes for subwords)
+   */
+  private List<String> wordPieceTokenize(String word) {
+    List<String> tokens = new ArrayList<>();
+
+    if (word.isEmpty()) {
+      return tokens;
+    }
+
+    // If the whole word is in vocabulary, return it
+    if (vocabulary.containsKey(word)) {
+      tokens.add(word);
+      return tokens;
+    }
+
+    // Apply greedy longest-match-first WordPiece tokenization
+    int start = 0;
+    boolean isBad = false;
+
+    while (start < word.length()) {
+      int end = word.length();
+      String currentSubToken = null;
+
+      // Find the longest substring starting at 'start' that exists in vocabulary
+      while (start < end) {
+        String substr = word.substring(start, end);
+
+        // Add "##" prefix for continuation tokens (not the first subtoken)
+        if (start > 0) {
+          substr = "##" + substr;
+        }
+
+        if (vocabulary.containsKey(substr)) {
+          currentSubToken = substr;
+          break;
+        }
+
+        end--;
+      }
+
+      // If no valid subtoken found, mark as bad and use [UNK]
+      if (currentSubToken == null) {
+        isBad = true;
+        break;
+      }
+
+      tokens.add(currentSubToken);
+      start = end;
+    }
+
+    // If tokenization failed, return [UNK]
+    if (isBad || tokens.isEmpty()) {
+      tokens.clear();
+      tokens.add("[UNK]");
+    }
+
+    return tokens;
   }
 
   private long getTokenId(String token, long defaultId) {

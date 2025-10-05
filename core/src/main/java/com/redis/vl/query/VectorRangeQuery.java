@@ -189,8 +189,9 @@ public class VectorRangeQuery {
    * @return Query string
    */
   public String toQueryString() {
-    // Use KNN syntax but filter by distance threshold afterward
-    return "*=>[KNN " + numResults + " @" + field + " $vec AS distance]";
+    // Use VECTOR_RANGE syntax to filter by distance threshold (Python: line 685)
+    // Format: @field:[VECTOR_RANGE $threshold $vec]=>{$YIELD_DISTANCE_AS: vector_distance}
+    return "@" + field + ":[VECTOR_RANGE $threshold $vec]=>{$YIELD_DISTANCE_AS: vector_distance}";
   }
 
   /**
@@ -207,12 +208,12 @@ public class VectorRangeQuery {
       params.put("vec", vectorBytes);
     }
 
-    // Add distance threshold
+    // Add distance threshold (Python: DISTANCE_THRESHOLD_PARAM)
     params.put("threshold", distanceThreshold);
 
     // Add epsilon if specified
     if (epsilon != null) {
-      params.put("epsilon", epsilon);
+      params.put("EPSILON", epsilon);
     }
 
     return params;
