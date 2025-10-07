@@ -194,8 +194,7 @@ public class SemanticRouter {
 
     java.util.Map<String, Object> configDict = new java.util.HashMap<>();
     configDict.put("max_k", routingConfig.getMaxK());
-    configDict.put(
-        "aggregation_method", routingConfig.getAggregationMethod().name().toLowerCase());
+    configDict.put("aggregation_method", routingConfig.getAggregationMethod().name().toLowerCase());
     dict.put("routing_config", configDict);
 
     return dict;

@@ -215,11 +215,14 @@ class SemanticRouterIntegrationTest extends BaseIntegrationTest {
     // Test no-match query from Python notebook cell 9
     // Python output: RouteMatch(name=None, distance=None)
     RouteMatch noMatch = router.route("are aliens real?");
-    System.out.println("DEBUG: aliens query - name=" + noMatch.getName() + ", distance=" + noMatch.getDistance());
-    System.out.println("DEBUG: technology threshold=" + notebookRoutes.get(0).getDistanceThreshold());
+    System.out.println(
+        "DEBUG: aliens query - name=" + noMatch.getName() + ", distance=" + noMatch.getDistance());
+    System.out.println(
+        "DEBUG: technology threshold=" + notebookRoutes.get(0).getDistanceThreshold());
 
     assertThat(noMatch).isNotNull();
-    // NOTE: Java ONNX embeddings differ from Python, this query may match with distance near threshold
+    // NOTE: Java ONNX embeddings differ from Python, this query may match with distance near
+    // threshold
     // Python: None, Java: may match technology with distance ~0.33
     // Accept either outcome as embedding implementations differ
     if (noMatch.getName() != null) {

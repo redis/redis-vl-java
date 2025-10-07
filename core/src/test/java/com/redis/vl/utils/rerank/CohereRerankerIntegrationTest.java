@@ -57,18 +57,6 @@ class CohereRerankerIntegrationTest {
     assertEquals(3, docs.size(), "Should return 3 results");
     assertEquals(3, scores.size(), "Should return 3 scores");
 
-    System.out.println("\n=== JAVA STRING DOCS OUTPUT ===");
-    for (int i = 0; i < docs.size(); i++) {
-      String docPreview =
-          docs.get(i).toString().substring(0, Math.min(50, docs.get(i).toString().length()));
-      System.out.println(scores.get(i) + " -- " + docPreview + "...");
-    }
-
-    System.out.println("\n=== EXPECTED PYTHON OUTPUT ===");
-    System.out.println("0.9990564 -- Washington, D.C. ...");
-    System.out.println("0.7516481 -- Capital punishment ...");
-    System.out.println("0.08882029 -- Northern Mariana Islands ...");
-
     // Top result must be Washington D.C.
     String topDoc = (String) docs.get(0);
     assertTrue(
@@ -77,9 +65,6 @@ class CohereRerankerIntegrationTest {
 
     // Top score should be ~0.999
     double topScore = scores.get(0);
-    System.out.println("\n=== SCORE COMPARISON ===");
-    System.out.println("Expected top score: ~0.999");
-    System.out.println("Actual top score: " + topScore);
 
     assertTrue(topScore > 0.9, "Top score should be > 0.9, but was: " + topScore);
     assertTrue(
@@ -140,17 +125,6 @@ class CohereRerankerIntegrationTest {
     assertEquals(3, docs.size(), "Should return 3 results");
     assertEquals(3, scores.size(), "Should return 3 scores");
 
-    System.out.println("\n=== JAVA DICT DOCS OUTPUT ===");
-    for (int i = 0; i < docs.size(); i++) {
-      System.out.println(scores.get(i) + " -- " + docs.get(i));
-    }
-
-    System.out.println("\n=== EXPECTED PYTHON OUTPUT ===");
-    System.out.println("0.9988121 -- {'source': 'textbook', 'passage': 'Washington, D.C. ...'}");
-    System.out.println("0.5974905 -- {'source': 'wiki', 'passage': 'Capital punishment ...'}");
-    System.out.println(
-        "0.059101548 -- {'source': 'encyclopedia', 'passage': 'Northern Mariana ...'}");
-
     // Top result must be Washington D.C. with source=textbook
     @SuppressWarnings("unchecked")
     Map<String, Object> topDoc = (Map<String, Object>) docs.get(0);
@@ -161,10 +135,6 @@ class CohereRerankerIntegrationTest {
 
     // Top score should be ~0.998
     double topScore = scores.get(0);
-    System.out.println("\n=== SCORE COMPARISON ===");
-    System.out.println("Expected top score: ~0.998");
-    System.out.println("Actual top score: " + topScore);
-
     assertTrue(topScore > 0.9, "Top score should be > 0.9, but was: " + topScore);
     assertTrue(
         Math.abs(topScore - 0.998) < 0.05,

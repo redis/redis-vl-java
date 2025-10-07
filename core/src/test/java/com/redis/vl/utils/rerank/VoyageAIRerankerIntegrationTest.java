@@ -58,34 +58,43 @@ class VoyageAIRerankerIntegrationTest {
     assertEquals(3, docs.size(), "Should return 3 results");
     assertEquals(3, scores.size(), "Should return 3 scores");
 
-    System.out.println("\n=== JAVA STRING DOCS OUTPUT ===\"");
-    for (int i = 0; i < docs.size(); i++) {
-      String docPreview =
-          docs.get(i).toString().substring(0, Math.min(50, docs.get(i).toString().length()));
-      System.out.println(scores.get(i) + " -- " + docPreview + "...");
-    }
-
-    System.out.println("\n=== EXPECTED PYTHON OUTPUT ===");
-    System.out.println("0.796875 -- Washington, D.C. ...");
-    System.out.println("0.578125 -- Charlotte Amalie ...");
-    System.out.println("0.5625 -- Carson City ...");
-
-    // Top result must be Washington D.C.
+    // Top result must be Washington D.C. (Python: 0.796875)
     String topDoc = (String) docs.get(0);
     assertTrue(
         topDoc.contains("Washington, D.C."),
         "Top result must be Washington D.C., but was: " + topDoc);
 
-    // Top score should be ~0.797
+    // Validate top score matches Python (~0.797)
     double topScore = scores.get(0);
-    System.out.println("\n=== SCORE COMPARISON ===");
-    System.out.println("Expected top score: ~0.797");
-    System.out.println("Actual top score: " + topScore);
-
-    assertTrue(topScore > 0.5, "Top score should be > 0.5, but was: " + topScore);
+    assertTrue(topScore > 0.7, "Top score should be > 0.7, but was: " + topScore);
     assertTrue(
         Math.abs(topScore - 0.797) < 0.1,
-        "Top score should be close to 0.797, but was: " + topScore);
+        "Top score should be close to 0.797 (±0.1), but was: " + topScore);
+
+    // Second result should be Charlotte Amalie (Python: 0.578125)
+    String secondDoc = (String) docs.get(1);
+    assertTrue(
+        secondDoc.contains("Charlotte Amalie"),
+        "Second result should be Charlotte Amalie, but was: " + secondDoc);
+    double secondScore = scores.get(1);
+    assertTrue(
+        Math.abs(secondScore - 0.578) < 0.1,
+        "Second score should be close to 0.578 (±0.1), but was: " + secondScore);
+
+    // Third result should be Carson City (Python: 0.5625)
+    String thirdDoc = (String) docs.get(2);
+    assertTrue(
+        thirdDoc.contains("Carson City"),
+        "Third result should be Carson City, but was: " + thirdDoc);
+    double thirdScore = scores.get(2);
+    assertTrue(
+        Math.abs(thirdScore - 0.563) < 0.1,
+        "Third score should be close to 0.563 (±0.1), but was: " + thirdScore);
+
+    // Verify scores are in descending order
+    assertTrue(
+        scores.get(0) > scores.get(1) && scores.get(1) > scores.get(2),
+        "Scores should be in descending order");
   }
 
   @Test

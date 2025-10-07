@@ -27,11 +27,8 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
   public void setUp() {
 
     // Cell 5: Create vectorizer using SentenceTransformersVectorizer
-    // This should download the redis/langcache-embed-v3 model from HuggingFace on first use
-    System.out.println("Initializing SentenceTransformersVectorizer with redis/langcache-embed-v3");
     try {
       vectorizer = new SentenceTransformersVectorizer("redis/langcache-embed-v3");
-      System.out.println("Model dimensions: " + vectorizer.getDimensions());
     } catch (Exception e) {
       System.err.println("Failed to initialize SentenceTransformersVectorizer: " + e.getMessage());
       e.printStackTrace();
@@ -46,8 +43,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
             .distanceThreshold(0.1f)
             .vectorizer(vectorizer)
             .build();
-
-    System.out.println("SemanticCache initialized with index: " + llmcache.getName());
   }
 
   @Test
@@ -55,7 +50,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     // Cell 6: Verify cache is ready
     assertNotNull(llmcache);
     assertEquals("llmcache_test", llmcache.getName());
-    System.out.println("Cache index '" + llmcache.getName() + "' is ready for use");
 
     // Cell 8: Define question
     String question = "What is the capital of France?";
@@ -63,7 +57,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     // Cell 9: Check empty cache
     Optional<CacheHit> response = llmcache.check(question);
     assertFalse(response.isPresent(), "Cache should be empty initially");
-    System.out.println("Initial cache check: " + (response.isPresent() ? "Found" : "Empty"));
 
     // Cell 11: Store in cache
     Map<String, Object> metadata = new HashMap<>();
@@ -71,7 +64,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     metadata.put("country", "france");
 
     llmcache.store(question, "Paris", metadata);
-    System.out.println("Stored in cache");
 
     // Cell 13: Check cache again
     Optional<CacheHit> cacheResponse = llmcache.check(question);
@@ -84,11 +76,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
       assertNotNull(hit.getMetadata());
       assertEquals("Paris", hit.getMetadata().get("city"));
       assertEquals("france", hit.getMetadata().get("country"));
-      System.out.println("Found in cache:");
-      System.out.println("  Prompt: " + hit.getPrompt());
-      System.out.println("  Response: " + hit.getResponse());
-      System.out.println("  Distance: " + hit.getDistance());
-      System.out.println("  Metadata: " + hit.getMetadata());
     }
 
     // Cell 14: Check semantically similar question
@@ -97,29 +84,22 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     assertTrue(similarResponse.isPresent(), "Should find semantically similar entry");
     if (similarResponse.isPresent()) {
       assertEquals("Paris", similarResponse.get().getResponse());
-      System.out.println("Similar question result: " + similarResponse.get().getResponse());
     }
 
     // Cell 16: Adjust distance threshold
     llmcache.setDistanceThreshold(0.5f);
     assertEquals(0.5f, llmcache.getDistanceThreshold(), 0.001f);
-    System.out.println("Distance threshold set to 0.5");
 
     // Cell 17: Try with tricky question
     String trickQuestion =
         "What is the capital city of the country in Europe that also has a city named Nice?";
     Optional<CacheHit> trickResponse = llmcache.check(trickQuestion);
     // With wider threshold, this might match
-    System.out.println(
-        "Trick question result: "
-            + (trickResponse.isPresent() ? trickResponse.get().getResponse() : "Not found"));
 
     // Cell 18: Clear cache
     llmcache.clear();
     Optional<CacheHit> clearedResponse = llmcache.check(trickQuestion);
     assertFalse(clearedResponse.isPresent(), "Cache should be empty after clear");
-    System.out.println(
-        "Cache after clear: " + (clearedResponse.isPresent() ? "Not empty" : "Empty"));
   }
 
   @Test
@@ -134,11 +114,8 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
             .ttl(5) // 5 seconds
             .build();
 
-    System.out.println("Created cache with 5 second TTL");
-
     // Cell 21: Store with TTL
     ttlCache.store("This is a TTL test", "This is a TTL test response");
-    System.out.println("Stored entry with TTL");
 
     // Verify it's there immediately
     Optional<CacheHit> immediateCheck = ttlCache.check("This is a TTL test");
@@ -150,8 +127,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     // Cell 22: Check after TTL expiry
     Optional<CacheHit> ttlResult = ttlCache.check("This is a TTL test");
     assertFalse(ttlResult.isPresent(), "Entry should have expired");
-    System.out.println(
-        "Result after TTL expiry: " + (ttlResult.isPresent() ? "Found" : "Empty (expired)"));
 
     // Cell 23: Clean up
     ttlCache.clear();
@@ -204,15 +179,12 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
         "The number on file is 123-555-1111",
         userDef);
 
-    System.out.println("Stored user-specific cache entries");
-
     // Cell 32: Check cache entries
     Optional<CacheHit> phoneResponse =
         llmcache.check("What is the phone number linked to my account?");
 
     assertTrue(phoneResponse.isPresent());
     if (phoneResponse.isPresent()) {
-      System.out.println("Found entry: " + phoneResponse.get().getResponse());
       // Should return one of the phone numbers based on similarity
       String response = phoneResponse.get().getResponse();
       assertTrue(response.contains("123-555-"));
@@ -220,7 +192,5 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
 
     // Cell 33: Final cleanup
     llmcache.clear();
-    System.out.println("\nAll caches cleaned up.");
-    System.out.println("SemanticCache demonstration complete!");
   }
 }

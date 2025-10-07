@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Real integration test with BAAI/bge-reranker-base model.
+ * Integration test with BAAI/bge-reranker-base model.
  *
  * <p>Compares outputs to Python notebook to verify correctness.
  *
@@ -23,12 +23,10 @@ class BAAIModelRealIntegrationTest {
 
   @BeforeAll
   static void setUp() {
-    System.out.println("=== LOADING BAAI/bge-reranker-base MODEL ===");
     reranker = HFCrossEncoderReranker.builder().model("BAAI/bge-reranker-base").build();
 
     assertNotNull(reranker, "Reranker must initialize");
     assertEquals("BAAI/bge-reranker-base", reranker.getModel());
-    System.out.println("=== MODEL LOADED ===");
   }
 
   @AfterAll
@@ -57,18 +55,6 @@ class BAAIModelRealIntegrationTest {
     List<?> results = result.getDocuments();
     List<Double> scores = result.getScores();
 
-    System.out.println("\n=== JAVA OUTPUT ===");
-    for (int i = 0; i < results.size(); i++) {
-      String docPreview =
-          results.get(i).toString().substring(0, Math.min(50, results.get(i).toString().length()));
-      System.out.println(scores.get(i) + " -- " + docPreview + "...");
-    }
-
-    System.out.println("\n=== EXPECTED PYTHON OUTPUT (with sigmoid) ===");
-    System.out.println("0.9999381  --  Washington, D.C. ...");
-    System.out.println("0.3802366  --  Charlotte Amalie ...");
-    System.out.println("0.0746112  --  Carson City ...");
-
     // Verify we got 3 results
     assertEquals(3, results.size(), "Should return 3 results");
     assertEquals(3, scores.size(), "Should return 3 scores");
@@ -81,9 +67,6 @@ class BAAIModelRealIntegrationTest {
 
     // Score for Washington D.C. should be ~0.9999 (after sigmoid)
     double topScore = scores.get(0);
-    System.out.println("\n=== SCORE COMPARISON ===");
-    System.out.println("Expected top score: ~0.9999");
-    System.out.println("Actual top score: " + topScore);
 
     assertTrue(
         topScore > 0.0 && topScore < 1.0,
