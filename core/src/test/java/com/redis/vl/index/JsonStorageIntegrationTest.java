@@ -374,8 +374,8 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
           if (metadata != null) {
             brand = metadata.get("brand");
           }
-        } catch (Exception e) {
-          // Fallback
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+          throw new RuntimeException("Failed to parse JSON document for brand extraction", e);
         }
       }
     }
@@ -533,8 +533,9 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> docMap = mapper.readValue((String) jsonDoc, Map.class);
                     priceObj = docMap.get("price");
-                  } catch (Exception e) {
-                    // Ignore
+                  } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                    throw new RuntimeException(
+                        "Failed to parse JSON document for price extraction", e);
                   }
                 }
               }
@@ -556,8 +557,9 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> docMap = mapper.readValue((String) jsonDoc, Map.class);
                     categoryObj = docMap.get("category");
-                  } catch (Exception e) {
-                    // Ignore
+                  } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                    throw new RuntimeException(
+                        "Failed to parse JSON document for category extraction", e);
                   }
                 }
               }

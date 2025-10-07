@@ -94,7 +94,8 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     String trickQuestion =
         "What is the capital city of the country in Europe that also has a city named Nice?";
     Optional<CacheHit> trickResponse = llmcache.check(trickQuestion);
-    // With wider threshold, this might match
+    // With wider threshold, this might match - could be present or empty depending on embeddings
+    assertNotNull(trickResponse, "Check should return a non-null Optional");
 
     // Cell 18: Clear cache
     llmcache.clear();

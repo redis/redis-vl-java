@@ -1,5 +1,6 @@
 package com.redis.vl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
@@ -9,9 +10,21 @@ import redis.clients.jedis.*;
 /** Base class for integration tests with Redis Stack container */
 public abstract class BaseIntegrationTest {
 
+  @SuppressFBWarnings(
+      value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
+      justification = "Test infrastructure fields intentionally mutable for test lifecycle")
   protected static Jedis jedis;
+
+  @SuppressFBWarnings(
+      value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
+      justification = "Test infrastructure fields intentionally mutable for test lifecycle")
   protected static UnifiedJedis unifiedJedis;
+
+  @SuppressFBWarnings(
+      value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
+      justification = "Test infrastructure fields intentionally mutable for test lifecycle")
   protected static String redisUrl;
+
   private static GenericContainer<?> redisContainer;
   private static JedisPool jedisPool;
 

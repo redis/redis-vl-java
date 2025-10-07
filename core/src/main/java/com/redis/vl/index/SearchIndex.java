@@ -28,9 +28,14 @@ import redis.clients.jedis.search.IndexDataType;
 import redis.clients.jedis.search.SearchResult;
 import redis.clients.jedis.search.schemafields.SchemaField;
 
-/** Manages Redis search index operations */
+/**
+ * Manages Redis search index operations.
+ *
+ * <p>This class is final to prevent finalizer attacks, as it throws exceptions in constructors for
+ * input validation (SEI CERT OBJ11-J).
+ */
 @Slf4j
-public class SearchIndex {
+public final class SearchIndex {
 
   private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
   private static final ObjectMapper jsonMapper = new ObjectMapper();

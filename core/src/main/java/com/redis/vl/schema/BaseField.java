@@ -131,4 +131,20 @@ public abstract class BaseField {
   public int hashCode() {
     return Objects.hash(name, alias, indexed, sortable);
   }
+
+  /**
+   * Empty finalizer to prevent finalizer attacks on subclasses.
+   *
+   * <p>Per SEI CERT OBJ11-J, classes that throw exceptions in constructors should have an empty
+   * final finalizer to prevent finalizer attacks through subclassing.
+   *
+   * <p>Note: finalize() is deprecated but required here for security (prevent finalizer attacks).
+   *
+   * @see <a href="https://wiki.sei.cmu.edu/confluence/display/java/OBJ11-J">SEI CERT OBJ11-J</a>
+   */
+  @Override
+  @SuppressWarnings("deprecation")
+  protected final void finalize() {
+    // Empty finalizer to prevent finalizer attacks
+  }
 }

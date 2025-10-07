@@ -3,8 +3,13 @@ package com.redis.vl.query;
 import com.redis.vl.utils.ArrayUtils;
 import java.util.*;
 
-/** Vector range query for finding vectors within a distance threshold */
-public class VectorRangeQuery {
+/**
+ * Vector range query for finding vectors within a distance threshold.
+ *
+ * <p>This class is final to prevent finalizer attacks, as it throws exceptions in constructors for
+ * input validation (SEI CERT OBJ11-J).
+ */
+public final class VectorRangeQuery {
 
   private final float[] vector;
   private final String field;

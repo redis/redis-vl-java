@@ -519,6 +519,10 @@ public class SemanticCache extends BaseCache {
      * @param redisClient UnifiedJedis client
      * @return This builder
      */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2",
+        justification =
+            "UnifiedJedis is a connection client intentionally shared across components")
     public Builder redisClient(UnifiedJedis redisClient) {
       this.redisClient = redisClient;
       return this;
@@ -530,6 +534,9 @@ public class SemanticCache extends BaseCache {
      * @param vectorizer Vectorizer to use for embedding prompts
      * @return This builder
      */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2",
+        justification = "BaseVectorizer is a service object intentionally shared across components")
     public Builder vectorizer(BaseVectorizer vectorizer) {
       this.vectorizer = vectorizer;
       return this;

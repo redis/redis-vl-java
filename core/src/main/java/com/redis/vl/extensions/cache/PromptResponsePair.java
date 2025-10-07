@@ -1,5 +1,7 @@
 package com.redis.vl.extensions.cache;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /** Represents a prompt-response pair for batch operations. */
@@ -29,7 +31,8 @@ public class PromptResponsePair {
   public PromptResponsePair(String prompt, String response, Map<String, Object> metadata) {
     this.prompt = prompt;
     this.response = response;
-    this.metadata = metadata;
+    // Defensive copy to prevent external modification
+    this.metadata = metadata != null ? new HashMap<>(metadata) : null;
   }
 
   /**
@@ -53,9 +56,9 @@ public class PromptResponsePair {
   /**
    * Get the metadata.
    *
-   * @return The metadata map (may be null)
+   * @return An unmodifiable view of the metadata map, or null if no metadata
    */
   public Map<String, Object> getMetadata() {
-    return metadata;
+    return metadata != null ? Collections.unmodifiableMap(metadata) : null;
   }
 }

@@ -87,11 +87,9 @@ public class VectorComparisonTest extends BaseIntegrationTest {
     data.add(joe);
 
     // Load data
-    List<String> keys = new ArrayList<>();
     for (Map<String, Object> doc : data) {
       String key = index.getPrefix() + ":" + doc.get("user");
       index.addDocument(key, doc);
-      keys.add(key);
     }
 
     // Add tyler

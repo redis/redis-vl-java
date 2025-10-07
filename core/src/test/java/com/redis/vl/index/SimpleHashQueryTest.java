@@ -104,7 +104,10 @@ class SimpleHashQueryTest extends BaseIntegrationTest {
     assertThat(allFields).containsKey("name");
 
     // Verify vector field exists
-    byte[] vectorData = unifiedJedis.hget(docKey.getBytes(), "embedding".getBytes());
+    byte[] vectorData =
+        unifiedJedis.hget(
+            docKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            "embedding".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     assertThat(vectorData).isNotNull();
     assertThat(vectorData).hasSize(12);
 

@@ -1,5 +1,7 @@
 package com.redis.vl.extensions.cache;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -25,7 +27,8 @@ public class CacheHit {
     this.prompt = prompt;
     this.response = response;
     this.distance = distance;
-    this.metadata = metadata;
+    // Defensive copy to prevent external modification
+    this.metadata = metadata != null ? new HashMap<>(metadata) : Collections.emptyMap();
   }
 
   /**
@@ -58,10 +61,10 @@ public class CacheHit {
   /**
    * Get the metadata.
    *
-   * @return The metadata map
+   * @return An unmodifiable view of the metadata map
    */
   public Map<String, Object> getMetadata() {
-    return metadata;
+    return Collections.unmodifiableMap(metadata);
   }
 
   @Override
