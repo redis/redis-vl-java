@@ -97,12 +97,6 @@ class HFCrossEncoderRerankerNotebookTest {
     assertTrue(
         topDoc.contains("Washington, D.C.") || topDoc.contains("capital of the United States"),
         "Top result should be about Washington D.C., but was: " + topDoc);
-
-    // Print results like notebook does
-    System.out.println("\nNotebook test results (BAAI model):");
-    for (int i = 0; i < results.size(); i++) {
-      System.out.println(scores.get(i) + " -- " + results.get(i));
-    }
   }
 
   @Test
@@ -166,12 +160,6 @@ class HFCrossEncoderRerankerNotebookTest {
     for (Map<String, Object> doc : rerankedResults) {
       assertTrue(doc.containsKey("source"), "Should preserve 'source' field");
       assertTrue(doc.containsKey("content"), "Should preserve 'content' field");
-    }
-
-    // Print like notebook
-    System.out.println("\nNotebook structured doc results (BAAI model):");
-    for (int i = 0; i < rerankedResults.size(); i++) {
-      System.out.println(structuredScores.get(i) + " -- " + rerankedResults.get(i));
     }
   }
 

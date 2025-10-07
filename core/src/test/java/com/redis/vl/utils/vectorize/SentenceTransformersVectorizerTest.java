@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
  * sentence-transformers library.
  *
  * <p>This test validates that:
+ *
  * <ul>
  *   <li>Proper WordPiece tokenization is implemented
  *   <li>Special token IDs (CLS, SEP, PAD, UNK) are loaded from vocabulary
@@ -48,7 +49,6 @@ class SentenceTransformersVectorizerTest {
     // Check cosine distance matches Python
     // Python cosine distance between these texts should be ~0.859
     double cosineDist = computeCosineDistance(embedding1, embedding2);
-    System.out.println("Cosine distance between texts: " + cosineDist);
 
     // Python shows: are aliens real? vs AI advancement = 0.8594 distance
     // Allow ±0.05 tolerance for ONNX implementation differences
@@ -67,7 +67,6 @@ class SentenceTransformersVectorizerTest {
     float[] refEmb = vectorizer.embed(reference);
 
     double cosineDist = computeCosineDistance(queryEmb, refEmb);
-    System.out.println("Cosine distance (AI query vs AI ref): " + cosineDist);
 
     // Python: 0.1196
     // Java should produce similar value (±0.05 tolerance)
