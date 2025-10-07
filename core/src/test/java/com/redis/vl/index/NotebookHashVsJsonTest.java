@@ -53,14 +53,14 @@ class NotebookHashVsJsonTest extends BaseIntegrationTest {
   @SuppressWarnings("unchecked")
   private void loadHybridExampleData() throws Exception {
     // Load pickle data from test resources
-    InputStream stream = getClass().getResourceAsStream("/hybrid_example_data.pkl");
-    if (stream == null) {
-      throw new RuntimeException("Could not find hybrid_example_data.pkl in test resources");
-    }
+    try (InputStream stream = getClass().getResourceAsStream("/hybrid_example_data.pkl")) {
+      if (stream == null) {
+        throw new RuntimeException("Could not find hybrid_example_data.pkl in test resources");
+      }
 
-    Unpickler unpickler = new Unpickler();
-    hybridData = (List<Map<String, Object>>) unpickler.load(stream);
-    stream.close();
+      Unpickler unpickler = new Unpickler();
+      hybridData = (List<Map<String, Object>>) unpickler.load(stream);
+    }
 
     assertThat(hybridData).isNotEmpty();
 

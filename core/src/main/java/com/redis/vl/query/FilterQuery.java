@@ -2,8 +2,6 @@ package com.redis.vl.query;
 
 import java.util.List;
 import java.util.Map;
-import lombok.Builder;
-import lombok.Getter;
 import redis.clients.jedis.search.Query;
 
 /**
@@ -33,27 +31,23 @@ import redis.clients.jedis.search.Query;
  *     .build()
  * </pre>
  */
-@Getter
-@Builder
 public class FilterQuery {
 
-  /** Private constructor used by Lombok builder. */
-  @SuppressWarnings("unused")
-  private FilterQuery(
-      Filter filterExpression,
-      List<String> returnFields,
-      int numResults,
-      int dialect,
-      String sortBy,
-      boolean inOrder,
-      Map<String, Object> params) {
-    this.filterExpression = filterExpression;
-    this.returnFields = returnFields != null ? returnFields : List.of();
-    this.numResults = numResults;
-    this.dialect = dialect;
-    this.sortBy = sortBy;
-    this.inOrder = inOrder;
-    this.params = params != null ? params : Map.of();
+  /** Private constructor used by builder. */
+  private FilterQuery(FilterQueryBuilder builder) {
+    this.filterExpression = builder.filterExpression;
+    this.returnFields =
+        builder.returnFields != null ? List.copyOf(builder.returnFields) : List.of();
+    this.numResults = builder.numResults;
+    this.dialect = builder.dialect;
+    this.sortBy = builder.sortBy;
+    this.inOrder = builder.inOrder;
+    this.params = builder.params != null ? Map.copyOf(builder.params) : Map.of();
+  }
+
+  /** Create a new builder. */
+  public static FilterQueryBuilder builder() {
+    return new FilterQueryBuilder();
   }
 
   /**
@@ -63,13 +57,13 @@ public class FilterQuery {
   private final Filter filterExpression;
 
   /** The fields to return in results. Python: return_fields (Optional[List[str]]) */
-  @Builder.Default private final List<String> returnFields = List.of();
+  private final List<String> returnFields;
 
   /** The number of results to return. Python: num_results (int) - defaults to 10 */
-  @Builder.Default private final int numResults = 10;
+  private final int numResults;
 
   /** The query dialect (RediSearch version). Python: dialect (int) - defaults to 2 */
-  @Builder.Default private final int dialect = 2;
+  private final int dialect;
 
   /**
    * Field to sort results by. Python: sort_by (Optional[SortSpec]) - can be str, Tuple[str, str],
@@ -82,10 +76,10 @@ public class FilterQuery {
    * Whether to require terms in field to have same order as in query filter. Python: in_order
    * (bool) - defaults to False
    */
-  @Builder.Default private final boolean inOrder = false;
+  private final boolean inOrder;
 
   /** Additional parameters for the query. Python: params (Optional[Dict[str, Any]]) */
-  @Builder.Default private final Map<String, Object> params = Map.of();
+  private final Map<String, Object> params;
 
   /**
    * Build Redis Query object from FilterQuery.
@@ -122,5 +116,98 @@ public class FilterQuery {
     }
 
     return query;
+  }
+
+  // Getters
+  public Filter getFilterExpression() {
+    return filterExpression;
+  }
+
+  public List<String> getReturnFields() {
+    return returnFields;
+  }
+
+  public int getNumResults() {
+    return numResults;
+  }
+
+  public int getDialect() {
+    return dialect;
+  }
+
+  public String getSortBy() {
+    return sortBy;
+  }
+
+  public boolean isInOrder() {
+    return inOrder;
+  }
+
+  public Map<String, Object> getParams() {
+    return params;
+  }
+
+  /** Builder for FilterQuery with defensive copying. */
+  public static class FilterQueryBuilder {
+    private Filter filterExpression;
+    private List<String> returnFields = List.of();
+    private int numResults = 10;
+    private int dialect = 2;
+    private String sortBy;
+    private boolean inOrder = false;
+    private Map<String, Object> params = Map.of();
+
+    FilterQueryBuilder() {}
+
+    public FilterQueryBuilder filterExpression(Filter filterExpression) {
+      this.filterExpression = filterExpression;
+      return this;
+    }
+
+    /**
+     * Set return fields. Makes a defensive copy.
+     *
+     * @param returnFields List of field names
+     * @return this builder
+     */
+    public FilterQueryBuilder returnFields(List<String> returnFields) {
+      this.returnFields = returnFields != null ? List.copyOf(returnFields) : List.of();
+      return this;
+    }
+
+    public FilterQueryBuilder numResults(int numResults) {
+      this.numResults = numResults;
+      return this;
+    }
+
+    public FilterQueryBuilder dialect(int dialect) {
+      this.dialect = dialect;
+      return this;
+    }
+
+    public FilterQueryBuilder sortBy(String sortBy) {
+      this.sortBy = sortBy;
+      return this;
+    }
+
+    public FilterQueryBuilder inOrder(boolean inOrder) {
+      this.inOrder = inOrder;
+      return this;
+    }
+
+    /**
+     * Set query parameters. Makes a defensive copy.
+     *
+     * @param params Parameter map
+     * @return this builder
+     */
+    public FilterQueryBuilder params(Map<String, Object> params) {
+      this.params = params != null ? Map.copyOf(params) : Map.of();
+      return this;
+    }
+
+    public FilterQuery build() {
+      return new FilterQuery(this);
+    }
   }
 }

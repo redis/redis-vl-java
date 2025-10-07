@@ -1,36 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FindBugsFilter>
-    <!-- Exclude constructor throw warnings for BaseField - these are safe validations -->
-    <Match>
-        <Class name="com.redis.vl.schema.BaseField" />
-        <Bug pattern="CT_CONSTRUCTOR_THROW" />
-    </Match>
-    
-    <!-- Exclude any subclasses of BaseField from constructor throw warnings -->
-    <Match>
-        <Class name="~com\.redis\.vl\.schema\..*Field.*" />
-        <Bug pattern="CT_CONSTRUCTOR_THROW" />
-    </Match>
-    
-    <!-- Exclude IndexSchema constructor throw warnings -->
-    <Match>
-        <Class name="com.redis.vl.schema.IndexSchema" />
-        <Bug pattern="CT_CONSTRUCTOR_THROW" />
-    </Match>
-    
     <!-- Exclude internal representation exposure for IndexSchema getFieldMap -->
     <Match>
         <Class name="com.redis.vl.schema.IndexSchema" />
         <Method name="getFieldMap" />
         <Bug pattern="EI_EXPOSE_REP" />
     </Match>
-    
-    <!-- Exclude SearchIndex constructor throw warnings -->
-    <Match>
-        <Class name="com.redis.vl.index.SearchIndex" />
-        <Bug pattern="CT_CONSTRUCTOR_THROW" />
-    </Match>
-    
+
     <!-- Exclude EI2 warnings for SearchIndex constructors - storing clients is intended behavior -->
     <Match>
         <Class name="com.redis.vl.index.SearchIndex" />
@@ -43,13 +19,7 @@
         <Class name="com.redis.vl.BaseIntegrationTest" />
         <Bug pattern="~MS_.*" />
     </Match>
-    
-    <!-- Exclude VectorRangeQuery constructor throw warnings -->
-    <Match>
-        <Class name="com.redis.vl.query.VectorRangeQuery" />
-        <Bug pattern="CT_CONSTRUCTOR_THROW" />
-    </Match>
-    
+
     <!-- Exclude format string warnings for test YAML content -->
     <Match>
         <Class name="com.redis.vl.index.SearchIndexIntegrationTest" />
@@ -70,63 +40,4 @@
         <Bug pattern="~.*" />
     </Match>
 
-  <!-- Exclude constructor throw warnings for BaseCache - these are safe validations -->
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.BaseCache"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-
-  <!-- Exclude internal representation exposure for cache classes - Maps are intentionally mutable -->
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.PromptResponsePair"/>
-    <Bug pattern="EI_EXPOSE_REP"/>
-  </Match>
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.PromptResponsePair"/>
-    <Bug pattern="EI_EXPOSE_REP2"/>
-  </Match>
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.CacheHit"/>
-    <Bug pattern="EI_EXPOSE_REP"/>
-  </Match>
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.CacheHit"/>
-    <Bug pattern="EI_EXPOSE_REP2"/>
-  </Match>
-
-  <!-- Exclude EI2 warnings for SemanticCache Builder - storing clients is intended behavior -->
-  <Match>
-    <Class name="com.redis.vl.extensions.cache.SemanticCache$Builder"/>
-    <Bug pattern="EI_EXPOSE_REP2"/>
-  </Match>
-
-  <!-- Exclude constructor throw warnings for HybridQuery - these are safe validations -->
-  <Match>
-    <Class name="com.redis.vl.query.HybridQuery"/>
-    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
-  </Match>
-
-  <!-- Exclude internal representation exposure for HybridQuery - query builders intentionally expose mutable state -->
-  <Match>
-    <Class name="com.redis.vl.query.HybridQuery"/>
-    <Bug pattern="EI_EXPOSE_REP"/>
-  </Match>
-
-  <!-- Exclude EI2 warnings for HybridQuery Builder - storing mutable objects is intended in builders -->
-  <Match>
-    <Class name="com.redis.vl.query.HybridQuery$HybridQueryBuilder"/>
-    <Bug pattern="EI_EXPOSE_REP2"/>
-  </Match>
-
-  <!-- Exclude internal representation exposure for FilterQuery - query builders intentionally expose mutable state -->
-  <Match>
-    <Class name="com.redis.vl.query.FilterQuery"/>
-    <Bug pattern="EI_EXPOSE_REP"/>
-  </Match>
-
-  <!-- Exclude EI2 warnings for FilterQuery Builder - storing mutable objects is intended in builders -->
-  <Match>
-    <Class name="com.redis.vl.query.FilterQuery$FilterQueryBuilder"/>
-    <Bug pattern="EI_EXPOSE_REP2"/>
-  </Match>
 </FindBugsFilter>

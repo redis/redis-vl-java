@@ -63,6 +63,7 @@ class QueryIntegrationTest extends BaseIntegrationTest {
     // Load sample data
     List<Map<String, Object>> sampleData = createSampleData();
     List<String> loadedKeys = index.load(sampleData, "id");
+    assertThat(loadedKeys).hasSize(sampleData.size());
 
     // Add small delay to allow indexing
     try {

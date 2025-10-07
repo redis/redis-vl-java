@@ -48,10 +48,10 @@ public class HuggingFaceModelDownloaderTest {
             .setHeader("Content-Type", "application/json"));
 
     // Mock model.onnx response
-    byte[] mockOnnxData = "mock onnx model data".getBytes();
+    byte[] mockOnnxData = "mock onnx model data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     mockServer.enqueue(
         new MockResponse()
-            .setBody(new String(mockOnnxData))
+            .setBody(new String(mockOnnxData, java.nio.charset.StandardCharsets.UTF_8))
             .setHeader("Content-Type", "application/octet-stream"));
 
     // Mock tokenizer.json response
@@ -135,10 +135,10 @@ public class HuggingFaceModelDownloaderTest {
     // Missing model.onnx and tokenizer.json
 
     // Mock missing file responses
-    byte[] mockOnnxData = "mock onnx model data".getBytes();
+    byte[] mockOnnxData = "mock onnx model data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     mockServer.enqueue(
         new MockResponse()
-            .setBody(new String(mockOnnxData))
+            .setBody(new String(mockOnnxData, java.nio.charset.StandardCharsets.UTF_8))
             .setHeader("Content-Type", "application/octet-stream"));
 
     JsonObject tokenizer = new JsonObject();
@@ -181,7 +181,7 @@ public class HuggingFaceModelDownloaderTest {
     byte[] mockOnnxData = new byte[1024 * 1024]; // 1MB mock data
     mockServer.enqueue(
         new MockResponse()
-            .setBody(new String(mockOnnxData))
+            .setBody(new String(mockOnnxData, java.nio.charset.StandardCharsets.UTF_8))
             .setHeader("Content-Type", "application/octet-stream")
             .setHeader("Content-Length", mockOnnxData.length));
 
@@ -236,10 +236,10 @@ public class HuggingFaceModelDownloaderTest {
             .setBody(config.toString())
             .setHeader("Content-Type", "application/json"));
 
-    byte[] mockOnnxData = "mock onnx model data".getBytes();
+    byte[] mockOnnxData = "mock onnx model data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
     mockServer.enqueue(
         new MockResponse()
-            .setBody(new String(mockOnnxData))
+            .setBody(new String(mockOnnxData, java.nio.charset.StandardCharsets.UTF_8))
             .setHeader("Content-Type", "application/octet-stream"));
 
     JsonObject tokenizer = new JsonObject();

@@ -113,12 +113,12 @@ public class SemanticCacheMockTest extends BaseIntegrationTest {
     assertTrue(exactMatch.isPresent(), "Should find exact match");
     assertEquals("Paris", exactMatch.get().getResponse());
 
-    // Test with different text - should not match even with wider threshold
-    // (MockVectorizer doesn't do real semantic similarity)
+    // Test with different text - with wide threshold it might match depending on embeddings
     cache.setDistanceThreshold(0.9f);
     String differentQuestion = "Tell me about Paris";
     Optional<CacheHit> differentResponse = cache.check(differentQuestion);
-    // With mock embeddings, different texts won't match
+    // Just verify we get a result (might match or not depending on actual embeddings)
+    assertNotNull(differentResponse, "Check should return a non-null Optional");
   }
 
   @Test

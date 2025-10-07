@@ -8,8 +8,13 @@ import java.util.*;
 import java.util.function.Consumer;
 import lombok.Getter;
 
-/** Represents the schema definition for a Redis search index */
-public class IndexSchema {
+/**
+ * Represents the schema definition for a Redis search index.
+ *
+ * <p>This class is final to prevent finalizer attacks, as it throws exceptions in constructors for
+ * input validation (SEI CERT OBJ11-J).
+ */
+public final class IndexSchema {
 
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());

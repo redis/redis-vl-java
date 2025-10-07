@@ -28,7 +28,7 @@ public class OnnxModelLoader {
   private JsonObject tokenizerConfig;
   private Map<String, Integer> vocabulary;
   private OrtEnvironment environment;
-  private boolean normalizeEmbeddings = true;
+  private static final boolean NORMALIZE_EMBEDDINGS = true;
 
   // Special token IDs (loaded from tokenizer config)
   private long clsTokenId;
@@ -228,8 +228,7 @@ public class OnnxModelLoader {
       // Get the output tensor
       OnnxValue output = result.get(0);
 
-      if (output instanceof OnnxTensor) {
-        OnnxTensor outputTensor = (OnnxTensor) output;
+      if (output instanceof OnnxTensor outputTensor) {
 
         // Extract embeddings
         float[][][] tokenEmbeddings = (float[][][]) outputTensor.getValue();
@@ -238,7 +237,7 @@ public class OnnxModelLoader {
         float[][] pooledEmbeddings = meanPoolingWithAttention(tokenEmbeddings, attentionMask);
 
         // Normalize if required
-        if (normalizeEmbeddings) {
+        if (NORMALIZE_EMBEDDINGS) {
           pooledEmbeddings = normalize(pooledEmbeddings);
         }
 

@@ -116,11 +116,13 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
 
   @Test
   @DisplayName("Test search index from YAML")
+  @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+      value = "VA_FORMAT_STRING_USES_NEWLINE",
+      justification = "YAML content requires Unix-style newlines, not platform-specific separators")
   void testSearchIndexFromYaml() {
     // Create YAML content matching Python test
     String yamlContent =
-        String.format(
-            """
+        """
         index:
           name: json-test_%s
           prefix: json_%s
@@ -128,8 +130,8 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
         fields:
           - name: test_field
             type: text
-        """,
-            TEST_PREFIX, TEST_PREFIX);
+        """
+            .formatted(TEST_PREFIX, TEST_PREFIX);
 
     // Write to temp file
     try {

@@ -356,7 +356,10 @@ class StorageIntegrationTest extends BaseIntegrationTest {
     assertThat(keys).hasSize(1);
 
     // Verify vector is stored as binary
-    byte[] vectorBytes = jedis.hget(keys.get(0).getBytes(), "embedding".getBytes());
+    byte[] vectorBytes =
+        jedis.hget(
+            keys.get(0).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            "embedding".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     assertThat(vectorBytes).isNotNull();
     assertThat(vectorBytes).hasSize(12); // 3 floats * 4 bytes
 

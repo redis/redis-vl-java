@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
-import lombok.Getter;
 import redis.clients.jedis.search.aggr.AggregationBuilder;
 import redis.clients.jedis.search.aggr.SortedField;
 
@@ -60,10 +59,12 @@ import redis.clients.jedis.search.aggr.SortedField;
  * List&lt;Map&lt;String, Object&gt;&gt; results = index.query(query);
  * </pre>
  *
+ * <p>This class is final to prevent finalizer attacks, as it throws exceptions in constructors for
+ * input validation (SEI CERT OBJ11-J).
+ *
  * @since 0.1.0
  */
-@Getter
-public class HybridQuery extends AggregationQuery {
+public final class HybridQuery extends AggregationQuery {
 
   private static final String DISTANCE_ID = "vector_distance";
   private static final String VECTOR_PARAM = "vector";
@@ -147,15 +148,18 @@ public class HybridQuery extends AggregationQuery {
   private HybridQuery(HybridQueryBuilder builder) {
     this.text = builder.text;
     this.textFieldName = builder.textFieldName;
-    this.vector = builder.vector;
+    // Defensive copy of vector array
+    this.vector = builder.vector != null ? builder.vector.clone() : null;
     this.vectorFieldName = builder.vectorFieldName;
     this.textScorer = builder.textScorer;
     this.filterExpression = builder.filterExpression;
     this.alpha = builder.alpha;
     this.dtype = builder.dtype;
     this.numResults = builder.numResults;
-    this.returnFields = builder.returnFields;
-    this.stopwords = builder.stopwords;
+    // Defensive copy to prevent external modification
+    this.returnFields =
+        builder.returnFields != null ? List.copyOf(builder.returnFields) : List.of();
+    this.stopwords = builder.stopwords != null ? Set.copyOf(builder.stopwords) : Set.of();
     this.dialect = builder.dialect;
 
     // Validate text is not empty
@@ -177,6 +181,71 @@ public class HybridQuery extends AggregationQuery {
    */
   public static HybridQueryBuilder builder() {
     return new HybridQueryBuilder();
+  }
+
+  // Getters with defensive copies for mutable fields
+
+  public String getText() {
+    return text;
+  }
+
+  public String getTextFieldName() {
+    return textFieldName;
+  }
+
+  /**
+   * Get a copy of the query vector.
+   *
+   * @return A defensive copy of the vector array
+   */
+  public float[] getVector() {
+    return vector != null ? vector.clone() : null;
+  }
+
+  public String getVectorFieldName() {
+    return vectorFieldName;
+  }
+
+  public String getTextScorer() {
+    return textScorer;
+  }
+
+  public Filter getFilterExpression() {
+    return filterExpression;
+  }
+
+  public float getAlpha() {
+    return alpha;
+  }
+
+  public String getDtype() {
+    return dtype;
+  }
+
+  public int getNumResults() {
+    return numResults;
+  }
+
+  /**
+   * Get an unmodifiable view of the return fields.
+   *
+   * @return Unmodifiable list of return fields
+   */
+  public List<String> getReturnFields() {
+    return Collections.unmodifiableList(returnFields);
+  }
+
+  /**
+   * Get an unmodifiable view of the stopwords.
+   *
+   * @return Unmodifiable set of stopwords
+   */
+  public Set<String> getStopwords() {
+    return Collections.unmodifiableSet(stopwords);
+  }
+
+  public int getDialect() {
+    return dialect;
   }
 
   /** Builder for creating HybridQuery instances with fluent API. */
@@ -220,13 +289,13 @@ public class HybridQuery extends AggregationQuery {
     }
 
     /**
-     * Set the query vector for similarity search.
+     * Set the query vector for similarity search. Makes a defensive copy.
      *
      * @param vector The embedding vector to search with
      * @return This builder for chaining
      */
     public HybridQueryBuilder vector(float[] vector) {
-      this.vector = vector;
+      this.vector = vector != null ? vector.clone() : null;
       return this;
     }
 
@@ -297,24 +366,24 @@ public class HybridQuery extends AggregationQuery {
     }
 
     /**
-     * Set the fields to return in results.
+     * Set the fields to return in results. Makes a defensive copy.
      *
      * @param returnFields List of field names to return
      * @return This builder for chaining
      */
     public HybridQueryBuilder returnFields(List<String> returnFields) {
-      this.returnFields = returnFields;
+      this.returnFields = returnFields != null ? List.copyOf(returnFields) : List.of();
       return this;
     }
 
     /**
-     * Set custom stopwords for text search.
+     * Set custom stopwords for text search. Makes a defensive copy.
      *
      * @param stopwords Set of words to exclude from text search
      * @return This builder for chaining
      */
     public HybridQueryBuilder stopwords(Set<String> stopwords) {
-      this.stopwords = stopwords;
+      this.stopwords = stopwords != null ? Set.copyOf(stopwords) : Set.of();
       return this;
     }
 
