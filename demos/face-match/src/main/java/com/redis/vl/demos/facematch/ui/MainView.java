@@ -10,10 +10,17 @@ import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Sphere;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
 import javafx.scene.*;
 import redis.clients.jedis.*;
@@ -38,6 +45,8 @@ public class MainView {
     private final Rotate rotateY;
     private final Label statusLabel;
     private Label celebCount;
+    private ListView<String> celebrityListView;
+    private Label selectedCelebLabel;
 
     public MainView() {
         root = new BorderPane();
@@ -109,6 +118,10 @@ public class MainView {
                 } else {
                     // Load existing data
                     Platform.runLater(() -> statusLabel.setText("Loading from Redis..."));
+
+                    // Initialize the index (createIndex() is safe to call even if it exists)
+                    indexService.createIndex();
+
                     List<Celebrity> celebrities = indexService.getAllCelebrities();
 
                     Platform.runLater(() -> statusLabel.setText("Reducing dimensions..."));
@@ -217,6 +230,25 @@ public class MainView {
 
         root.setRight(rightPanel);
 
+        // Bottom panel: Celebrity list
+        VBox bottomPanel = new VBox(10);
+        bottomPanel.setPadding(new Insets(10));
+        bottomPanel.setStyle("-fx-background-color: #2d2d2d;");
+        bottomPanel.setPrefHeight(150);
+
+        Label listTitle = new Label("Celebrities (click sphere to highlight)");
+        listTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: white;");
+
+        selectedCelebLabel = new Label("Selected: None");
+        selectedCelebLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px;");
+
+        celebrityListView = new ListView<>();
+        celebrityListView.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: white;");
+        celebrityListView.setPrefHeight(100);
+
+        bottomPanel.getChildren().addAll(listTitle, selectedCelebLabel, celebrityListView);
+        root.setBottom(bottomPanel);
+
         // Bind scene3D size to center pane
         scene3D.widthProperty().bind(center.widthProperty());
         scene3D.heightProperty().bind(center.heightProperty());
@@ -228,22 +260,142 @@ public class MainView {
         // Clear existing spheres
         root3D.getChildren().clear();
 
+        // Populate celebrity list
+        celebrityListView.getItems().clear();
         for (Celebrity3D celeb : celebrities) {
-            Sphere sphere = new Sphere(3);
+            celebrityListView.getItems().add(celeb.getCelebrity().getName());
+        }
+
+        // Render spheres with image textures
+        for (int i = 0; i < celebrities.size(); i++) {
+            Celebrity3D celeb = celebrities.get(i);
+            Sphere sphere = new Sphere(5); // Larger spheres to see images better
             sphere.setTranslateX(celeb.getX());
             sphere.setTranslateY(celeb.getY());
             sphere.setTranslateZ(celeb.getZ());
 
+            // Create material with celebrity image/avatar
             PhongMaterial material = new PhongMaterial();
-            material.setDiffuseColor(Color.rgb(100, 150, 255));
+            Image avatarImage = createCelebrityAvatar(celeb.getCelebrity());
+            material.setDiffuseMap(avatarImage);
             material.setSpecularColor(Color.WHITE);
             sphere.setMaterial(material);
+
+            // Store original material for reset
+            sphere.setUserData(material);
 
             // Add tooltip with celebrity name
             Tooltip tooltip = new Tooltip(celeb.getCelebrity().getName());
             Tooltip.install(sphere, tooltip);
 
+            // Click handler to highlight sphere and show info
+            final int celebIndex = i;
+            sphere.setOnMouseClicked(event -> {
+                if (event.getButton() == MouseButton.PRIMARY) {
+                    highlightCelebrity(celebIndex);
+                }
+            });
+
             root3D.getChildren().add(sphere);
+        }
+    }
+
+    /**
+     * Create a celebrity avatar image with initials and a color based on their name.
+     * This serves as a placeholder until real face images are available.
+     */
+    private Image createCelebrityAvatar(Celebrity celebrity) {
+        int size = 128;
+        Canvas canvas = new Canvas(size, size);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+
+        // Generate a consistent color based on the celebrity name
+        int hash = celebrity.getName().hashCode();
+        Color bgColor = Color.hsb((hash & 0xFF) * 360.0 / 255.0, 0.6, 0.7);
+
+        // Draw circular background
+        gc.setFill(bgColor);
+        gc.fillOval(0, 0, size, size);
+
+        // Get initials (first letter of first two words)
+        String[] nameParts = celebrity.getName().split(" ");
+        String initials = "";
+        if (nameParts.length > 0) {
+            initials += nameParts[0].charAt(0);
+        }
+        if (nameParts.length > 1) {
+            initials += nameParts[1].charAt(0);
+        }
+        initials = initials.toUpperCase();
+
+        // Draw initials
+        gc.setFill(Color.WHITE);
+        gc.setFont(Font.font("Arial", 48));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.fillText(initials, size / 2.0, size / 2.0 + 16);
+
+        // Convert canvas to image
+        WritableImage image = new WritableImage(size, size);
+        canvas.snapshot(null, image);
+        return image;
+    }
+
+    private void highlightCelebrity(int index) {
+        if (index < 0 || index >= celebrities.size()) return;
+
+        Celebrity3D selected = celebrities.get(index);
+        Celebrity celebrity = selected.getCelebrity();
+
+        // Update selected label
+        selectedCelebLabel.setText(String.format("Selected: %s (ID: %s)",
+                celebrity.getName(), celebrity.getId()));
+
+        // Highlight in list view
+        celebrityListView.getSelectionModel().select(index);
+        celebrityListView.scrollTo(index);
+
+        // Reset all spheres to original material (remove highlight border)
+        for (int i = 0; i < root3D.getChildren().size(); i++) {
+            Node node = root3D.getChildren().get(i);
+            if (node instanceof Sphere) {
+                PhongMaterial originalMaterial = (PhongMaterial) node.getUserData();
+                if (originalMaterial != null) {
+                    ((Sphere) node).setMaterial(originalMaterial);
+                }
+            }
+        }
+
+        // Highlight selected sphere with green glow
+        Sphere selectedSphere = (Sphere) root3D.getChildren().get(index);
+        PhongMaterial highlightMaterial = new PhongMaterial();
+
+        // Keep the avatar texture
+        PhongMaterial originalMaterial = (PhongMaterial) selectedSphere.getUserData();
+        if (originalMaterial != null && originalMaterial.getDiffuseMap() != null) {
+            highlightMaterial.setDiffuseMap(originalMaterial.getDiffuseMap());
+        }
+
+        // Add green glow effect
+        highlightMaterial.setSpecularColor(Color.rgb(76, 175, 80)); // Green specular
+        highlightMaterial.setSpecularPower(128);
+        highlightMaterial.setSelfIlluminationMap(null); // Reset self-illumination
+        selectedSphere.setMaterial(highlightMaterial);
+
+        // Increase sphere size slightly for emphasis
+        selectedSphere.setScaleX(1.3);
+        selectedSphere.setScaleY(1.3);
+        selectedSphere.setScaleZ(1.3);
+
+        // Reset other spheres' scale
+        for (int i = 0; i < root3D.getChildren().size(); i++) {
+            if (i != index) {
+                Node node = root3D.getChildren().get(i);
+                if (node instanceof Sphere) {
+                    ((Sphere) node).setScaleX(1.0);
+                    ((Sphere) node).setScaleY(1.0);
+                    ((Sphere) node).setScaleZ(1.0);
+                }
+            }
         }
     }
 
