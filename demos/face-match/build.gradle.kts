@@ -63,3 +63,21 @@ application {
 tasks.test {
     useJUnitPlatform()
 }
+
+// Task to generate embeddings from CSV
+tasks.register<JavaExec>("generateEmbeddings") {
+    group = "application"
+    description = "Generate face embeddings from celebrity CSV and index in Redis"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.redis.vl.demos.facematch.service.FaceEmbeddingGenerator")
+
+    // Default argument
+    val csvFile = project.findProperty("csvFile") as String?
+        ?: "demos/face-match/src/main/resources/data/celeb_faces.csv"
+
+    args = listOf(csvFile)
+
+    // Environment variables
+    environment("REDIS_HOST", System.getenv("REDIS_HOST") ?: "localhost")
+    environment("REDIS_PORT", System.getenv("REDIS_PORT") ?: "6379")
+}

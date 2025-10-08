@@ -83,3 +83,7 @@ spotbugs-output.txt
 
 # Demos
 demos/rag-multimodal/src/main/resources/application.properties
+
+### Demo Application Images ###
+# Don't commit large image datasets
+demos/face-match/src/main/resources/static/
