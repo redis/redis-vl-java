@@ -66,7 +66,9 @@ public class DimensionalityReductionService {
 
         // Create Celebrity3D objects with scaled coordinates for better visualization
         List<Celebrity3D> result = new ArrayList<>();
-        double scale = 100.0; // Scale factor for 3D visualization
+        // Larger scale factor to spread out normalized embeddings in 3D space
+        // Normalized vectors have small variance, so we need aggressive scaling
+        double scale = 1000.0; // Scale factor for 3D visualization
 
         for (int i = 0; i < numSamples; i++) {
             // Project onto first 3 principal components

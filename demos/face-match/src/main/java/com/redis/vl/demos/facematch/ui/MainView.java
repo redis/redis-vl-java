@@ -8,28 +8,27 @@ import com.redis.vl.demos.facematch.service.DimensionalityReductionService;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
-import javafx.scene.Node;
+import javafx.geometry.Pos;
+import javafx.geometry.VPos;
+import javafx.scene.*;
 import javafx.scene.control.*;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.PhongMaterial;
-import javafx.scene.shape.Sphere;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
-import javafx.scene.*;
 import redis.clients.jedis.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Main view containing 3D visualization and controls.
+ * Main view with 3D cloud of square thumbnail images positioned by PCA.
  */
 public class MainView {
 
@@ -45,8 +44,8 @@ public class MainView {
     private final Rotate rotateY;
     private final Label statusLabel;
     private Label celebCount;
-    private ListView<String> celebrityListView;
     private Label selectedCelebLabel;
+    private List<ImageView> thumbnailViews = new ArrayList<>();
 
     public MainView() {
         root = new BorderPane();
@@ -61,18 +60,18 @@ public class MainView {
         camera = new PerspectiveCamera(true);
         camera.setNearClip(0.1);
         camera.setFarClip(10000.0);
-        camera.setTranslateZ(-500);
+        camera.setTranslateZ(-2000); // Zoom out to see whole collection at startup
 
         scene3D = new SubScene(root3D, 800, 600, true, SceneAntialiasing.BALANCED);
         scene3D.setFill(Color.rgb(30, 30, 30));
         scene3D.setCamera(camera);
 
-        // Status label for showing loading progress
+        // Status label
         statusLabel = new Label("Loading celebrities...");
         statusLabel.setStyle("-fx-font-size: 18px; -fx-text-fill: rgba(255,255,255,0.7); -fx-font-weight: bold;");
         statusLabel.setMouseTransparent(true);
 
-        // Add mouse controls for 3D scene
+        // Add mouse controls
         addMouseControls();
 
         // Create UI layout
@@ -104,17 +103,17 @@ public class MainView {
                     Platform.runLater(() -> statusLabel.setText("Generating sample data..."));
 
                     DataLoaderService dataLoader = new DataLoaderService();
-                    List<Celebrity> celebrities = dataLoader.generateSampleCelebrities(100);
+                    List<Celebrity> celebs = dataLoader.generateSampleCelebrities(100);
 
                     Platform.runLater(() -> statusLabel.setText("Creating Redis index..."));
                     indexService.createIndex();
 
                     Platform.runLater(() -> statusLabel.setText("Indexing celebrities..."));
-                    indexService.indexCelebrities(celebrities);
+                    indexService.indexCelebrities(celebs);
 
                     Platform.runLater(() -> statusLabel.setText("Reducing dimensions..."));
                     DimensionalityReductionService reducer = new DimensionalityReductionService();
-                    this.celebrities = reducer.reduceTo3D(celebrities);
+                    this.celebrities = reducer.reduceTo3D(celebs);
                 } else {
                     // Load existing data
                     Platform.runLater(() -> statusLabel.setText("Loading from Redis..."));
@@ -122,11 +121,11 @@ public class MainView {
                     // Initialize the index (createIndex() is safe to call even if it exists)
                     indexService.createIndex();
 
-                    List<Celebrity> celebrities = indexService.getAllCelebrities();
+                    List<Celebrity> celebs = indexService.getAllCelebrities();
 
                     Platform.runLater(() -> statusLabel.setText("Reducing dimensions..."));
                     DimensionalityReductionService reducer = new DimensionalityReductionService();
-                    this.celebrities = reducer.reduceTo3D(celebrities);
+                    this.celebrities = reducer.reduceTo3D(celebs);
                 }
 
                 // Render celebrities in JavaFX thread
@@ -152,17 +151,19 @@ public class MainView {
     }
 
     private void createLayout() {
-        // Left side: 3D visualization
+        // Center: 3D cloud visualization
         StackPane center = new StackPane(scene3D);
         center.setStyle("-fx-background-color: #1e1e1e;");
 
-        // Add status label
+        // Add status label overlay
+        StackPane.setAlignment(statusLabel, Pos.CENTER);
         center.getChildren().add(statusLabel);
 
         // Drag-drop hint overlay
         Label dropHint = new Label("Drag & drop a face image here");
         dropHint.setStyle("-fx-font-size: 18px; -fx-text-fill: rgba(255,255,255,0.3); -fx-font-weight: bold;");
-        dropHint.setMouseTransparent(true);
+        StackPane.setAlignment(dropHint, Pos.TOP_CENTER);
+        StackPane.setMargin(dropHint, new Insets(20, 0, 0, 0));
         center.getChildren().add(dropHint);
 
         root.setCenter(center);
@@ -187,21 +188,21 @@ public class MainView {
         celebCount = new Label("Celebrities: " + celebrities.size());
         celebCount.setStyle("-fx-text-fill: #aaa;");
 
+        selectedCelebLabel = new Label("Selected: None");
+        selectedCelebLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px;");
+
         Label embeddingDim = new Label("Embedding Dimension: 512");
         embeddingDim.setStyle("-fx-text-fill: #aaa;");
 
-        Label reducedDim = new Label("Reduced Dimension: 3D (PCA)");
-        reducedDim.setStyle("-fx-text-fill: #aaa;");
+        Separator sep2 = new Separator(javafx.geometry.Orientation.HORIZONTAL);
 
-        Separator sep2 = new Separator(Orientation.HORIZONTAL);
-
-        Label controlsLabel = new Label("3D Controls");
+        Label controlsLabel = new Label("Controls");
         controlsLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: white;");
 
-        Label control1 = new Label("• Drag: Rotate view");
+        Label control1 = new Label("• Click: Select celebrity");
         control1.setStyle("-fx-text-fill: #aaa;");
 
-        Label control2 = new Label("• Scroll: Zoom in/out");
+        Label control2 = new Label("• Scroll: Browse grid");
         control2.setStyle("-fx-text-fill: #aaa;");
 
         Label control3 = new Label("• Drop image: Find matches");
@@ -223,89 +224,51 @@ public class MainView {
 
         rightPanel.getChildren().addAll(
             title, subtitle, sep1,
-            statsLabel, celebCount, embeddingDim, reducedDim, sep2,
+            statsLabel, celebCount, selectedCelebLabel, embeddingDim, sep2,
             controlsLabel, control1, control2, control3, sep3,
             featuresLabel, feature1, feature2, feature3
         );
 
         root.setRight(rightPanel);
-
-        // Bottom panel: Celebrity list
-        VBox bottomPanel = new VBox(10);
-        bottomPanel.setPadding(new Insets(10));
-        bottomPanel.setStyle("-fx-background-color: #2d2d2d;");
-        bottomPanel.setPrefHeight(150);
-
-        Label listTitle = new Label("Celebrities (click sphere to highlight)");
-        listTitle.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: white;");
-
-        selectedCelebLabel = new Label("Selected: None");
-        selectedCelebLabel.setStyle("-fx-text-fill: #4CAF50; -fx-font-size: 11px;");
-
-        celebrityListView = new ListView<>();
-        celebrityListView.setStyle("-fx-background-color: #1e1e1e; -fx-text-fill: white;");
-        celebrityListView.setPrefHeight(100);
-
-        bottomPanel.getChildren().addAll(listTitle, selectedCelebLabel, celebrityListView);
-        root.setBottom(bottomPanel);
-
-        // Bind scene3D size to center pane
-        scene3D.widthProperty().bind(center.widthProperty());
-        scene3D.heightProperty().bind(center.heightProperty());
     }
 
     private void renderCelebrities() {
-        if (celebrities == null) return;
+        if (celebrities == null || celebrities.isEmpty()) return;
 
-        // Clear existing spheres
+        // Clear existing thumbnails
         root3D.getChildren().clear();
+        thumbnailViews.clear();
 
-        // Populate celebrity list
-        celebrityListView.getItems().clear();
-        for (Celebrity3D celeb : celebrities) {
-            celebrityListView.getItems().add(celeb.getCelebrity().getName());
-        }
-
-        // Render spheres with image textures
+        // Render each celebrity as a flat thumbnail in 3D space
         for (int i = 0; i < celebrities.size(); i++) {
-            Celebrity3D celeb = celebrities.get(i);
-            Sphere sphere = new Sphere(5); // Larger spheres to see images better
-            sphere.setTranslateX(celeb.getX());
-            sphere.setTranslateY(celeb.getY());
-            sphere.setTranslateZ(celeb.getZ());
-
-            // Create material with celebrity image/avatar
-            PhongMaterial material = new PhongMaterial();
-            Image avatarImage = createCelebrityAvatar(celeb.getCelebrity());
-            material.setDiffuseMap(avatarImage);
-            material.setSpecularColor(Color.WHITE);
-            sphere.setMaterial(material);
-
-            // Store original material for reset
-            sphere.setUserData(material);
-
-            // Add tooltip with celebrity name
-            Tooltip tooltip = new Tooltip(celeb.getCelebrity().getName());
-            Tooltip.install(sphere, tooltip);
-
-            // Click handler to highlight sphere and show info
+            Celebrity3D celeb3D = celebrities.get(i);
             final int celebIndex = i;
-            sphere.setOnMouseClicked(event -> {
-                if (event.getButton() == MouseButton.PRIMARY) {
-                    highlightCelebrity(celebIndex);
-                }
-            });
 
-            root3D.getChildren().add(sphere);
+            // Create flat square thumbnail
+            Image avatarImage = createCelebrityAvatar(celeb3D.getCelebrity());
+            ImageView imageView = new ImageView(avatarImage);
+            imageView.setFitWidth(40);  // Square thumbnail size
+            imageView.setFitHeight(40);
+            imageView.setPreserveRatio(true);
+
+            // Position in 3D space based on PCA coordinates
+            imageView.setTranslateX(celeb3D.getX());
+            imageView.setTranslateY(celeb3D.getY());
+            imageView.setTranslateZ(celeb3D.getZ());
+
+            // Add click handler for highlighting
+            imageView.setOnMouseClicked(event -> highlightCelebrity(celebIndex));
+
+            thumbnailViews.add(imageView);
+            root3D.getChildren().add(imageView);
         }
     }
 
     /**
-     * Create a celebrity avatar image with initials and a color based on their name.
-     * This serves as a placeholder until real face images are available.
+     * Create a square celebrity avatar with initials and a color based on their name.
      */
     private Image createCelebrityAvatar(Celebrity celebrity) {
-        int size = 128;
+        int size = 80;
         Canvas canvas = new Canvas(size, size);
         GraphicsContext gc = canvas.getGraphicsContext2D();
 
@@ -313,9 +276,9 @@ public class MainView {
         int hash = celebrity.getName().hashCode();
         Color bgColor = Color.hsb((hash & 0xFF) * 360.0 / 255.0, 0.6, 0.7);
 
-        // Draw circular background
+        // Draw square background
         gc.setFill(bgColor);
-        gc.fillOval(0, 0, size, size);
+        gc.fillRect(0, 0, size, size);
 
         // Get initials (first letter of first two words)
         String[] nameParts = celebrity.getName().split(" ");
@@ -330,73 +293,15 @@ public class MainView {
 
         // Draw initials
         gc.setFill(Color.WHITE);
-        gc.setFont(Font.font("Arial", 48));
+        gc.setFont(Font.font("Arial", javafx.scene.text.FontWeight.BOLD, 32));
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.fillText(initials, size / 2.0, size / 2.0 + 16);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText(initials, size / 2.0, size / 2.0);
 
         // Convert canvas to image
         WritableImage image = new WritableImage(size, size);
         canvas.snapshot(null, image);
         return image;
-    }
-
-    private void highlightCelebrity(int index) {
-        if (index < 0 || index >= celebrities.size()) return;
-
-        Celebrity3D selected = celebrities.get(index);
-        Celebrity celebrity = selected.getCelebrity();
-
-        // Update selected label
-        selectedCelebLabel.setText(String.format("Selected: %s (ID: %s)",
-                celebrity.getName(), celebrity.getId()));
-
-        // Highlight in list view
-        celebrityListView.getSelectionModel().select(index);
-        celebrityListView.scrollTo(index);
-
-        // Reset all spheres to original material (remove highlight border)
-        for (int i = 0; i < root3D.getChildren().size(); i++) {
-            Node node = root3D.getChildren().get(i);
-            if (node instanceof Sphere) {
-                PhongMaterial originalMaterial = (PhongMaterial) node.getUserData();
-                if (originalMaterial != null) {
-                    ((Sphere) node).setMaterial(originalMaterial);
-                }
-            }
-        }
-
-        // Highlight selected sphere with green glow
-        Sphere selectedSphere = (Sphere) root3D.getChildren().get(index);
-        PhongMaterial highlightMaterial = new PhongMaterial();
-
-        // Keep the avatar texture
-        PhongMaterial originalMaterial = (PhongMaterial) selectedSphere.getUserData();
-        if (originalMaterial != null && originalMaterial.getDiffuseMap() != null) {
-            highlightMaterial.setDiffuseMap(originalMaterial.getDiffuseMap());
-        }
-
-        // Add green glow effect
-        highlightMaterial.setSpecularColor(Color.rgb(76, 175, 80)); // Green specular
-        highlightMaterial.setSpecularPower(128);
-        highlightMaterial.setSelfIlluminationMap(null); // Reset self-illumination
-        selectedSphere.setMaterial(highlightMaterial);
-
-        // Increase sphere size slightly for emphasis
-        selectedSphere.setScaleX(1.3);
-        selectedSphere.setScaleY(1.3);
-        selectedSphere.setScaleZ(1.3);
-
-        // Reset other spheres' scale
-        for (int i = 0; i < root3D.getChildren().size(); i++) {
-            if (i != index) {
-                Node node = root3D.getChildren().get(i);
-                if (node instanceof Sphere) {
-                    ((Sphere) node).setScaleX(1.0);
-                    ((Sphere) node).setScaleY(1.0);
-                    ((Sphere) node).setScaleZ(1.0);
-                }
-            }
-        }
     }
 
     private void addMouseControls() {
@@ -416,6 +321,28 @@ public class MainView {
             double delta = event.getDeltaY();
             camera.setTranslateZ(camera.getTranslateZ() + delta * 0.5);
         });
+    }
+
+    private void highlightCelebrity(int index) {
+        if (index < 0 || index >= celebrities.size()) return;
+
+        Celebrity celebrity = celebrities.get(index).getCelebrity();
+
+        // Update selected label
+        selectedCelebLabel.setText(String.format("Selected: %s (ID: %s)",
+                celebrity.getName(), celebrity.getId()));
+
+        // Reset all thumbnails to default style (no effect/border)
+        for (ImageView view : thumbnailViews) {
+            view.setEffect(null);
+        }
+
+        // Highlight selected thumbnail with glow effect
+        if (index < thumbnailViews.size()) {
+            ImageView selectedView = thumbnailViews.get(index);
+            javafx.scene.effect.Glow glow = new javafx.scene.effect.Glow(0.8);
+            selectedView.setEffect(glow);
+        }
     }
 
     public BorderPane getRoot() {
