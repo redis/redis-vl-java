@@ -45,7 +45,11 @@ public class FilterQuery {
     this.params = builder.params != null ? Map.copyOf(builder.params) : Map.of();
   }
 
-  /** Create a new builder. */
+  /**
+   * Create a new builder.
+   *
+   * @return A new FilterQueryBuilder instance
+   */
   public static FilterQueryBuilder builder() {
     return new FilterQueryBuilder();
   }
@@ -119,30 +123,66 @@ public class FilterQuery {
   }
 
   // Getters
+
+  /**
+   * Get the filter expression.
+   *
+   * @return The filter expression
+   */
   public Filter getFilterExpression() {
     return filterExpression;
   }
 
+  /**
+   * Get the fields to return in results.
+   *
+   * @return List of field names to return
+   */
   public List<String> getReturnFields() {
     return returnFields;
   }
 
+  /**
+   * Get the number of results to return.
+   *
+   * @return Number of results
+   */
   public int getNumResults() {
     return numResults;
   }
 
+  /**
+   * Get the query dialect.
+   *
+   * @return RediSearch dialect version
+   */
   public int getDialect() {
     return dialect;
   }
 
+  /**
+   * Get the field to sort by.
+   *
+   * @return Sort field name, or null if not sorting
+   */
   public String getSortBy() {
     return sortBy;
   }
 
+  /**
+   * Check if in-order matching is required.
+   *
+   * @return true if terms must appear in same order as query
+   */
   public boolean isInOrder() {
     return inOrder;
   }
 
+  /**
+   * Get additional query parameters.
+   *
+   * @return Map of parameter name to value
+   */
   public Map<String, Object> getParams() {
     return params;
   }
@@ -159,6 +199,12 @@ public class FilterQuery {
 
     FilterQueryBuilder() {}
 
+    /**
+     * Set the filter expression.
+     *
+     * @param filterExpression The filter to apply
+     * @return this builder
+     */
     public FilterQueryBuilder filterExpression(Filter filterExpression) {
       this.filterExpression = filterExpression;
       return this;
@@ -175,21 +221,45 @@ public class FilterQuery {
       return this;
     }
 
+    /**
+     * Set the number of results to return.
+     *
+     * @param numResults Maximum number of results
+     * @return this builder
+     */
     public FilterQueryBuilder numResults(int numResults) {
       this.numResults = numResults;
       return this;
     }
 
+    /**
+     * Set the query dialect.
+     *
+     * @param dialect RediSearch dialect version
+     * @return this builder
+     */
     public FilterQueryBuilder dialect(int dialect) {
       this.dialect = dialect;
       return this;
     }
 
+    /**
+     * Set the field to sort results by.
+     *
+     * @param sortBy Field name to sort by
+     * @return this builder
+     */
     public FilterQueryBuilder sortBy(String sortBy) {
       this.sortBy = sortBy;
       return this;
     }
 
+    /**
+     * Set whether to require in-order term matching.
+     *
+     * @param inOrder true to require terms in same order as query
+     * @return this builder
+     */
     public FilterQueryBuilder inOrder(boolean inOrder) {
       this.inOrder = inOrder;
       return this;
@@ -206,6 +276,11 @@ public class FilterQuery {
       return this;
     }
 
+    /**
+     * Build the FilterQuery instance.
+     *
+     * @return A new FilterQuery with the configured parameters
+     */
     public FilterQuery build() {
       return new FilterQuery(this);
     }
