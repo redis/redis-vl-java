@@ -314,19 +314,6 @@ public class SemanticCacheIntegrationTest extends BaseIntegrationTest {
 
     assertEquals(3, topResults.size());
 
-    // Debug: print distances
-    System.out.println("DEBUG: Top K results:");
-    for (int i = 0; i < topResults.size(); i++) {
-      System.out.println(
-          "  "
-              + i
-              + ": "
-              + topResults.get(i).getPrompt()
-              + " (distance: "
-              + topResults.get(i).getDistance()
-              + ")");
-    }
-
     // Results should be sorted by distance (most similar first)
     for (int i = 1; i < topResults.size(); i++) {
       assertTrue(
