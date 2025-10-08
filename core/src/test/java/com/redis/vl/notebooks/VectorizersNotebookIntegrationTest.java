@@ -25,8 +25,8 @@ import redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm;
  * <p>Ported from:
  * /Users/brian.sam-bodden/Code/redis/py/redis-vl-python/docs/user_guide/04_vectorizers.ipynb
  *
- * <p>Uses same models and data as Python version: - Test sentences: "That is a happy dog", "That
- * is a happy person", "Today is a sunny day" - OpenAI: text-embedding-ada-002 - HuggingFace:
+ * <p>Uses same models and data as Python version: - Test sentences: "That is a happy dog", "That is
+ * a happy person", "Today is a sunny day" - OpenAI: text-embedding-ada-002 - HuggingFace:
  * sentence-transformers/all-mpnet-base-v2 - Cohere: embed-english-v3.0 - VoyageAI: voyage-law-2
  */
 @Tag("integration")
@@ -51,10 +51,7 @@ public class VectorizersNotebookIntegrationTest extends BaseIntegrationTest {
 
     // Create a vectorizer using OpenAI's text-embedding-ada-002 model (same as Python)
     var openaiModel =
-        OpenAiEmbeddingModel.builder()
-            .apiKey(apiKey)
-            .modelName("text-embedding-ada-002")
-            .build();
+        OpenAiEmbeddingModel.builder().apiKey(apiKey).modelName("text-embedding-ada-002").build();
     var oai = new LangChain4JVectorizer("text-embedding-ada-002", openaiModel);
 
     // Embed a single sentence
@@ -247,7 +244,8 @@ public class VectorizersNotebookIntegrationTest extends BaseIntegrationTest {
     // Test different data types (same as Python notebook)
 
     // Create vectorizer with default FLOAT32
-    var vectorizer32 = new SentenceTransformersVectorizer("sentence-transformers/all-mpnet-base-v2");
+    var vectorizer32 =
+        new SentenceTransformersVectorizer("sentence-transformers/all-mpnet-base-v2");
 
     float[] float32Embed = vectorizer32.embed("test sentence");
     assertThat(float32Embed.length).isEqualTo(768);
