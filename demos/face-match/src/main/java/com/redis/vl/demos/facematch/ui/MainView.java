@@ -265,9 +265,33 @@ public class MainView {
     }
 
     /**
-     * Create a square celebrity avatar with initials and a color based on their name.
+     * Create or load celebrity avatar/image.
+     * Tries to load actual image from resources first, falls back to placeholder with initials.
      */
     private Image createCelebrityAvatar(Celebrity celebrity) {
+        // Try to load actual celebrity image based on imageUrl
+        // ImageUrl format: "http://example.com/images/celeb_X.jpg" where X is the numeric ID
+        String imageUrl = celebrity.getImageUrl();
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            try {
+                // Extract ID from URL (e.g., "celeb_123" -> "123")
+                String[] parts = imageUrl.split("/");
+                String filename = parts[parts.length - 1]; // "celeb_X.jpg"
+                String idStr = filename.replace("celeb_", "").replace(".jpg", "");
+
+                // Try to load from classpath resources
+                String resourcePath = "/static/images/celebs/img_" + idStr + ".jpg";
+                var inputStream = getClass().getResourceAsStream(resourcePath);
+
+                if (inputStream != null) {
+                    return new Image(inputStream, 80, 80, true, true);
+                }
+            } catch (Exception e) {
+                // Fall through to placeholder
+            }
+        }
+
+        // Fallback: Generate placeholder avatar with initials
         int size = 80;
         Canvas canvas = new Canvas(size, size);
         GraphicsContext gc = canvas.getGraphicsContext2D();
