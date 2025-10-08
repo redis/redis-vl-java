@@ -150,12 +150,6 @@ public class NotebookSemanticCacheTest extends BaseIntegrationTest {
     llmcache.check("Question 5"); // Miss
     llmcache.check("Question 1"); // Hit again
 
-    // Cell 28: Check statistics
-    System.out.println("\nCache Statistics:");
-    System.out.println("Hit count: " + llmcache.getHitCount());
-    System.out.println("Miss count: " + llmcache.getMissCount());
-    System.out.println("Hit rate: " + String.format("%.2f%%", llmcache.getHitRate() * 100));
-
     assertEquals(3, llmcache.getHitCount());
     assertEquals(2, llmcache.getMissCount());
     assertEquals(0.6f, llmcache.getHitRate(), 0.01f);

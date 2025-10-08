@@ -66,12 +66,6 @@ class CrossEncoderTokenizationTest {
           .isEqualTo(0);
     }
 
-    System.out.println("\n✓ Tokenization matches Python transformers");
-    System.out.println("  Query: " + query.substring(0, Math.min(50, query.length())));
-    System.out.println("  Document: " + doc.substring(0, Math.min(50, doc.length())));
-    System.out.println("  Token IDs (first 20): " + Arrays.toString(actualFirst20));
-    System.out.println("  Total tokens: " + inputIds.length);
-
     reranker.close();
   }
 }

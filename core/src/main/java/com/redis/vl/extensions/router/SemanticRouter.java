@@ -537,24 +537,6 @@ public class SemanticRouter {
     }
 
     // Build aggregation request (Python: _build_aggregate_request, line 308-320)
-    System.out.println("DEBUG: Filter expression: " + filterBuilder.toString());
-    System.out.println("DEBUG: Reduced field: " + reducedField);
-    System.out.println("DEBUG: Aggregation method: " + aggregationMethod);
-
-    // First check what VECTOR_RANGE returns without aggregation
-    redis.clients.jedis.search.aggr.AggregationBuilder noAggregate =
-        new redis.clients.jedis.search.aggr.AggregationBuilder(vectorQuery.toQueryString())
-            .params(vectorQuery.toParams())
-            .load("route_name", "vector_distance")
-            .dialect(2);
-
-    redis.clients.jedis.search.aggr.AggregationResult rawResult =
-        unifiedJedis.ftAggregate(index.getName(), noAggregate);
-    System.out.println("DEBUG: Raw results before grouping: " + rawResult.getResults().size());
-    for (java.util.Map<String, Object> row : rawResult.getResults()) {
-      System.out.println("DEBUG: Raw row: " + row);
-    }
-
     redis.clients.jedis.search.aggr.AggregationBuilder aggregation =
         new redis.clients.jedis.search.aggr.AggregationBuilder(vectorQuery.toQueryString())
             .params(vectorQuery.toParams())
@@ -568,14 +550,6 @@ public class SemanticRouter {
     // Execute search with aggregation
     redis.clients.jedis.search.aggr.AggregationResult result =
         unifiedJedis.ftAggregate(index.getName(), aggregation);
-
-    System.out.println(
-        "DEBUG getRouteMatches: Aggregation returned "
-            + result.getResults().size()
-            + " results after filtering");
-    for (java.util.Map<String, Object> row : result.getResults()) {
-      System.out.println("DEBUG getRouteMatches: Row after filter: " + row);
-    }
 
     // Convert results to RouteMatch list
     java.util.List<RouteMatch> matches = new java.util.ArrayList<>();
