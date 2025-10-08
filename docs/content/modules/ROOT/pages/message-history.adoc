@@ -1,0 +1,191 @@
+= LLM Message History
+:navtitle: Message History
+
+Large Language Models are inherently stateless and have no knowledge of previous interactions with a user, or even of previous parts of the current conversation. While this may not be noticeable when asking simple questions, it becomes a hindrance when engaging in long running conversations that rely on conversational context.
+
+The solution to this problem is to append the previous conversation history to each subsequent call to the LLM.
+
+This notebook will show how to use Redis to structure and store and retrieve this conversational message history.
+
+[source,java]
+----
+import com.redis.vl.extensions.messagehistory.MessageHistory;
+import redis.clients.jedis.UnifiedJedis;
+import java.util.*;
+
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+MessageHistory chatHistory = new MessageHistory("student tutor", jedis);
+----
+
+To align with common LLM APIs, Redis stores messages with `role` and `content` fields.
+The supported roles are "system", "user" and "llm".
+
+You can store messages one at a time or all at once.
+
+[source,java]
+----
+chatHistory.addMessage(Map.of(
+    "role", "system",
+    "content", "You are a helpful geography tutor, giving simple and short answers to questions about European countries."
+));
+
+chatHistory.addMessages(List.of(
+    Map.of("role", "user", "content", "What is the capital of France?"),
+    Map.of("role", "llm", "content", "The capital is Paris."),
+    Map.of("role", "user", "content", "And what is the capital of Spain?"),
+    Map.of("role", "llm", "content", "The capital is Madrid."),
+    Map.of("role", "user", "content", "What is the population of Great Britain?"),
+    Map.of("role", "llm", "content", "As of 2023 the population of Great Britain is approximately 67 million people.")
+));
+----
+
+At any point we can retrieve the recent history of the conversation. It will be ordered by entry time.
+
+[source,java]
+----
+List<Map<String, Object>> context = chatHistory.getRecent(5, false, false, null);
+for (Map<String, Object> message : context) {
+    System.out.println(message);
+}
+----
+
+Output:
+----
+{role=llm, content=The capital is Paris.}
+{role=user, content=And what is the capital of Spain?}
+{role=llm, content=The capital is Madrid.}
+{role=user, content=What is the population of Great Britain?}
+{role=llm, content=As of 2023 the population of Great Britain is approximately 67 million people.}
+----
+
+In many LLM flows the conversation progresses in a series of prompt and response pairs. Message history offer a convenience function `store()` to add these simply.
+
+[source,java]
+----
+String prompt = "what is the size of England compared to Portugal?";
+String response = "England is larger in land area than Portugal by about 15000 square miles.";
+chatHistory.store(prompt, response);
+
+List<Map<String, Object>> context = chatHistory.getRecent(6, false, false, null);
+for (Map<String, Object> message : context) {
+    System.out.println(message);
+}
+----
+
+Output:
+----
+{role=user, content=And what is the capital of Spain?}
+{role=llm, content=The capital is Madrid.}
+{role=user, content=What is the population of Great Britain?}
+{role=llm, content=As of 2023 the population of Great Britain is approximately 67 million people.}
+{role=user, content=what is the size of England compared to Portugal?}
+{role=llm, content=England is larger in land area than Portugal by about 15000 square miles.}
+----
+
+== Managing multiple users and conversations
+
+For applications that need to handle multiple conversations concurrently, Redis supports tagging messages to keep conversations separated.
+
+[source,java]
+----
+chatHistory.addMessage(
+    Map.of(
+        "role", "system",
+        "content", "You are a helpful algebra tutor, giving simple answers to math problems."
+    ),
+    "student two"
+);
+
+chatHistory.addMessages(
+    List.of(
+        Map.of("role", "user", "content", "What is the value of x in the equation 2x + 3 = 7?"),
+        Map.of("role", "llm", "content", "The value of x is 2."),
+        Map.of("role", "user", "content", "What is the value of y in the equation 3y - 5 = 7?"),
+        Map.of("role", "llm", "content", "The value of y is 4.")
+    ),
+    "student two"
+);
+
+List<Map<String, Object>> mathMessages = chatHistory.getRecent(10, false, false, "student two");
+for (Map<String, Object> mathMessage : mathMessages) {
+    System.out.println(mathMessage);
+}
+----
+
+Output:
+----
+{role=system, content=You are a helpful algebra tutor, giving simple answers to math problems.}
+{role=user, content=What is the value of x in the equation 2x + 3 = 7?}
+{role=llm, content=The value of x is 2.}
+{role=user, content=What is the value of y in the equation 3y - 5 = 7?}
+{role=llm, content=The value of y is 4.}
+----
+
+== Semantic message history
+
+For longer conversations our list of messages keeps growing. Since LLMs are stateless we have to continue to pass this conversation history on each subsequent call to ensure the LLM has the correct context.
+
+A typical flow looks like this:
+
+[source,java]
+----
+while (true) {
+    String prompt = getUserInput(); // input('enter your next question')
+    List<Map<String, Object>> context = chatHistory.getRecent(5, false, false, null);
+    String response = llmApiCall(prompt, context); // LLM_api_call(prompt=prompt, context=context)
+    chatHistory.store(prompt, response);
+}
+----
+
+This works, but as context keeps growing so too does our LLM token count, which increases latency and cost.
+
+Conversation histories can be truncated, but that can lead to losing relevant information that appeared early on.
+
+A better solution is to pass only the relevant conversational context on each subsequent call.
+
+For this, RedisVL has the `SemanticMessageHistory`, which uses vector similarity search to return only semantically relevant sections of the conversation.
+
+NOTE: `SemanticMessageHistory` is not yet implemented in RedisVL for Java. This feature is available in the Python version and will be added to the Java version in a future release.
+
+== Conversation control
+
+LLMs can hallucinate on occasion and when this happens it can be useful to prune incorrect information from conversational histories so this incorrect information doesn't continue to be passed as context.
+
+[source,java]
+----
+chatHistory.store(
+    "what is the smallest country in Europe?",
+    "Monaco is the smallest country in Europe at 0.78 square miles." // Incorrect. Vatican City is the smallest country in Europe
+);
+
+// get the key of the incorrect message
+List<Map<String, Object>> context = chatHistory.getRecent(1, false, true, null);
+String badKey = (String) context.get(0).get("entry_id");
+chatHistory.drop(badKey);
+
+List<Map<String, Object>> correctedContext = chatHistory.getRecent(5, false, false, null);
+for (Map<String, Object> message : correctedContext) {
+    System.out.println(message);
+}
+----
+
+Output:
+----
+{role=user, content=What is the population of Great Britain?}
+{role=llm, content=As of 2023 the population of Great Britain is approximately 67 million people.}
+{role=user, content=what is the size of England compared to Portugal?}
+{role=llm, content=England is larger in land area than Portugal by about 15000 square miles.}
+{role=user, content=what is the smallest country in Europe?}
+----
+
+[source,java]
+----
+chatHistory.clear();
+----
+
+== Learn More
+
+* xref:llmcache.adoc[LLM Cache]
+* xref:vectorizers.adoc[Vectorizers]
+* link:../../../javadoc/aggregate/index.html[Full API Documentation^]
+* https://github.com/redis/redis-vl-java/tree/main/notebooks/07_message_history.ipynb[Interactive Notebook Example^]
