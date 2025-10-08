@@ -1,0 +1,223 @@
+= Semantic Routing
+:navtitle: Semantic Router
+
+RedisVL provides a `SemanticRouter` interface to utilize Redis' built-in search & aggregation in order to perform KNN-style classification over a set of `Route` references to determine the best match.
+
+This notebook will go over how to use Redis as a Semantic Router for your applications
+
+== Define the Routes
+
+Below we define 3 different routes. One for `technology`, one for `sports`, and another for `entertainment`. Now for this example, the goal here is surely topic "classification". But you can create routes and references for almost anything.
+
+Each route has a set of references that cover the "semantic surface area" of the route. The incoming query from a user needs to be semantically similar to one or more of the references in order to "match" on the route.
+
+Additionally, each route has a `distance_threshold` which determines the maximum distance between the query and the reference for the query to be routed to the route. This value is unique to each route.
+
+[source,java]
+----
+import com.redis.vl.extensions.router.Route;
+import java.util.*;
+
+// Define routes for the semantic router
+Route technology = Route.builder()
+    .name("technology")
+    .references(List.of(
+        "what are the latest advancements in AI?",
+        "tell me about the newest gadgets",
+        "what's trending in tech?"
+    ))
+    .metadata(Map.of("category", "tech", "priority", 1))
+    .distanceThreshold(0.71)
+    .build();
+
+Route sports = Route.builder()
+    .name("sports")
+    .references(List.of(
+        "who won the game last night?",
+        "tell me about the upcoming sports events",
+        "what's the latest in the world of sports?",
+        "sports",
+        "basketball and football"
+    ))
+    .metadata(Map.of("category", "sports", "priority", 2))
+    .distanceThreshold(0.72)
+    .build();
+
+Route entertainment = Route.builder()
+    .name("entertainment")
+    .references(List.of(
+        "what are the top movies right now?",
+        "who won the best actor award?",
+        "what's new in the entertainment industry?"
+    ))
+    .metadata(Map.of("category", "entertainment", "priority", 3))
+    .distanceThreshold(0.7)
+    .build();
+----
+
+== Initialize the SemanticRouter
+
+`SemanticRouter` will automatically create an index within Redis upon initialization for the route references. By default, it uses the `HFTextVectorizer` to generate embeddings for each route reference.
+
+[source,java]
+----
+import com.redis.vl.extensions.router.SemanticRouter;
+import com.redis.vl.utils.vectorize.HFTextVectorizer;
+import redis.clients.jedis.UnifiedJedis;
+
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+// Initialize the SemanticRouter
+SemanticRouter router = new SemanticRouter(
+    "topic-router",
+    new HFTextVectorizer(),
+    List.of(technology, sports, entertainment),
+    jedis,
+    true  // overwrite - blow away any other routing index with this name
+);
+----
+
+== Simple routing
+
+[source,java]
+----
+// Query the router with a statement
+RouteMatch routeMatch = router.route("Can you tell me about the latest in artificial intelligence?");
+System.out.println(routeMatch);
+// Output: RouteMatch(name='technology', distance=0.419145941734)
+
+// Query the router with a statement and return a miss
+RouteMatch miss = router.route("are aliens real?");
+System.out.println(miss);
+// Output: RouteMatch(name=null, distance=null)
+----
+
+We can also route a statement to many routes and order them by distance:
+
+[source,java]
+----
+// Perform multi-class classification with routeMany() -- toggle the maxK and the distanceThreshold
+List<RouteMatch> routeMatches = router.routeMany("How is AI used in basketball?", 3);
+System.out.println(routeMatches);
+// Output: [RouteMatch(name='technology', distance=0.556493639946), RouteMatch(name='sports', distance=0.671060085297)]
+----
+
+[source,java]
+----
+// Toggle the aggregation method -- note the different distances in the result
+import com.redis.vl.extensions.router.schema.DistanceAggregationMethod;
+
+List<RouteMatch> routeMatches = router.routeMany(
+    "How is AI used in basketball?",
+    DistanceAggregationMethod.MIN,
+    3
+);
+System.out.println(routeMatches);
+// Output: [RouteMatch(name='technology', distance=0.556493639946), RouteMatch(name='sports', distance=0.629264354706)]
+----
+
+Note the different route match distances. This is because we used the `min` aggregation method instead of the default `avg` approach.
+
+== Update the routing config
+
+[source,java]
+----
+import com.redis.vl.extensions.router.RoutingConfig;
+
+router.updateRoutingConfig(
+    new RoutingConfig(DistanceAggregationMethod.MIN, 3)
+);
+
+List<RouteMatch> routeMatches = router.routeMany("Lebron James");
+System.out.println(routeMatches);
+// Output: [RouteMatch(name='sports', distance=0.663253903389)]
+----
+
+== Router serialization
+
+[source,java]
+----
+Map<String, Object> routerDict = router.toDict();
+System.out.println(routerDict);
+----
+
+Output:
+----
+{
+  name=topic-router,
+  routes=[
+    {name=technology, references=[...], metadata={category=tech, priority=1}, distance_threshold=0.71},
+    {name=sports, references=[...], metadata={category=sports, priority=2}, distance_threshold=0.72},
+    {name=entertainment, references=[...], metadata={category=entertainment, priority=3}, distance_threshold=0.7}
+  ],
+  vectorizer={type=hf, model=sentence-transformers/all-mpnet-base-v2},
+  routing_config={max_k=3, aggregation_method=min}
+}
+----
+
+[source,java]
+----
+SemanticRouter router2 = SemanticRouter.fromDict(router.toDict(), jedis);
+assert router2.toDict().equals(router.toDict());
+
+router.toYaml("router.yaml", true);
+
+SemanticRouter router3 = SemanticRouter.fromYaml("router.yaml", jedis);
+assert router3.toDict().equals(router2.toDict()) && router2.toDict().equals(router.toDict());
+----
+
+== Add route references
+
+[source,java]
+----
+List<String> addedIds = router.addRouteReferences(
+    "technology",
+    List.of("latest AI trends", "new tech gadgets")
+);
+System.out.println(addedIds);
+----
+
+== Get route references
+
+[source,java]
+----
+// by route name
+List<Map<String, Object>> refs = router.getRouteReferences("technology");
+System.out.println(refs);
+
+// by reference id
+List<Map<String, Object>> refs = router.getRouteReferences(List.of(refs.get(0).get("reference_id")));
+System.out.println(refs);
+----
+
+== Delete route references
+
+[source,java]
+----
+// by route name
+int deletedCount = router.deleteRouteReferences("sports");
+System.out.println(deletedCount);  // Output: 5
+
+// by id
+int deletedCount = router.deleteRouteReferences(List.of(refs.get(0).get("reference_id")));
+System.out.println(deletedCount);  // Output: 1
+----
+
+== Clean up the router
+
+[source,java]
+----
+// Use clear to flush all routes from the index
+router.clear();
+
+// Use delete to clear the index and remove it completely
+router.delete();
+----
+
+== Learn More
+
+* xref:llmcache.adoc[LLM Cache]
+* xref:message-history.adoc[Message History]
+* xref:vectorizers.adoc[Vectorizers]
+* link:../../../javadoc/aggregate/index.html[Full API Documentation^]
+* https://github.com/redis/redis-vl-java/tree/main/notebooks/08_semantic_router.ipynb[Interactive Notebook Example^]
