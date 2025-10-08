@@ -65,6 +65,9 @@ dependencies {
 
     // Test dependencies for LangChain4J (include in tests to verify integration)
     testImplementation("dev.langchain4j:langchain4j:0.36.2")
+    testImplementation("dev.langchain4j:langchain4j-open-ai:0.36.2")
+    testImplementation("dev.langchain4j:langchain4j-cohere:0.36.2")
+    testImplementation("dev.langchain4j:langchain4j-voyage-ai:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-hugging-face:0.36.2")
 
