@@ -3,6 +3,7 @@
 
 .API
 * xref:llmcache.adoc[LLM Cache]
+* xref:message-history.adoc[Message History]
 * xref:vectorizers.adoc[Vectorizers]
 * xref:rerankers.adoc[Rerankers]
 

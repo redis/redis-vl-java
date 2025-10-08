@@ -41,6 +41,7 @@ public class FilterQuery {
     this.numResults = builder.numResults;
     this.dialect = builder.dialect;
     this.sortBy = builder.sortBy;
+    this.sortAscending = builder.sortAscending;
     this.inOrder = builder.inOrder;
     this.params = builder.params != null ? Map.copyOf(builder.params) : Map.of();
   }
@@ -77,6 +78,12 @@ public class FilterQuery {
   private final String sortBy;
 
   /**
+   * Whether to sort in ascending order. Python: query.sort_by(field, asc=True/False) Defaults to
+   * true (ascending).
+   */
+  private final boolean sortAscending;
+
+  /**
    * Whether to require terms in field to have same order as in query filter. Python: in_order
    * (bool) - defaults to False
    */
@@ -109,9 +116,9 @@ public class FilterQuery {
     }
 
     // Python: if sort_by: self.sort_by(sort_by)
-    // Note: Python accepts tuple for DESC, but here we default to ASC
+    // Python supports: query.sort_by(field, asc=True/False)
     if (sortBy != null && !sortBy.isEmpty()) {
-      query.setSortBy(sortBy, true); // true = ascending
+      query.setSortBy(sortBy, sortAscending);
     }
 
     // Python: if in_order: self.in_order()
@@ -194,6 +201,7 @@ public class FilterQuery {
     private int numResults = 10;
     private int dialect = 2;
     private String sortBy;
+    private boolean sortAscending = true; // Default to ascending
     private boolean inOrder = false;
     private Map<String, Object> params = Map.of();
 
@@ -244,13 +252,25 @@ public class FilterQuery {
     }
 
     /**
-     * Set the field to sort results by.
+     * Set the field to sort results by (defaults to ascending).
      *
      * @param sortBy Field name to sort by
      * @return this builder
      */
     public FilterQueryBuilder sortBy(String sortBy) {
       this.sortBy = sortBy;
+      return this;
+    }
+
+    /**
+     * Set whether to sort in ascending or descending order. Python: query.sort_by(field,
+     * asc=True/False)
+     *
+     * @param ascending true for ascending, false for descending
+     * @return this builder
+     */
+    public FilterQueryBuilder sortAscending(boolean ascending) {
+      this.sortAscending = ascending;
       return this;
     }
 
