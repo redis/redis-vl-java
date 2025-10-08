@@ -168,7 +168,7 @@ tasks.register<Javadoc>("aggregateJavadoc") {
         splitIndex(true)
         links(
             "https://docs.oracle.com/en/java/javase/17/docs/api/",
-            "https://www.javadoc.io/doc/redis.clients/jedis/latest/"
+            "https://www.javadoc.io/doc/redis.clients/jedis/6.2.0/"
         )
         // Suppress warnings for Lombok-generated constructors
         addStringOption("Xdoclint:-missing", "-quiet")
