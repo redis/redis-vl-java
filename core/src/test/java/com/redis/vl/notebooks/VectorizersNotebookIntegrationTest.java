@@ -98,8 +98,13 @@ public class VectorizersNotebookIntegrationTest extends BaseIntegrationTest {
     }
 
     // Create a vectorizer using Cohere (same model as Python)
+    // Note: Cohere v3 models require inputType to be specified
     var cohereModel =
-        CohereEmbeddingModel.builder().apiKey(apiKey).modelName("embed-english-v3.0").build();
+        CohereEmbeddingModel.builder()
+            .apiKey(apiKey)
+            .modelName("embed-english-v3.0")
+            .inputType("search_query")
+            .build();
     var co = new LangChain4JVectorizer("embed-english-v3.0", cohereModel);
 
     // Embed a search query
@@ -108,9 +113,6 @@ public class VectorizersNotebookIntegrationTest extends BaseIntegrationTest {
     assertThat(queryEmbed.length).isEqualTo(1024); // embed-english-v3.0 produces 1024 dims
     System.out.println(
         "First 10 dimensions: " + Arrays.toString(Arrays.copyOfRange(queryEmbed, 0, 10)));
-
-    // Note: LangChain4j Cohere doesn't expose input_type in the same way Python does
-    // The model handles query vs document distinction internally
   }
 
   @Test
