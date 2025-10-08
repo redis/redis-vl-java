@@ -185,10 +185,20 @@ public final class HybridQuery extends AggregationQuery {
 
   // Getters with defensive copies for mutable fields
 
+  /**
+   * Get the text query string.
+   *
+   * @return The text to search for
+   */
   public String getText() {
     return text;
   }
 
+  /**
+   * Get the text field name.
+   *
+   * @return The field name containing text data
+   */
   public String getTextFieldName() {
     return textFieldName;
   }
@@ -202,26 +212,56 @@ public final class HybridQuery extends AggregationQuery {
     return vector != null ? vector.clone() : null;
   }
 
+  /**
+   * Get the vector field name.
+   *
+   * @return The field name containing vector data
+   */
   public String getVectorFieldName() {
     return vectorFieldName;
   }
 
+  /**
+   * Get the text scoring algorithm.
+   *
+   * @return The text scorer (e.g., "BM25", "TFIDF")
+   */
   public String getTextScorer() {
     return textScorer;
   }
 
+  /**
+   * Get the filter expression.
+   *
+   * @return The filter to apply, or null if no filter
+   */
   public Filter getFilterExpression() {
     return filterExpression;
   }
 
+  /**
+   * Get the alpha weighting factor.
+   *
+   * @return Weight between 0.0 (vector only) and 1.0 (text only)
+   */
   public float getAlpha() {
     return alpha;
   }
 
+  /**
+   * Get the data type for vector storage.
+   *
+   * @return The data type (e.g., "float32", "float64")
+   */
   public String getDtype() {
     return dtype;
   }
 
+  /**
+   * Get the maximum number of results.
+   *
+   * @return The result limit
+   */
   public int getNumResults() {
     return numResults;
   }
@@ -244,6 +284,11 @@ public final class HybridQuery extends AggregationQuery {
     return Collections.unmodifiableSet(stopwords);
   }
 
+  /**
+   * Get the query dialect version.
+   *
+   * @return The dialect version (default 2)
+   */
   public int getDialect() {
     return dialect;
   }

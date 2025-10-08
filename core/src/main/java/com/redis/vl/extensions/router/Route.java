@@ -12,8 +12,9 @@ import lombok.Builder;
 import lombok.Data;
 
 /**
- * Model representing a routing path with associated metadata and thresholds. Ported from Python:
- * redisvl/extensions/router/schema.py:12
+ * Model representing a routing path with associated metadata and thresholds.
+ *
+ * <p>Ported from Python: redisvl/extensions/router/schema.py:12
  */
 @Data
 @Builder
@@ -23,6 +24,7 @@ import lombok.Data;
     value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"},
     justification =
         "Route is a data class with intentionally mutable fields for Python API compatibility")
+@SuppressWarnings("javadoc") // Lombok generates constructors
 public class Route {
   private String name;
   private List<String> references;
@@ -30,7 +32,14 @@ public class Route {
   @Builder.Default private double distanceThreshold = 0.5;
 
   /** Custom builder to ensure references list is mutable. */
+  @SuppressWarnings("javadoc") // Lombok generates constructors
   public static class RouteBuilder {
+    /**
+     * Set the references list with a mutable copy.
+     *
+     * @param references List of reference strings
+     * @return this builder
+     */
     public RouteBuilder references(List<String> references) {
       // Convert to ArrayList to ensure mutability for addRouteReferences/deleteRouteReferences
       this.references = references != null ? new ArrayList<>(references) : new ArrayList<>();
