@@ -1,15 +1,24 @@
 package com.redis.vl.demos.facematch.service;
 
 import com.redis.vl.demos.facematch.model.Celebrity;
+import com.redis.vl.utils.vectorize.DJLFaceVectorizer;
+import javafx.scene.image.Image;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
  * Service for loading and generating celebrity data.
  */
 public class DataLoaderService {
+
+    private Map<String, String> celebrityNames = null;
 
     private static final String[] SAMPLE_NAMES = {
         "Tom Hanks", "Meryl Streep", "Denzel Washington", "Cate Blanchett",
@@ -58,56 +67,79 @@ public class DataLoaderService {
     };
 
     /**
-     * Generate sample celebrities with realistic clustered embeddings.
-     * Celebrities are grouped into clusters to simulate similar facial features.
+     * Generate sample celebrities with real ArcFace embeddings from images.
      *
      * @param count Number of celebrities to generate
      * @return List of celebrities with embeddings
      */
     public List<Celebrity> generateSampleCelebrities(int count) {
         List<Celebrity> celebrities = new ArrayList<>();
-        Random random = new Random(42); // Fixed seed for reproducibility
+
+        // Load celebrity names from CSV
+        if (celebrityNames == null) {
+            celebrityNames = loadCelebrityNames();
+        }
 
         // Limit count to available images
         int actualCount = Math.min(count, AVAILABLE_IDS.length);
 
-        // Define 5 cluster centers in embedding space
-        int numClusters = 5;
-        float[][] clusterCenters = new float[numClusters][512];
+        System.out.println("Generating embeddings for " + actualCount + " celebrities using DJL Face Recognition (RedisVL vectorizer)...");
 
-        for (int c = 0; c < numClusters; c++) {
-            for (int i = 0; i < 512; i++) {
-                clusterCenters[c][i] = (float) random.nextGaussian();
+        // Initialize DJL Face vectorizer (RedisVL infrastructure)
+        try (DJLFaceVectorizer vectorizer = new DJLFaceVectorizer()) {
+            for (int i = 0; i < actualCount; i++) {
+                String celebId = AVAILABLE_IDS[i];
+                String id = "celeb_" + celebId;
+                // Get name from CSV, fallback to synthetic if not found
+                String name = celebrityNames.getOrDefault(celebId, SAMPLE_NAMES[i % SAMPLE_NAMES.length]);
+                String imageUrl = "http://example.com/images/" + id + ".jpg";
+
+                // Load celebrity image and generate real embedding
+                try {
+                    String resourcePath = "/static/images/celebs/img_" + celebId + ".jpg";
+                    InputStream inputStream = getClass().getResourceAsStream(resourcePath);
+
+                    if (inputStream != null) {
+                        float[] embedding = vectorizer.embedImage(inputStream);
+
+                        celebrities.add(new Celebrity(id, name, imageUrl, embedding));
+
+                        if ((i + 1) % 10 == 0) {
+                            System.out.println("Generated " + (i + 1) + "/" + actualCount + " embeddings");
+                        }
+                    } else {
+                        System.err.println("Warning: Image not found for " + id);
+                        // Fall back to synthetic embedding for missing images
+                        float[] syntheticEmbedding = generateSyntheticEmbedding(celebId);
+                        celebrities.add(new Celebrity(id, name, imageUrl, syntheticEmbedding));
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error generating embedding for " + id + ": " + e.getMessage());
+                    // Fall back to synthetic embedding
+                    float[] syntheticEmbedding = generateSyntheticEmbedding(celebId);
+                    celebrities.add(new Celebrity(id, name, imageUrl, syntheticEmbedding));
+                }
             }
-            normalizeVector(clusterCenters[c]);
+        } catch (Exception e) {
+            System.err.println("Error initializing DJL Face vectorizer: " + e.getMessage());
+            throw new RuntimeException("Failed to generate embeddings", e);
         }
 
-        // Generate celebrities, each near a random cluster center
-        for (int i = 0; i < actualCount; i++) {
-            String celebId = AVAILABLE_IDS[i];
-            String id = "celeb_" + celebId;
-            String name = SAMPLE_NAMES[i % SAMPLE_NAMES.length];
-            String imageUrl = "http://example.com/images/" + id + ".jpg";
-
-            // Pick a random cluster
-            int cluster = random.nextInt(numClusters);
-            float[] clusterCenter = clusterCenters[cluster];
-
-            // Generate embedding near cluster center with some noise
-            float[] embedding = new float[512];
-            float noise = 0.3f; // Amount of variation from cluster center
-
-            for (int j = 0; j < 512; j++) {
-                embedding[j] = clusterCenter[j] + (float) random.nextGaussian() * noise;
-            }
-
-            // Normalize to unit vector (common for face embeddings)
-            normalizeVector(embedding);
-
-            celebrities.add(new Celebrity(id, name, imageUrl, embedding));
-        }
-
+        System.out.println("Completed generating " + celebrities.size() + " embeddings");
         return celebrities;
+    }
+
+    /**
+     * Generate synthetic embedding as fallback.
+     */
+    private float[] generateSyntheticEmbedding(String celebId) {
+        Random random = new Random(celebId.hashCode());
+        float[] embedding = new float[512];
+        for (int i = 0; i < 512; i++) {
+            embedding[i] = (float) random.nextGaussian();
+        }
+        normalizeVector(embedding);
+        return embedding;
     }
 
     /**
@@ -125,5 +157,37 @@ public class DataLoaderService {
                 vector[i] /= norm;
             }
         }
+    }
+
+    /**
+     * Load celebrity names from CSV file.
+     * CSV format: id,imdb_id,name,popularity,image_resource
+     */
+    private Map<String, String> loadCelebrityNames() {
+        Map<String, String> names = new HashMap<>();
+        try (InputStream csvStream = getClass().getResourceAsStream("/data/celeb_faces.csv");
+             BufferedReader reader = new BufferedReader(new InputStreamReader(csvStream))) {
+
+            String line;
+            boolean firstLine = true;
+            while ((line = reader.readLine()) != null) {
+                if (firstLine) {
+                    firstLine = false; // Skip header
+                    continue;
+                }
+
+                String[] parts = line.split(",");
+                if (parts.length >= 3) {
+                    String id = parts[0].trim();
+                    String name = parts[2].trim();
+                    names.put(id, name);
+                }
+            }
+
+            System.out.println("Loaded " + names.size() + " celebrity names from CSV");
+        } catch (Exception e) {
+            System.err.println("Error loading celebrity names: " + e.getMessage());
+        }
+        return names;
     }
 }

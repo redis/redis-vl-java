@@ -20,12 +20,15 @@ repositories {
 
 javafx {
     version = "21"
-    modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics")
+    modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics", "javafx.swing")
 }
 
 dependencies {
     // RedisVL4J core
     implementation(project(":core"))
+
+    // ONNX Runtime for face recognition
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.16.3")
 
     // Face recognition - DJL (for now, ONNX later)
     implementation("ai.djl:api:0.29.0")
@@ -34,7 +37,7 @@ dependencies {
 
     // Dimensionality reduction
     implementation("org.apache.commons:commons-math3:3.6.1")
-    // TODO: Add t-SNE library once working version found
+    implementation("com.github.haifengl:smile-core:3.1.1")
 
     // JavaFX 3D visualization
     implementation("org.fxyz3d:fxyz3d:0.6.0")
@@ -62,6 +65,22 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Task to inspect ONNX model
+tasks.register<JavaExec>("inspectModel") {
+    group = "application"
+    description = "Inspect ArcFace ONNX model input/output specifications"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.redis.vl.demos.facematch.util.ModelInspector")
+}
+
+// Task to test tensor creation
+tasks.register<JavaExec>("testTensor") {
+    group = "application"
+    description = "Test ONNX tensor creation and inference"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("com.redis.vl.demos.facematch.util.TensorTest")
 }
 
 // Task to generate embeddings from CSV
