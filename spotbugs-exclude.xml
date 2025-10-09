@@ -40,4 +40,11 @@
         <Bug pattern="~.*" />
     </Match>
 
+    <!-- Exclude constructor exception for DJLFaceVectorizer - AutoCloseable pattern is safe -->
+    <Match>
+        <Class name="com.redis.vl.utils.vectorize.DJLFaceVectorizer" />
+        <Method name="&lt;init&gt;" />
+        <Bug pattern="CT_CONSTRUCTOR_THROW" />
+    </Match>
+
 </FindBugsFilter>
