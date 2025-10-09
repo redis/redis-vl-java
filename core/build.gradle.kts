@@ -138,18 +138,24 @@ publishing {
 
                 developers {
                     developer {
-                        id.set("redis")
-                        name.set("Redis Team")
-                        email.set("oss@redis.com")
+                        id = "bsbodden"
+                        name = "Brian Sam-Bodden"
+                        email = "bsb at redis.com"
                     }
                 }
 
                 scm {
-                    connection.set("scm:git:git://github.com/redis/redisvl.git")
-                    developerConnection.set("scm:git:ssh://github.com:redis/redisvl.git")
-                    url.set("https://github.com/redis/redisvl")
+                    connection.set("scm:git:git://github.com/redis/redis-vl-java.git")
+                    developerConnection.set("scm:git:ssh://github.com:redis/redis-vl-java.git")
+                    url.set("https://github.com/redis/redis-vl-java")
                 }
             }
+        }
+    }
+
+    repositories {
+        maven {
+            url = uri(rootProject.layout.buildDirectory.dir("staging-deploy"))
         }
     }
 }

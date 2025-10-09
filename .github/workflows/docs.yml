@@ -1,10 +1,8 @@
 name: Deploy Docs
 on:
   workflow_dispatch:
-  release:
-    types: [published]
   repository_dispatch:
-    types: [build-docs]
+    types: [docs-build]
 
 permissions:
   contents: read
@@ -40,11 +38,11 @@ jobs:
         with:
           node-version: 20
 
-      - name: Cache Gradle
+      - name: Cache Gradle dependencies
         uses: actions/cache@v4
         with:
           path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}-${{ hashFiles('**/gradle.properties') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -52,8 +50,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-${{ hashFiles('**/gradlew') }}
-          restore-keys: ${{ runner.os }}-gradlew-
+          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle-wrapper.properties') }}
+
+      - name: Fetch all tags
+        run: git fetch --tags --force
 
       - name: Set Release Version in Docs
         run: |
@@ -62,9 +62,11 @@ jobs:
           sed -i "s/display_version: '.*'/display_version: '$VERSION'/" docs/content/antora.yml
           sed -i "s/redisvl-version: '.*'/redisvl-version: '$VERSION'/" docs/content/antora.yml
 
+      - name: Generate Javadoc
+        run: ./gradlew aggregateJavadoc --console=plain
+
       - name: Build Documentation
-        run: |
-          ./gradlew :docs:build
+        run: ./gradlew :docs:build --console=plain
 
       - name: Add .nojekyll file
         run: touch docs/build/site/.nojekyll

@@ -1,0 +1,75 @@
+project:
+  name: redisvl
+  description: Redis Vector Library for Java
+  longDescription: Redis Vector Library (RedisVL) is the ultimate Java client designed for AI-native applications harnessing the power of Redis.
+  links:
+    homepage: https://github.com/redis/redis-vl-java
+  authors:
+    - Brian Sam-Bodden
+  license: MIT
+  languages:
+    java:
+      groupId: com.redis
+      version: '21'
+      multiProject: true
+  inceptionYear: '2025'
+  tags: ['redis', 'vector', 'search', 'ai', 'ml', 'llm', 'rag']
+
+release:
+  github:
+    owner: redis
+    name: redis-vl-java
+    overwrite: true
+    sign: true
+    prerelease:
+      pattern: .*-(RC|SNAPSHOT|M|alpha|beta).*
+    draft: false
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+      includeLabels:
+        - 'feat'
+        - 'feature'
+        - 'fix'
+        - 'docs'
+        - 'chore'
+        - 'perf'
+        - 'refactor'
+        - 'test'
+        - 'build'
+        - 'ci'
+      contributors:
+        enabled: true
+        format: '- {{contributorName}} ({{contributorUsernameAsLink}})'
+      extraProperties:
+        categorizeScopes: false
+      replacers:
+        # Escape Java annotations to prevent GitHub from treating them as user mentions
+        - search: '\s@([A-Z][a-zA-Z]+)'
+          replace: ' `@$1`'
+      hide:
+        contributors:
+          - 'GitHub Actions'
+          - 'actions'
+          - 'github-actions'
+          - 'github-actions[bot]'
+
+signing:
+  active: ALWAYS
+  armored: true
+
+deploy:
+  maven:
+    mavenCentral:
+      redis:
+        active: RELEASE
+        authorization: BASIC
+        url: https://central.sonatype.com/api/v1/publisher
+        applyMavenCentralRules: true
+        stagingRepositories:
+          - build/staging-deploy
+
+# No announcements needed
+announce:
+  slack:
+    active: NEVER
