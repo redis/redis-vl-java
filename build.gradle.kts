@@ -10,7 +10,6 @@ plugins {
 
 allprojects {
     group = "com.redis"
-    version = "0.0.1"
 
     repositories {
         mavenCentral()
