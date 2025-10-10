@@ -23,8 +23,9 @@ class SemanticRouterIntegrationTest extends BaseIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    // Use SentenceTransformersVectorizer matching Python test fixture (conftest.py:210)
-    vectorizer = new SentenceTransformersVectorizer("sentence-transformers/all-mpnet-base-v2");
+    // Use SentenceTransformersVectorizer with ONNX-compatible model
+    // Note: all-mpnet-base-v2 no longer has ONNX format on HuggingFace (only SafeTensors)
+    vectorizer = new SentenceTransformersVectorizer("sentence-transformers/all-MiniLM-L6-v2");
 
     // Test routes from Python fixture (line 24-38)
     testRoutes =
