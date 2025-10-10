@@ -8,7 +8,7 @@ description = "RedisVL - Vector Library for Java"
 
 dependencies {
     // Redis client
-    api("redis.clients:jedis:6.2.0")
+    api("redis.clients:jedis:7.0.0")
 
     // JSON processing
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
