@@ -48,13 +48,13 @@ Add RedisVL to your Java (17+) project using Maven or Gradle:
 <dependency>
     <groupId>com.redis</groupId>
     <artifactId>redisvl</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
 </dependency>
 ```
 
 **Gradle:**
 ```gradle
-implementation 'com.redis:redisvl:0.0.1-SNAPSHOT'
+implementation 'com.redis:redisvl:0.0.1'
 ```
 
 ## Setting up Redis
@@ -246,7 +246,7 @@ List<float[]> embeddings = vectorizer.embedBatch(
 import com.redis.vl.utils.vectorize.SentenceTransformersVectorizer;
 
 // Using local ONNX model
-SentenceTransformersVectorizer vectorizer = new SentenceTransformersVectorizer();
+SentenceTransformersVectorizer vectorizer = new SentenceTransformersVectorizer("sentence-transformers/all-mpnet-base-v2");
 
 float[] embedding = vectorizer.embed("What is the capital city of France?");
 ```
@@ -316,6 +316,9 @@ Build fast decision models that run directly in Redis and route user queries to 
 ```java
 import com.redis.vl.extensions.router.SemanticRouter;
 import com.redis.vl.extensions.router.Route;
+import com.redis.vl.utils.vectorize.SentenceTransformersVectorizer
+
+SentenceTransformersVectorizer vectorizer = new SentenceTransformersVectorizer("sentence-transformers/all-mpnet-base-v2")
 
 List<Route> routes = List.of(
     Route.builder()
@@ -335,6 +338,7 @@ List<Route> routes = List.of(
 // build semantic router from routes
 SemanticRouter router = SemanticRouter.builder()
     .name("topic-router")
+    .vectorizer(vectorizer)
     .routes(routes)
     .jedis(jedis)
     .build();
