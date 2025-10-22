@@ -179,7 +179,7 @@ class QuerySortingIntegrationTest extends BaseIntegrationTest {
             .field("user_embedding")
             .vector(new float[] {0.1f, 0.1f, 0.5f})
             .returnFields(List.of("user", "credit_score", "age", "job", "location", "last_updated"))
-            .sortBy("age") // THIS WILL FAIL - sortBy doesn't exist yet!
+            .sortBy("age")
             .build();
 
     List<Map<String, Object>> results = index.query(query);
@@ -244,7 +244,7 @@ class QuerySortingIntegrationTest extends BaseIntegrationTest {
             .vector(new float[] {0.1f, 0.1f, 0.5f})
             .returnFields(List.of("user", "age"))
             .sortBy("age")
-            .sortDescending(true) // THIS WILL FAIL - sortDescending doesn't exist yet!
+            .sortDescending(true)
             .build();
 
     List<Map<String, Object>> results = index.query(query);
