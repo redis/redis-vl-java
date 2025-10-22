@@ -42,6 +42,9 @@ public abstract class BaseStorage {
   /**
    * Create a Redis key using a combination of a prefix, separator, and the identifier.
    *
+   * <p>Python port: Normalizes the prefix by removing trailing separators to avoid double
+   * separators (issue #368). Matches behavior of Python's BaseStorage._key() method.
+   *
    * @param id The unique identifier for the Redis entry
    * @param prefix A prefix to append before the key value
    * @param keySeparator A separator to insert between prefix and key value
@@ -50,9 +53,24 @@ public abstract class BaseStorage {
   protected static String createKey(String id, String prefix, String keySeparator) {
     if (prefix == null || prefix.isEmpty()) {
       return id;
-    } else {
-      return prefix + keySeparator + id;
     }
+
+    // Normalize prefix by removing trailing separators to avoid doubles (issue #368)
+    // Python equivalent: prefix.rstrip(key_separator) if key_separator else prefix
+    String normalizedPrefix = prefix;
+    if (keySeparator != null && !keySeparator.isEmpty()) {
+      while (normalizedPrefix.endsWith(keySeparator)) {
+        normalizedPrefix =
+            normalizedPrefix.substring(0, normalizedPrefix.length() - keySeparator.length());
+      }
+    }
+
+    // If normalized prefix is empty, return just the id
+    if (normalizedPrefix.isEmpty()) {
+      return keySeparator + id;
+    }
+
+    return normalizedPrefix + keySeparator + id;
   }
 
   /**
