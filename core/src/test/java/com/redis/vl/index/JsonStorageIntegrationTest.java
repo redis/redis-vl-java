@@ -223,7 +223,8 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
   void testDocumentsStored() {
     // Check if we can fetch a document
     // The key format is prefix + separator + id, where separator is ":"
-    Map<String, Object> doc = jsonIndex.fetch("json:" + TEST_PREFIX + "::Laptop Pro");
+    // Note: Prefix already ends with ":", so no double separator (issue #368)
+    Map<String, Object> doc = jsonIndex.fetch("json:" + TEST_PREFIX + ":Laptop Pro");
     assertThat(doc).as("Document should be retrievable").isNotNull();
     assertThat(doc.get("title")).isEqualTo("Laptop Pro");
 
@@ -249,7 +250,8 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
     assertThat(indexInfo).isNotNull();
 
     // Fetch a document to see its structure
-    String docId = "json:" + TEST_PREFIX + "::Laptop Pro";
+    // Note: Prefix already ends with ":", so no double separator (issue #368)
+    String docId = "json:" + TEST_PREFIX + ":Laptop Pro";
     Map<String, Object> doc = jsonIndex.fetch(docId);
     assertThat(doc).isNotNull();
 
@@ -598,10 +600,15 @@ class JsonStorageIntegrationTest extends BaseIntegrationTest {
     assertThat(keys).hasSize(1);
     String key = keys.get(0);
 
+    // Verify the key was written to Redis
+    boolean keyExists = unifiedJedis.exists(key);
+    assertThat(keyExists).as("Key should exist in Redis: " + key).isTrue();
+
     // Fetch the document
     Map<String, Object> doc = jsonIndex.fetch(key);
 
     // Should preserve nested structure
+    assertThat(doc).as("Document should be fetched with key: " + key).isNotNull();
     assertThat(doc).containsKey("metadata");
     assertThat(doc.get("metadata")).isInstanceOf(Map.class);
 

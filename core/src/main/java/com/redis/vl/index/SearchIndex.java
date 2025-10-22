@@ -1148,10 +1148,21 @@ public final class SearchIndex {
   public Map<String, Object> fetch(String idOrKey) {
     // If input already contains the prefix, use it as-is, otherwise construct the key
     String key;
-    if (getPrefix() != null
-        && !getPrefix().isEmpty()
-        && idOrKey.startsWith(getPrefix() + getKeySeparator())) {
-      key = idOrKey; // Already a full key
+    if (getPrefix() != null && !getPrefix().isEmpty()) {
+      // Normalize prefix to avoid double separator issues (issue #368)
+      String normalizedPrefix = getPrefix();
+      String separator = getKeySeparator();
+      if (separator != null && !separator.isEmpty() && normalizedPrefix.endsWith(separator)) {
+        normalizedPrefix =
+            normalizedPrefix.substring(0, normalizedPrefix.length() - separator.length());
+      }
+      String prefixWithSeparator = normalizedPrefix + separator;
+
+      if (idOrKey.startsWith(prefixWithSeparator)) {
+        key = idOrKey; // Already a full key
+      } else {
+        key = key(idOrKey); // Just an ID, construct the key
+      }
     } else {
       key = key(idOrKey); // Just an ID, construct the key
     }
