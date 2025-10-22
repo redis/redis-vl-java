@@ -602,7 +602,8 @@ class QueryIntegrationTest extends BaseIntegrationTest {
     List<String> scorers = Arrays.asList("BM25", "TFIDF", "TFIDF.DOCNORM", "DISMAX", "DOCSCORE");
 
     for (String scorer : scorers) {
-      TextQuery textQuery = new TextQuery(text, textField, scorer, returnFields);
+      TextQuery textQuery =
+          TextQuery.builder().text(text).textField(textField).scorer(scorer).numResults(10).build();
       List<Map<String, Object>> results = index.query(textQuery);
       assertThat(results)
           .as("TextQuery with scorer " + scorer + " should return results")
@@ -630,7 +631,14 @@ class QueryIntegrationTest extends BaseIntegrationTest {
         Filter.and(Filter.tag("credit_score", "high"), Filter.numeric("age").gt(30));
     String scorer = "TFIDF";
 
-    TextQuery textQuery = new TextQuery(text, textField, scorer, filterExpression, returnFields);
+    TextQuery textQuery =
+        TextQuery.builder()
+            .text(text)
+            .textField(textField)
+            .scorer(scorer)
+            .filterExpression(filterExpression)
+            .numResults(10)
+            .build();
     List<Map<String, Object>> results = index.query(textQuery);
 
     assertThat(results).hasSize(2); // mary and derrick
