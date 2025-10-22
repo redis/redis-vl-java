@@ -61,6 +61,9 @@ public class VectorQuery {
   /** Whether to require terms in field to have same order as in query */
   private boolean inOrder;
 
+  /** Fields that should not be decoded from binary format */
+  private List<String> skipDecodeFields;
+
   /** Private constructor */
   private VectorQuery(
       String field,
@@ -77,7 +80,8 @@ public class VectorQuery {
       boolean normalizeVectorDistance,
       String sortBy,
       boolean sortDescending,
-      boolean inOrder) {
+      boolean inOrder,
+      List<String> skipDecodeFields) {
     this.field = field;
     this.vector = vector != null ? vector.clone() : null; // Defensive copy
     this.numResults = numResults;
@@ -93,6 +97,8 @@ public class VectorQuery {
     this.sortBy = sortBy;
     this.sortDescending = sortDescending;
     this.inOrder = inOrder;
+    this.skipDecodeFields =
+        skipDecodeFields != null ? new ArrayList<>(skipDecodeFields) : new ArrayList<>();
   }
 
   /**
@@ -505,6 +511,15 @@ public class VectorQuery {
     return inOrder;
   }
 
+  /**
+   * Get the list of fields that should not be decoded from binary format.
+   *
+   * @return List of field names to skip decoding
+   */
+  public List<String> getSkipDecodeFields() {
+    return skipDecodeFields != null ? new ArrayList<>(skipDecodeFields) : new ArrayList<>();
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -550,6 +565,7 @@ public class VectorQuery {
     private String sortBy;
     private boolean sortDescending = false;
     private boolean inOrder = false;
+    private List<String> skipDecodeFields = new ArrayList<>();
 
     private static float[] toFloatArray(double[] doubles) {
       if (doubles == null) return null;
@@ -905,6 +921,49 @@ public class VectorQuery {
     }
 
     /**
+     * Set fields that should not be decoded from binary format.
+     *
+     * @param skipDecodeFields List of field names
+     * @return This builder
+     * @throws IllegalArgumentException if list contains null values
+     */
+    public Builder skipDecodeFields(List<String> skipDecodeFields) {
+      if (skipDecodeFields == null) {
+        this.skipDecodeFields = new ArrayList<>();
+        return this;
+      }
+      // Validate no null values
+      for (String field : skipDecodeFields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = new ArrayList<>(skipDecodeFields);
+      return this;
+    }
+
+    /**
+     * Set fields that should not be decoded from binary format (varargs).
+     *
+     * @param fields Field names
+     * @return This builder
+     * @throws IllegalArgumentException if any field is null
+     */
+    public Builder skipDecodeFields(String... fields) {
+      if (fields == null || fields.length == 0) {
+        this.skipDecodeFields = new ArrayList<>();
+        return this;
+      }
+      for (String field : fields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = new ArrayList<>(Arrays.asList(fields));
+      return this;
+    }
+
+    /**
      * Build the VectorQuery
      *
      * @return VectorQuery instance
@@ -940,7 +999,8 @@ public class VectorQuery {
           normalizeVectorDistance,
           sortBy,
           sortDescending,
-          inOrder);
+          inOrder,
+          skipDecodeFields);
     }
   }
 }

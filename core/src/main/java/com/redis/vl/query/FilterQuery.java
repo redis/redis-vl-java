@@ -44,6 +44,8 @@ public class FilterQuery {
     this.sortAscending = builder.sortAscending;
     this.inOrder = builder.inOrder;
     this.params = builder.params != null ? Map.copyOf(builder.params) : Map.of();
+    this.skipDecodeFields =
+        builder.skipDecodeFields != null ? List.copyOf(builder.skipDecodeFields) : List.of();
   }
 
   /**
@@ -91,6 +93,11 @@ public class FilterQuery {
 
   /** Additional parameters for the query. Python: params (Optional[Dict[str, Any]]) */
   private final Map<String, Object> params;
+
+  /**
+   * Fields that should not be decoded from binary format. Python: skip_decode parameter (PR #389)
+   */
+  private final List<String> skipDecodeFields;
 
   /**
    * Build Redis Query object from FilterQuery.
@@ -194,6 +201,17 @@ public class FilterQuery {
     return params;
   }
 
+  /**
+   * Get the list of fields that should not be decoded from binary format.
+   *
+   * <p>Python equivalent: _skip_decode_fields attribute (PR #389)
+   *
+   * @return List of field names to skip decoding
+   */
+  public List<String> getSkipDecodeFields() {
+    return skipDecodeFields;
+  }
+
   /** Builder for FilterQuery with defensive copying. */
   public static class FilterQueryBuilder {
     private Filter filterExpression;
@@ -204,6 +222,7 @@ public class FilterQuery {
     private boolean sortAscending = true; // Default to ascending
     private boolean inOrder = false;
     private Map<String, Object> params = Map.of();
+    private List<String> skipDecodeFields = List.of();
 
     FilterQueryBuilder() {}
 
@@ -356,6 +375,52 @@ public class FilterQuery {
      */
     public FilterQueryBuilder params(Map<String, Object> params) {
       this.params = params != null ? Map.copyOf(params) : Map.of();
+      return this;
+    }
+
+    /**
+     * Set fields that should not be decoded from binary format.
+     *
+     * <p>Python equivalent: skip_decode parameter in return_fields() (PR #389)
+     *
+     * @param skipDecodeFields List of field names
+     * @return this builder
+     * @throws IllegalArgumentException if list contains null values
+     */
+    public FilterQueryBuilder skipDecodeFields(List<String> skipDecodeFields) {
+      if (skipDecodeFields == null) {
+        this.skipDecodeFields = List.of();
+        return this;
+      }
+      // Validate no null values
+      for (String field : skipDecodeFields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = List.copyOf(skipDecodeFields);
+      return this;
+    }
+
+    /**
+     * Set fields that should not be decoded from binary format (varargs).
+     *
+     * @param fields Field names
+     * @return this builder
+     * @throws IllegalArgumentException if any field is null
+     */
+    public FilterQueryBuilder skipDecodeFields(String... fields) {
+      if (fields == null || fields.length == 0) {
+        this.skipDecodeFields = List.of();
+        return this;
+      }
+      // Validate no null values
+      for (String field : fields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = List.of(fields);
       return this;
     }
 
