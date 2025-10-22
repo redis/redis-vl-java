@@ -93,9 +93,11 @@ public final class HybridQuery extends AggregationQuery {
   /**
    * The filter expression to use.
    *
+   * <p>Can be either a Filter object or a String containing a raw Redis filter expression.
+   *
    * <p>Defaults to null (no filter).
    */
-  private final Filter filterExpression;
+  private final Object filterExpression;
 
   /**
    * The weight of the vector similarity.
@@ -233,9 +235,11 @@ public final class HybridQuery extends AggregationQuery {
   /**
    * Get the filter expression.
    *
-   * @return The filter to apply, or null if no filter
+   * <p>Can be either a Filter object or a String containing a raw Redis filter expression.
+   *
+   * @return The filter to apply (Filter or String), or null if no filter
    */
-  public Filter getFilterExpression() {
+  public Object getFilterExpression() {
     return filterExpression;
   }
 
@@ -300,7 +304,7 @@ public final class HybridQuery extends AggregationQuery {
     private float[] vector;
     private String vectorFieldName;
     private String textScorer = "BM25STD";
-    private Filter filterExpression;
+    private Object filterExpression;
     private float alpha = 0.7f;
     private String dtype = "float32";
     private int numResults = 10;
@@ -367,12 +371,28 @@ public final class HybridQuery extends AggregationQuery {
     }
 
     /**
-     * Set an additional filter expression for the query.
+     * Set an additional filter expression for the query using a Filter object.
      *
      * @param filterExpression The filter to apply
      * @return This builder for chaining
      */
     public HybridQueryBuilder filterExpression(Filter filterExpression) {
+      this.filterExpression = filterExpression;
+      return this;
+    }
+
+    /**
+     * Set an additional filter expression for the query using a raw Redis query string.
+     *
+     * <p>This allows passing custom Redis filter syntax directly, such as:
+     * "@category:{tech|science|engineering}"
+     *
+     * <p>Ported from Python PR #375 to support string filter expressions.
+     *
+     * @param filterExpression The raw Redis filter string
+     * @return This builder for chaining
+     */
+    public HybridQueryBuilder filterExpression(String filterExpression) {
       this.filterExpression = filterExpression;
       return this;
     }
@@ -533,7 +553,13 @@ public final class HybridQuery extends AggregationQuery {
    */
   @Override
   public String buildQueryString() {
-    String filterStr = (filterExpression != null) ? filterExpression.build() : null;
+    // Handle both Filter objects and String filter expressions (Python port: PR #375)
+    String filterStr = null;
+    if (filterExpression instanceof Filter) {
+      filterStr = ((Filter) filterExpression).build();
+    } else if (filterExpression instanceof String) {
+      filterStr = (String) filterExpression;
+    }
 
     // Base KNN query
     String knnQuery =
@@ -543,7 +569,7 @@ public final class HybridQuery extends AggregationQuery {
     // Text query with fuzzy matching (~)
     String textQuery = String.format("(~@%s:(%s)", textFieldName, tokenizeAndEscapeQuery(text));
 
-    // Add filter if present
+    // Add filter if present and not wildcard
     if (filterStr != null && !filterStr.equals("*")) {
       textQuery += " AND " + filterStr;
     }

@@ -467,6 +467,75 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
     }
   }
 
+  /**
+   * Integration test for string filter expressions - port of Python PR #375
+   *
+   * <p>Tests that raw Redis filter strings work correctly in HybridQuery
+   */
+  @Test
+  void testHybridQueryWithStringFilterExpression() {
+    String text = "a medical professional with expertise in lung cancer";
+    String textField = "description";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
+
+    // Use raw Redis filter string: credit_score is "high" AND age > 30
+    String stringFilter = "(@credit_score:{high} @age:[31 +inf])";
+
+    HybridQuery query =
+        HybridQuery.builder()
+            .text(text)
+            .textFieldName(textField)
+            .vector(vector)
+            .vectorFieldName(vectorField)
+            .filterExpression(stringFilter)
+            .returnFields(List.of("user", "credit_score", "age", "job"))
+            .build();
+
+    List<Map<String, Object>> results = index.query(query);
+
+    // Should return only high credit_score users with age > 30
+    assertThat(results).hasSize(2); // nancy (94) and tyler (100)
+
+    for (Map<String, Object> result : results) {
+      assertThat(result.get("credit_score")).isEqualTo("high");
+      int age = getIntValue(result, "age");
+      assertThat(age).isGreaterThan(30);
+    }
+  }
+
+  /**
+   * Integration test for wildcard string filter - port of Python test
+   *
+   * <p>Tests that wildcard filter "*" doesn't add an AND clause
+   */
+  @Test
+  void testHybridQueryWithWildcardStringFilter() {
+    String text = "engineer";
+    String textField = "job";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
+
+    // Wildcard filter should match all documents
+    HybridQuery query =
+        HybridQuery.builder()
+            .text(text)
+            .textFieldName(textField)
+            .vector(vector)
+            .vectorFieldName(vectorField)
+            .filterExpression("*")
+            .build();
+
+    List<Map<String, Object>> results = index.query(query);
+
+    // Should return all documents (wildcard doesn't filter)
+    assertThat(results).hasSize(7);
+
+    // Verify query string doesn't contain "AND *"
+    String queryString = query.buildQueryString();
+    assertThat(queryString).doesNotContain("AND *");
+  }
+
   // Helper methods for type conversion (Hash storage returns strings)
   private double getDoubleValue(Map<String, Object> map, String key) {
     Object value = map.get(key);
