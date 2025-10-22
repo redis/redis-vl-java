@@ -3,9 +3,209 @@
 
 In this guide, we will explore more complex queries that can be performed with RedisVL.
 
-== Hybrid Queries
+== Hybrid Search: Text + Vector
 
-Hybrid queries are queries that combine multiple types of filters. For example, you may want to search for a user that is a certain age, has a certain job, and is within a certain distance of a location. This is a hybrid query that combines numeric, tag, and geographic filters.
+RedisVL supports true hybrid search that combines both text and vector similarity in a single query using the `HybridQuery` class. This is different from filtered vector search - it actually scores documents based on a weighted combination of both text relevance and vector similarity.
+
+=== Basic HybridQuery
+
+A `HybridQuery` combines full-text search with vector similarity search:
+
+[source,java]
+----
+import com.redis.vl.query.HybridQuery;
+
+// Create a hybrid query combining text and vector search
+HybridQuery query = HybridQuery.builder()
+    .text("medical professional with expertise")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .numResults(10)
+    .build();
+
+List<Map<String, Object>> results = index.query(query);
+----
+
+The results are scored using:
+```
+hybrid_score = (alpha) * vector_similarity + (1-alpha) * text_score
+```
+
+Where `alpha` (default 0.7) controls the balance between vector and text similarity.
+
+=== Adjusting the Alpha Parameter
+
+Control the balance between text and vector similarity:
+
+[source,java]
+----
+// Favor vector similarity (alpha = 0.9)
+HybridQuery vectorFocused = HybridQuery.builder()
+    .text("search terms")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .alpha(0.9f)  // 90% vector, 10% text
+    .build();
+
+// Balanced approach (alpha = 0.5)
+HybridQuery balanced = HybridQuery.builder()
+    .text("search terms")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .alpha(0.5f)  // 50% vector, 50% text
+    .build();
+
+// Favor text relevance (alpha = 0.3)
+HybridQuery textFocused = HybridQuery.builder()
+    .text("search terms")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .alpha(0.3f)  // 30% vector, 70% text
+    .build();
+----
+
+=== Adding Filters to HybridQuery
+
+Filter hybrid search results using either Filter objects or raw Redis query strings:
+
+==== Using Filter Objects
+
+[source,java]
+----
+import com.redis.vl.query.Filter;
+
+// Create filters
+Filter filter = Filter.and(
+    Filter.tag("category", "technology"),
+    Filter.numeric("rating").gte(4.0)
+);
+
+// Apply to hybrid query
+HybridQuery query = HybridQuery.builder()
+    .text("artificial intelligence")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .filterExpression(filter)
+    .build();
+----
+
+==== Using String Filter Expressions (New in v0.0.2)
+
+For advanced use cases, you can pass raw Redis filter query strings:
+
+[source,java]
+----
+// Use raw Redis query syntax
+String customFilter = "@category:{tech|science|engineering} @rating:[4.0 +inf]";
+
+HybridQuery query = HybridQuery.builder()
+    .text("machine learning")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .filterExpression(customFilter)  // String filter!
+    .build();
+----
+
+This is useful when:
+
+* You need Redis query syntax not yet supported by Filter objects
+* You're migrating from raw Redis queries
+* You want direct control over the query syntax
+
+=== Custom Stopwords
+
+Control which words are filtered from the text query:
+
+[source,java]
+----
+import java.util.Set;
+
+// Use custom stopwords
+Set<String> customStopwords = Set.of("the", "a", "an", "to");
+
+HybridQuery query = HybridQuery.builder()
+    .text("the quick brown fox")
+    .textFieldName("description")
+    .vector(queryVector)
+    .vectorFieldName("embedding")
+    .stopwords(customStopwords)
+    .build();
+----
+
+=== Complete HybridQuery Example
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.query.HybridQuery;
+import com.redis.vl.query.Filter;
+
+// Define schema with text and vector fields
+String schemaYaml = """
+    version: '0.1.0'
+    index:
+      name: articles-index
+      prefix: article
+      storage_type: hash
+    fields:
+      - name: title
+        type: text
+      - name: content
+        type: text
+      - name: category
+        type: tag
+      - name: rating
+        type: numeric
+      - name: embedding
+        type: vector
+        attrs:
+          dims: 384
+          distance_metric: cosine
+          algorithm: flat
+          datatype: float32
+    """;
+
+IndexSchema schema = IndexSchema.fromYaml(schemaYaml);
+SearchIndex index = new SearchIndex(schema, jedis);
+index.create(true);
+
+// Perform hybrid search with filter
+Filter filter = Filter.and(
+    Filter.tag("category", "technology"),
+    Filter.numeric("rating").gte(4.0)
+);
+
+HybridQuery query = HybridQuery.builder()
+    .text("machine learning artificial intelligence")
+    .textFieldName("content")
+    .vector(queryVector)  // Your embedding vector
+    .vectorFieldName("embedding")
+    .filterExpression(filter)
+    .alpha(0.7f)  // 70% vector, 30% text
+    .numResults(10)
+    .returnFields(List.of("title", "category", "rating"))
+    .build();
+
+List<Map<String, Object>> results = index.query(query);
+
+// Results are sorted by hybrid_score (descending)
+for (Map<String, Object> result : results) {
+    System.out.println("Title: " + result.get("title"));
+    System.out.println("Score: " + result.get("hybrid_score"));
+    System.out.println("---");
+}
+----
+
+== Filtered Vector Search
+
+Filtered vector search is different from hybrid search - it applies filters before or after vector search, but doesn't combine text and vector scoring. For filtered vector queries, see <<Pre-Filtering vs Post-Filtering>>.
 
 == Filter Types
 
