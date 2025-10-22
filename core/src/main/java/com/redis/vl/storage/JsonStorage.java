@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.json.Path2;
 
@@ -28,7 +28,7 @@ public class JsonStorage extends BaseStorage {
   }
 
   @Override
-  protected void set(Pipeline pipeline, String key, Map<String, Object> obj) {
+  protected void set(AbstractPipeline pipeline, String key, Map<String, Object> obj) {
     // For JSON storage, vectors are stored as JSON arrays
     Map<String, Object> jsonDocument = new HashMap<>();
 
@@ -83,7 +83,7 @@ public class JsonStorage extends BaseStorage {
 
   @Override
   @SuppressWarnings("unchecked")
-  protected Response<Map<String, Object>> getResponse(Pipeline pipeline, String key) {
+  protected Response<Map<String, Object>> getResponse(AbstractPipeline pipeline, String key) {
     // For JSON, we get the entire document
     Response<Object> response = pipeline.jsonGet(key);
     // We need to return Response<Map<String, Object>> so cast it
