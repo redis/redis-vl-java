@@ -2,11 +2,12 @@ package com.redis.vl.query;
 
 import com.redis.vl.utils.TokenEscaper;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 
 /**
- * Full-text search query with support for field weights.
+ * Full-text search query with support for field weights and sorting.
  *
  * <p>Python port: Implements text_field_name with Union[str, Dict[str, float]] for weighted text
  * search across multiple fields.
@@ -25,6 +26,13 @@ import lombok.Getter;
  *     .text("search terms")
  *     .textFieldWeights(Map.of("title", 5.0, "content", 2.0, "tags", 1.0))
  *     .build();
+ *
+ * // With sorting
+ * TextQuery query = TextQuery.builder()
+ *     .text("search terms")
+ *     .textField("description")
+ *     .sortBy("price", "DESC")
+ *     .build();
  * }</pre>
  */
 @Getter
@@ -38,12 +46,20 @@ public class TextQuery {
   /** Field names mapped to their search weights */
   private Map<String, Double> fieldWeights;
 
+  /** Field to sort results by */
+  private final String sortBy;
+
+  /** Whether to sort in descending order */
+  private final boolean sortDescending;
+
   private TextQuery(Builder builder) {
     this.text = builder.text;
     this.scorer = builder.scorer;
     this.filterExpression = builder.filterExpression;
     this.numResults = builder.numResults;
     this.fieldWeights = new HashMap<>(builder.fieldWeights);
+    this.sortBy = builder.sortBy;
+    this.sortDescending = builder.sortDescending;
   }
 
   /**
@@ -149,13 +165,15 @@ public class TextQuery {
     return new Builder();
   }
 
-  /** Builder for TextQuery with support for field weights. */
+  /** Builder for TextQuery with support for field weights and sorting. */
   public static class Builder {
     private String text;
     private String scorer = "BM25STD";
     private Filter filterExpression;
     private Integer numResults = 10;
     private Map<String, Double> fieldWeights = new HashMap<>();
+    private String sortBy;
+    private boolean sortDescending = false;
 
     /**
      * Set the text to search for.
@@ -221,6 +239,91 @@ public class TextQuery {
      */
     public Builder numResults(int numResults) {
       this.numResults = numResults;
+      return this;
+    }
+
+    /**
+     * Set the sort field (defaults to ascending).
+     *
+     * <p>Python equivalent: sort_by="price"
+     *
+     * @param sortBy Field name to sort by
+     * @return This builder
+     */
+    public Builder sortBy(String sortBy) {
+      this.sortBy = sortBy;
+      this.sortDescending = false; // Default to ascending
+      return this;
+    }
+
+    /**
+     * Set the sort field with explicit direction.
+     *
+     * <p>Python equivalent: sort_by=("price", "DESC")
+     *
+     * @param field Field name to sort by
+     * @param direction Sort direction ("ASC" or "DESC", case-insensitive)
+     * @return This builder
+     * @throws IllegalArgumentException if direction is invalid
+     */
+    public Builder sortBy(String field, String direction) {
+      List<SortField> parsed = SortSpec.parseSortSpec(field, direction);
+      SortField sortField = parsed.get(0);
+      this.sortBy = sortField.getFieldName();
+      this.sortDescending = !sortField.isAscending();
+      return this;
+    }
+
+    /**
+     * Set the sort field using SortField.
+     *
+     * <p>Python equivalent: sort_by=("rating", "DESC") or using SortField.desc("rating")
+     *
+     * @param sortField SortField specifying field and direction
+     * @return This builder
+     * @throws IllegalArgumentException if sortField is null
+     */
+    public Builder sortBy(SortField sortField) {
+      if (sortField == null) {
+        throw new IllegalArgumentException("SortField cannot be null");
+      }
+      this.sortBy = sortField.getFieldName();
+      this.sortDescending = !sortField.isAscending();
+      return this;
+    }
+
+    /**
+     * Set the sort fields (supports multiple fields, but only first is used).
+     *
+     * <p>Python equivalent: sort_by=[("price", "ASC"), ("rating", "DESC")]
+     *
+     * <p>Note: Redis Search only supports single-field sorting. When multiple fields are provided,
+     * only the first field is used and a warning is logged.
+     *
+     * @param sortFields List of SortFields
+     * @return This builder
+     */
+    public Builder sortBy(List<SortField> sortFields) {
+      List<SortField> parsed = SortSpec.parseSortSpec(sortFields);
+      if (!parsed.isEmpty()) {
+        SortField firstField = parsed.get(0);
+        this.sortBy = firstField.getFieldName();
+        this.sortDescending = !firstField.isAscending();
+      } else {
+        // Empty list - clear sorting
+        this.sortBy = null;
+      }
+      return this;
+    }
+
+    /**
+     * Set whether to sort in descending order.
+     *
+     * @param descending True for descending sort
+     * @return This builder
+     */
+    public Builder sortDescending(boolean descending) {
+      this.sortDescending = descending;
       return this;
     }
 
