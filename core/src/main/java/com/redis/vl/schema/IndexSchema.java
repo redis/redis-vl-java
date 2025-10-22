@@ -568,7 +568,7 @@ public final class IndexSchema {
     private String name;
 
     /**
-     * The prefix(es) used for Redis keys. Can be either a String (single prefix) or List<String>
+     * The prefix(es) used for Redis keys. Can be either a String (single prefix) or List of String
      * (multiple prefixes). Python port: supports Union[str, List[str]] for compatibility.
      */
     private Object prefix;
@@ -624,12 +624,12 @@ public final class IndexSchema {
     }
 
     /**
-     * Get the raw prefix value (can be String or List<String>).
+     * Get the raw prefix value (can be String or List).
      *
      * <p>This method returns the prefix exactly as stored, without normalization. Use {@link
      * #getPrefix()} for the normalized prefix used in key construction.
      *
-     * @return the raw prefix (String or List<String>), or null if not set
+     * @return the raw prefix (String or List of String), or null if not set
      */
     public Object getPrefixRaw() {
       return prefix;

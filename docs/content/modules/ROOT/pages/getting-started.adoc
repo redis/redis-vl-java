@@ -150,6 +150,48 @@ SearchIndex index = new SearchIndex(schema, jedis);
 index.create(true);  // true = overwrite if exists
 ----
 
+=== Loading an Existing Index
+
+If you have an existing Redis index and want to load its schema:
+
+[source,java]
+----
+// Load schema from an existing Redis index
+SearchIndex index = SearchIndex.fromExisting("user-index", jedis);
+
+// The index object now has the schema loaded from Redis
+IndexSchema schema = index.getSchema();
+System.out.println("Index name: " + schema.getIndex().getName());
+System.out.println("Storage type: " + schema.getIndex().getStorageType());
+----
+
+NOTE: `fromExisting()` supports indices with multiple prefixes. If an index was created with multiple PREFIX values, all prefixes are preserved in the schema.
+
+=== Multiple Prefix Support
+
+RedisVL supports indices with multiple key prefixes:
+
+[source,yaml]
+----
+index:
+  name: multi-prefix-index
+  prefix: [user, customer, account]  # Multiple prefixes
+  storage_type: json
+----
+
+Or programmatically:
+
+[source,java]
+----
+IndexSchema schema = IndexSchema.builder()
+    .name("multi-prefix-index")
+    .prefix(List.of("user", "customer", "account"))  // Multiple prefixes
+    .storageType(IndexSchema.StorageType.JSON)
+    .build();
+----
+
+When using multiple prefixes, `getPrefix()` returns the first prefix for key construction, while all prefixes are preserved for schema comparison and serialization.
+
 == Load Data
 
 Load your data into Redis:
