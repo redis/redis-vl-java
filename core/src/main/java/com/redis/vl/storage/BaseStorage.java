@@ -7,7 +7,7 @@ import java.util.*;
 import java.util.function.Function;
 import lombok.AccessLevel;
 import lombok.Getter;
-import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.UnifiedJedis;
 
@@ -325,7 +325,7 @@ public abstract class BaseStorage {
     // Pass 2: Write all valid objects in batches
     List<String> addedKeys = new ArrayList<>();
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       for (int i = 0; i < preparedObjects.size(); i++) {
         KeyValuePair kvp = preparedObjects.get(i);
         set(pipeline, kvp.key, kvp.value);
@@ -465,7 +465,7 @@ public abstract class BaseStorage {
     // Use a pipeline to batch the retrieval
     List<Response<Map<String, Object>>> responses = new ArrayList<>();
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       for (String key : keys) {
         Response<Map<String, Object>> response = getResponse(pipeline, key);
         responses.add(response);
@@ -517,20 +517,29 @@ public abstract class BaseStorage {
   /**
    * Set a key-value pair in Redis using a pipeline.
    *
+   * <p>Python port: Uses AbstractPipeline to support both regular Pipeline and
+   * MultiClusterPipeline, matching Python's handling of both Pipeline and ClusterPipeline types
+   * (issue #365).
+   *
    * @param pipeline The Redis pipeline to use
    * @param key The Redis key
    * @param obj The object to store
    */
-  protected abstract void set(Pipeline pipeline, String key, Map<String, Object> obj);
+  protected abstract void set(AbstractPipeline pipeline, String key, Map<String, Object> obj);
 
   /**
    * Get a response for retrieving a value from Redis using a pipeline.
+   *
+   * <p>Python port: Uses AbstractPipeline to support both regular Pipeline and
+   * MultiClusterPipeline, matching Python's handling of both Pipeline and ClusterPipeline types
+   * (issue #365).
    *
    * @param pipeline The Redis pipeline to use
    * @param key The Redis key
    * @return Response containing the retrieved object
    */
-  protected abstract Response<Map<String, Object>> getResponse(Pipeline pipeline, String key);
+  protected abstract Response<Map<String, Object>> getResponse(
+      AbstractPipeline pipeline, String key);
 
   /** Helper class for key-value pairs used during preprocessing and validation. */
   protected static class KeyValuePair {

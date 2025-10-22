@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.UnifiedJedis;
 
@@ -160,7 +160,7 @@ public class EmbeddingsCache extends BaseCache {
       return;
     }
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       for (Map.Entry<String, float[]> entry : embeddings.entrySet()) {
         String key = generateKey(entry.getKey(), modelName);
         byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
@@ -192,7 +192,7 @@ public class EmbeddingsCache extends BaseCache {
     Map<String, float[]> results = new HashMap<>();
     Map<String, Response<byte[]>> responses = new HashMap<>();
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       for (String text : texts) {
         String key = generateKey(text, modelName);
         byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
@@ -227,7 +227,7 @@ public class EmbeddingsCache extends BaseCache {
     Map<String, Boolean> results = new HashMap<>();
     Map<String, Response<Boolean>> responses = new HashMap<>();
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       for (String text : texts) {
         String key = generateKey(text, modelName);
         responses.put(text, pipeline.exists(key));

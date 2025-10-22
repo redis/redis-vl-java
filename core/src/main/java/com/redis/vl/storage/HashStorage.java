@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.Response;
 
 /**
@@ -29,7 +29,7 @@ public class HashStorage extends BaseStorage {
   }
 
   @Override
-  protected void set(Pipeline pipeline, String key, Map<String, Object> obj) {
+  protected void set(AbstractPipeline pipeline, String key, Map<String, Object> obj) {
     Map<byte[], byte[]> binaryFields = new HashMap<>();
     Map<String, String> stringFields = new HashMap<>();
 
@@ -75,7 +75,7 @@ public class HashStorage extends BaseStorage {
 
   @Override
   @SuppressWarnings("unchecked")
-  protected Response<Map<String, Object>> getResponse(Pipeline pipeline, String key) {
+  protected Response<Map<String, Object>> getResponse(AbstractPipeline pipeline, String key) {
     // For hash, we use hgetAll to get all fields
     Response<Map<String, String>> response = pipeline.hgetAll(key);
     // We need to return Response<Map<String, Object>> so cast it
@@ -101,7 +101,7 @@ public class HashStorage extends BaseStorage {
     List<Response<Map<String, String>>> stringResponses = new ArrayList<>();
     Map<String, List<Response<byte[]>>> vectorResponses = new HashMap<>();
 
-    try (Pipeline pipeline = (Pipeline) redisClient.pipelined()) {
+    try (AbstractPipeline pipeline = redisClient.pipelined()) {
       // Get all string fields and identify vector fields
       for (String key : keys) {
         Response<Map<String, String>> response = pipeline.hgetAll(key);
