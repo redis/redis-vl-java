@@ -196,6 +196,27 @@ Define queries and perform advanced searches over your indices, including the co
     List<Map<String, Object>> results = index.query(filteredQuery);
     ```
 
+- **HybridQuery** - Combines text and vector search with weighted scoring:
+
+    ```java
+    import com.redis.vl.query.HybridQuery;
+    import com.redis.vl.query.Filter;
+
+    // Hybrid search: text + vector with alpha weighting
+    HybridQuery hybridQuery = HybridQuery.builder()
+        .text("machine learning algorithms")
+        .textFieldName("description")
+        .vector(queryVector)
+        .vectorFieldName("embedding")
+        .filterExpression(Filter.tag("category", "AI"))
+        .alpha(0.7f)  // 70% vector, 30% text
+        .numResults(10)
+        .build();
+
+    List<Map<String, Object>> results = index.query(hybridQuery);
+    // Results scored by: alpha * vector_similarity + (1-alpha) * text_score
+    ```
+
 - **VectorRangeQuery** - Vector search within a defined range paired with customizable filters
 - **FilterQuery** - Standard search using filters and the full-text search
 - **CountQuery** - Count the number of indexed records given attributes
