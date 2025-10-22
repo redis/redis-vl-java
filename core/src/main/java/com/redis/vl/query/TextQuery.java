@@ -52,6 +52,9 @@ public class TextQuery {
   /** Whether to sort in descending order */
   private final boolean sortDescending;
 
+  /** Fields that should not be decoded from binary format */
+  private final List<String> skipDecodeFields;
+
   private TextQuery(Builder builder) {
     this.text = builder.text;
     this.scorer = builder.scorer;
@@ -60,6 +63,8 @@ public class TextQuery {
     this.fieldWeights = new HashMap<>(builder.fieldWeights);
     this.sortBy = builder.sortBy;
     this.sortDescending = builder.sortDescending;
+    this.skipDecodeFields =
+        builder.skipDecodeFields != null ? List.copyOf(builder.skipDecodeFields) : List.of();
   }
 
   /**
@@ -79,6 +84,15 @@ public class TextQuery {
    */
   public Map<String, Double> getFieldWeights() {
     return new HashMap<>(fieldWeights);
+  }
+
+  /**
+   * Get the list of fields that should not be decoded from binary format.
+   *
+   * @return List of field names to skip decoding
+   */
+  public List<String> getSkipDecodeFields() {
+    return skipDecodeFields;
   }
 
   /**
@@ -174,6 +188,7 @@ public class TextQuery {
     private Map<String, Double> fieldWeights = new HashMap<>();
     private String sortBy;
     private boolean sortDescending = false;
+    private List<String> skipDecodeFields = List.of();
 
     /**
      * Set the text to search for.
@@ -324,6 +339,49 @@ public class TextQuery {
      */
     public Builder sortDescending(boolean descending) {
       this.sortDescending = descending;
+      return this;
+    }
+
+    /**
+     * Set fields that should not be decoded from binary format.
+     *
+     * @param skipDecodeFields List of field names
+     * @return This builder
+     * @throws IllegalArgumentException if list contains null values
+     */
+    public Builder skipDecodeFields(List<String> skipDecodeFields) {
+      if (skipDecodeFields == null) {
+        this.skipDecodeFields = List.of();
+        return this;
+      }
+      // Validate no null values
+      for (String field : skipDecodeFields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = List.copyOf(skipDecodeFields);
+      return this;
+    }
+
+    /**
+     * Set fields that should not be decoded from binary format (varargs).
+     *
+     * @param fields Field names
+     * @return This builder
+     * @throws IllegalArgumentException if any field is null
+     */
+    public Builder skipDecodeFields(String... fields) {
+      if (fields == null || fields.length == 0) {
+        this.skipDecodeFields = List.of();
+        return this;
+      }
+      for (String field : fields) {
+        if (field == null) {
+          throw new IllegalArgumentException("skipDecodeFields cannot contain null values");
+        }
+      }
+      this.skipDecodeFields = List.of(fields);
       return this;
     }
 
