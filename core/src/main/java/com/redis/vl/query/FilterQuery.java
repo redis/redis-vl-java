@@ -254,11 +254,74 @@ public class FilterQuery {
     /**
      * Set the field to sort results by (defaults to ascending).
      *
+     * <p>Python equivalent: sort_by="price"
+     *
      * @param sortBy Field name to sort by
      * @return this builder
      */
     public FilterQueryBuilder sortBy(String sortBy) {
       this.sortBy = sortBy;
+      this.sortAscending = true; // Default to ascending
+      return this;
+    }
+
+    /**
+     * Set the field to sort results by with explicit direction.
+     *
+     * <p>Python equivalent: sort_by=("price", "DESC")
+     *
+     * @param field Field name to sort by
+     * @param direction Sort direction ("ASC" or "DESC", case-insensitive)
+     * @return this builder
+     * @throws IllegalArgumentException if direction is invalid
+     */
+    public FilterQueryBuilder sortBy(String field, String direction) {
+      List<SortField> parsed = SortSpec.parseSortSpec(field, direction);
+      SortField sortField = parsed.get(0);
+      this.sortBy = sortField.getFieldName();
+      this.sortAscending = sortField.isAscending();
+      return this;
+    }
+
+    /**
+     * Set the field to sort results by using SortField.
+     *
+     * <p>Python equivalent: sort_by=("rating", "DESC") or using SortField.desc("rating")
+     *
+     * @param sortField SortField specifying field and direction
+     * @return this builder
+     * @throws IllegalArgumentException if sortField is null
+     */
+    public FilterQueryBuilder sortBy(SortField sortField) {
+      if (sortField == null) {
+        throw new IllegalArgumentException("SortField cannot be null");
+      }
+      this.sortBy = sortField.getFieldName();
+      this.sortAscending = sortField.isAscending();
+      return this;
+    }
+
+    /**
+     * Set the fields to sort results by (supports multiple fields, but only first is used).
+     *
+     * <p>Python equivalent: sort_by=[("price", "DESC"), ("rating", "ASC"), "stock"]
+     *
+     * <p>Note: Redis Search only supports single-field sorting. When multiple fields are provided,
+     * only the first field is used and a warning is logged.
+     *
+     * @param sortFields List of SortFields
+     * @return this builder
+     */
+    public FilterQueryBuilder sortBy(List<SortField> sortFields) {
+      List<SortField> parsed = SortSpec.parseSortSpec(sortFields);
+      if (!parsed.isEmpty()) {
+        SortField firstField = parsed.get(0);
+        this.sortBy = firstField.getFieldName();
+        this.sortAscending = firstField.isAscending();
+      } else {
+        // Empty list - clear sorting
+        this.sortBy = null;
+      }
       return this;
     }
 
