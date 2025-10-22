@@ -376,7 +376,13 @@ public final class SearchIndex {
           @SuppressWarnings("unchecked")
           List<String> prefixes = (List<String>) indexDef.get(i + 1);
           if (!prefixes.isEmpty()) {
-            builder.prefix(prefixes.get(0));
+            // Python port: preserve all prefixes (issue #258/#392)
+            // Normalize single-element lists to string for backward compatibility
+            if (prefixes.size() == 1) {
+              builder.prefix(prefixes.get(0));
+            } else {
+              builder.prefix(prefixes);
+            }
           }
         } else if ("key_type".equals(key) && i + 1 < indexDef.size()) {
           String keyType = indexDef.get(i + 1).toString();

@@ -1016,4 +1016,86 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
       }
     }
   }
+
+  /**
+   * Port of Python test_search_index_from_existing_multiple_prefixes
+   *
+   * <p>Python reference: /redis-vl-python/tests/integration/test_search_index.py:172-243
+   *
+   * <p>Test that from_existing correctly handles indices with multiple prefixes (issue #258/#392).
+   */
+  @Test
+  @DisplayName("Should handle multiple prefixes in from_existing()")
+  void testFromExistingMultiplePrefixes() {
+    String indexName = "test_multi_prefix_" + UUID.randomUUID().toString().substring(0, 8);
+
+    try {
+      // Clean up any existing index
+      try {
+        unifiedJedis.ftDropIndex(indexName);
+      } catch (Exception e) {
+        // Ignore if doesn't exist
+      }
+
+      // Create index using raw FT.CREATE command with multiple prefixes
+      // FT.CREATE index ON HASH PREFIX 3 prefix_a: prefix_b: prefix_c: SCHEMA user TAG text TEXT
+      // ...
+      unifiedJedis.ftCreate(
+          indexName,
+          redis.clients.jedis.search.FTCreateParams.createParams()
+              .on(redis.clients.jedis.search.IndexDataType.HASH)
+              .prefix("prefix_a:", "prefix_b:", "prefix_c:"),
+          redis.clients.jedis.search.schemafields.TextField.of("text"),
+          redis.clients.jedis.search.schemafields.TagField.of("user"),
+          redis.clients.jedis.search.schemafields.VectorField.builder()
+              .fieldName("embedding")
+              .algorithm(redis.clients.jedis.search.schemafields.VectorField.VectorAlgorithm.FLAT)
+              .attributes(
+                  Map.of(
+                      "TYPE", "FLOAT32",
+                      "DIM", 3,
+                      "DISTANCE_METRIC", "COSINE"))
+              .build());
+
+      // Now test from_existing - this is where the bug was
+      SearchIndex loadedIndex = SearchIndex.fromExisting(indexName, unifiedJedis);
+
+      // Verify all prefixes are preserved (this was failing before fix)
+      // Before the fix, only "prefix_a:" would be returned
+      Object prefixRaw = loadedIndex.getSchema().getIndex().getPrefixRaw();
+      assertThat(prefixRaw)
+          .as("Multiple prefixes should be preserved when loading existing index")
+          .isInstanceOf(List.class);
+
+      @SuppressWarnings("unchecked")
+      List<String> prefixList = (List<String>) prefixRaw;
+      assertThat(prefixList).containsExactly("prefix_a:", "prefix_b:", "prefix_c:");
+
+      // Verify the normalized prefix method returns the first prefix
+      assertThat(loadedIndex.getPrefix()).isEqualTo("prefix_a:");
+
+      // Verify the index name and storage type
+      assertThat(loadedIndex.getName()).isEqualTo(indexName);
+      assertThat(loadedIndex.getSchema().getIndex().getStorageType())
+          .isEqualTo(IndexSchema.StorageType.HASH);
+
+      // Verify TAG and TEXT fields are present
+      assertThat(loadedIndex.getSchema().getField("user")).isNotNull();
+      assertThat(loadedIndex.getSchema().getField("text")).isNotNull();
+
+      // Verify vector field if present
+      BaseField embeddingField = loadedIndex.getSchema().getField("embedding");
+      if (embeddingField != null) {
+        assertThat(embeddingField).isInstanceOf(VectorField.class);
+      }
+
+    } finally {
+      // Cleanup
+      try {
+        unifiedJedis.ftDropIndex(indexName);
+      } catch (Exception e) {
+        // Ignore cleanup errors
+      }
+    }
+  }
 }
