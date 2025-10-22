@@ -472,8 +472,9 @@ public final class IndexSchema {
 
     Map<String, Object> indexData = new HashMap<>();
     indexData.put("name", index.getName());
-    if (index.getPrefix() != null) {
-      indexData.put("prefix", index.getPrefix());
+    if (index.getPrefixRaw() != null) {
+      // Serialize raw prefix (String or List<String>)
+      indexData.put("prefix", index.getPrefixRaw());
     }
     indexData.put("storage_type", index.getStorageType().getValue());
     data.put("index", indexData);
@@ -498,7 +499,8 @@ public final class IndexSchema {
     // Return a new Index with the same values to prevent external modification
     Index copy = new Index();
     copy.setName(index.getName());
-    copy.setPrefix(index.getPrefix());
+    // Use setPrefixRaw to preserve List<String> prefixes
+    copy.setPrefixRaw(index.getPrefixRaw());
     copy.setKeySeparator(index.getKeySeparator());
     copy.setStorageType(index.getStorageType());
     return copy;
@@ -564,7 +566,13 @@ public final class IndexSchema {
   @Getter
   public static class Index {
     private String name;
-    private String prefix;
+
+    /**
+     * The prefix(es) used for Redis keys. Can be either a String (single prefix) or List<String>
+     * (multiple prefixes). Python port: supports Union[str, List[str]] for compatibility.
+     */
+    private Object prefix;
+
     private String keySeparator = ":";
     private StorageType storageType = StorageType.HASH;
 
@@ -599,20 +607,68 @@ public final class IndexSchema {
     }
 
     /**
-     * Get the key prefix
+     * Get the key prefix (normalized).
      *
-     * @return the key prefix
+     * <p>If multiple prefixes are configured, returns the first one for Redis key construction.
+     * This matches Python behavior: prefix[0] if isinstance(prefix, list) else prefix.
+     *
+     * @return the normalized key prefix (first prefix if multiple), or null if not set
      */
     public String getPrefix() {
+      if (prefix instanceof List) {
+        @SuppressWarnings("unchecked")
+        List<String> prefixList = (List<String>) prefix;
+        return prefixList.isEmpty() ? null : prefixList.get(0);
+      }
+      return (String) prefix;
+    }
+
+    /**
+     * Get the raw prefix value (can be String or List<String>).
+     *
+     * <p>This method returns the prefix exactly as stored, without normalization. Use {@link
+     * #getPrefix()} for the normalized prefix used in key construction.
+     *
+     * @return the raw prefix (String or List<String>), or null if not set
+     */
+    public Object getPrefixRaw() {
       return prefix;
     }
 
     /**
-     * Set the key prefix
+     * Set the key prefix (single prefix)
      *
      * @param prefix the key prefix to set
      */
     public void setPrefix(String prefix) {
+      this.prefix = prefix;
+    }
+
+    /**
+     * Set multiple key prefixes.
+     *
+     * <p>Normalizes single-element lists to strings for backward compatibility. Python port:
+     * matches behavior in convert_index_info_to_schema.
+     *
+     * @param prefixes the list of key prefixes to set
+     */
+    public void setPrefix(List<String> prefixes) {
+      if (prefixes == null) {
+        this.prefix = null;
+      } else if (prefixes.size() == 1) {
+        // Normalize single-element lists to string for backward compatibility
+        this.prefix = prefixes.get(0);
+      } else {
+        this.prefix = List.copyOf(prefixes); // Defensive copy
+      }
+    }
+
+    /**
+     * Set prefix without normalization (package-private for Builder use).
+     *
+     * @param prefix the prefix to set (String or List<String>)
+     */
+    void setPrefixRaw(Object prefix) {
       this.prefix = prefix;
     }
 
@@ -673,7 +729,7 @@ public final class IndexSchema {
   public static class Builder {
     private final List<BaseField> fields = new ArrayList<>();
     private String name;
-    private String prefix;
+    private Object prefix; // Can be String or List<String>
     private StorageType storageType;
 
     /** Package-private constructor used by builder() and of() factory methods. */
@@ -691,13 +747,34 @@ public final class IndexSchema {
     }
 
     /**
-     * Set the key prefix
+     * Set the key prefix (single prefix)
      *
      * @param prefix the key prefix
      * @return this builder
      */
     public Builder prefix(String prefix) {
       this.prefix = prefix;
+      return this;
+    }
+
+    /**
+     * Set multiple key prefixes.
+     *
+     * <p>Normalizes single-element lists to strings for backward compatibility. Python port:
+     * matches behavior in convert_index_info_to_schema.
+     *
+     * @param prefixes the list of key prefixes
+     * @return this builder
+     */
+    public Builder prefix(List<String> prefixes) {
+      if (prefixes == null) {
+        this.prefix = null;
+      } else if (prefixes.size() == 1) {
+        // Normalize single-element lists to string for backward compatibility
+        this.prefix = prefixes.get(0);
+      } else {
+        this.prefix = List.copyOf(prefixes); // Defensive copy
+      }
       return this;
     }
 
@@ -811,7 +888,25 @@ public final class IndexSchema {
      * @return the constructed IndexSchema
      */
     public IndexSchema build() {
-      return new IndexSchema(name, prefix, storageType, fields);
+      // Handle prefix (can be String or List<String>)
+      String prefixStr = null;
+      if (prefix instanceof String) {
+        prefixStr = (String) prefix;
+      } else if (prefix instanceof List) {
+        @SuppressWarnings("unchecked")
+        List<String> prefixList = (List<String>) prefix;
+        prefixStr = prefixList.isEmpty() ? null : prefixList.get(0);
+      }
+
+      IndexSchema schema = new IndexSchema(name, prefixStr, storageType, fields);
+
+      // Set the raw prefix (bypass normalization) for Lists to preserve multi-element lists
+      // Access the actual index field directly, not the defensive copy from getIndex()
+      if (prefix instanceof List) {
+        schema.index.setPrefixRaw(prefix);
+      }
+
+      return schema;
     }
 
     /**
@@ -822,7 +917,7 @@ public final class IndexSchema {
      */
     public Builder index(Index index) {
       this.name = index.getName();
-      this.prefix = index.getPrefix();
+      this.prefix = index.getPrefixRaw(); // Use raw prefix to preserve list
       this.storageType = index.getStorageType();
       return this;
     }
