@@ -10,6 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Python reference: /redis-vl-python/tests/integration/test_query.py
  */
+@Tag("integration")
 @DisplayName("Query Sorting Integration Tests")
 class QuerySortingIntegrationTest extends BaseIntegrationTest {
 
@@ -282,6 +284,136 @@ class QuerySortingIntegrationTest extends BaseIntegrationTest {
       int nextAge = getIntValue(results.get(i + 1), "age");
       assertThat(currentAge).isLessThanOrEqualTo(nextAge);
     }
+  }
+
+  /** Test multi-field sorting with FilterQuery (only first field used - Redis limitation) */
+  @Test
+  void testMultiFieldSortingFilterQuery() {
+    // Specify multiple sort fields - only first should be used (Redis limitation)
+    List<SortField> sortFields = List.of(SortField.desc("age"), SortField.asc("credit_score"));
+
+    FilterQuery query =
+        FilterQuery.builder()
+            .filterExpression(Filter.tag("credit_score", "high"))
+            .returnFields(List.of("user", "age", "credit_score"))
+            .sortBy(sortFields)
+            .build();
+
+    // Should use only the first field (age DESC)
+    assertThat(query.getSortBy()).isEqualTo("age");
+
+    List<Map<String, Object>> results = index.query(query);
+
+    // Verify results are sorted by age in descending order (first field)
+    for (int i = 0; i < results.size() - 1; i++) {
+      int currentAge = getIntValue(results.get(i), "age");
+      int nextAge = getIntValue(results.get(i + 1), "age");
+      assertThat(currentAge)
+          .as("Age at position %d should be >= age at position %d (DESC)", i, i + 1)
+          .isGreaterThanOrEqualTo(nextAge);
+    }
+
+    // First result should be oldest
+    assertThat(results.get(0).get("user")).isEqualTo("tyler");
+  }
+
+  /** Test multi-field sorting with VectorQuery (only first field used) */
+  @Test
+  void testMultiFieldSortingVectorQuery() {
+    // Multiple sort fields - only first is used
+    List<SortField> sortFields = List.of(SortField.asc("age"), SortField.desc("credit_score"));
+
+    VectorQuery query =
+        VectorQuery.builder()
+            .field("user_embedding")
+            .vector(new float[] {0.1f, 0.1f, 0.5f})
+            .returnFields(List.of("user", "age", "credit_score"))
+            .sortBy(sortFields)
+            .build();
+
+    // Only first field should be used
+    assertThat(query.getSortBy()).isEqualTo("age");
+    assertThat(query.isSortDescending()).isFalse();
+
+    List<Map<String, Object>> results = index.query(query);
+
+    // Verify sorted by first field (age ASC)
+    for (int i = 0; i < results.size() - 1; i++) {
+      int currentAge = getIntValue(results.get(i), "age");
+      int nextAge = getIntValue(results.get(i + 1), "age");
+      assertThat(currentAge).isLessThanOrEqualTo(nextAge);
+    }
+
+    // First result should be youngest
+    assertThat(results.get(0).get("user")).isEqualTo("tim");
+  }
+
+  /** Test multi-field sorting with VectorRangeQuery (only first field used) */
+  @Test
+  void testMultiFieldSortingVectorRangeQuery() {
+    List<SortField> sortFields = List.of(SortField.desc("age"), SortField.asc("user"));
+
+    VectorRangeQuery query =
+        VectorRangeQuery.builder()
+            .field("user_embedding")
+            .vector(new float[] {0.1f, 0.1f, 0.5f})
+            .distanceThreshold(1.0f)
+            .returnFields(List.of("user", "age"))
+            .sortBy(sortFields)
+            .build();
+
+    // Only first field used
+    assertThat(query.getSortBy()).isEqualTo("age");
+    assertThat(query.isSortDescending()).isTrue();
+
+    List<Map<String, Object>> results = index.query(query);
+    assertThat(results).hasSizeGreaterThan(0);
+
+    // Sorted by age DESC (first field)
+    for (int i = 0; i < results.size() - 1; i++) {
+      int currentAge = getIntValue(results.get(i), "age");
+      int nextAge = getIntValue(results.get(i + 1), "age");
+      assertThat(currentAge).isGreaterThanOrEqualTo(nextAge);
+    }
+  }
+
+  /** Test multi-field sorting with TextQuery (only first field used) */
+  @Test
+  void testMultiFieldSortingTextQuery() {
+    List<SortField> sortFields = List.of(SortField.asc("age"), SortField.desc("credit_score"));
+
+    TextQuery query =
+        TextQuery.builder().text("engineer").textField("job").sortBy(sortFields).build();
+
+    // Only first field used
+    assertThat(query.getSortBy()).isEqualTo("age");
+    assertThat(query.isSortDescending()).isFalse();
+
+    List<Map<String, Object>> results = index.query(query);
+    assertThat(results).hasSizeGreaterThan(0);
+
+    // Sorted by age ASC (first field)
+    for (int i = 0; i < results.size() - 1; i++) {
+      int currentAge = getIntValue(results.get(i), "age");
+      int nextAge = getIntValue(results.get(i + 1), "age");
+      assertThat(currentAge).isLessThanOrEqualTo(nextAge);
+    }
+  }
+
+  /** Test that empty sort list is handled gracefully */
+  @Test
+  void testEmptyMultiFieldSort() {
+    FilterQuery query =
+        FilterQuery.builder()
+            .returnFields(List.of("user", "age"))
+            .sortBy(List.of()) // Empty list
+            .build();
+
+    assertThat(query.getSortBy()).isNull();
+
+    // Should still execute without sorting
+    List<Map<String, Object>> results = index.query(query);
+    assertThat(results).hasSizeGreaterThan(0);
   }
 
   // Helper method for type conversion (Hash storage returns strings)
