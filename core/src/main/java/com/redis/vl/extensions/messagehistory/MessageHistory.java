@@ -77,7 +77,7 @@ public class MessageHistory extends BaseMessageHistory {
   public void drop(String id) {
     if (id == null) {
       // Get the most recent message
-      List<Map<String, Object>> recent = getRecent(1, false, true, null);
+      List<Map<String, Object>> recent = getRecent(1, false, true, null, null);
       if (!recent.isEmpty()) {
         id = (String) recent.get(0).get(ID_FIELD_NAME);
       } else {
@@ -111,13 +111,30 @@ public class MessageHistory extends BaseMessageHistory {
     return formatContext(messages, false);
   }
 
+  /**
+   * Retrieve the recent conversation history (backward-compatible overload without role filter).
+   *
+   * @param topK The number of previous messages to return
+   * @param asText Whether to return as text strings or maps
+   * @param raw Whether to return full Redis hash entries
+   * @param sessionTag Session tag to filter by
+   * @return List of messages
+   */
+  public <T> List<T> getRecent(int topK, boolean asText, boolean raw, String sessionTag) {
+    return getRecent(topK, asText, raw, sessionTag, null);
+  }
+
   @Override
   @SuppressWarnings("unchecked")
-  public <T> List<T> getRecent(int topK, boolean asText, boolean raw, String sessionTag) {
+  public <T> List<T> getRecent(
+      int topK, boolean asText, boolean raw, String sessionTag, Object role) {
     // Validate topK
     if (topK < 0) {
       throw new IllegalArgumentException("topK must be an integer greater than or equal to 0");
     }
+
+    // Validate and normalize role parameter
+    List<String> rolesToFilter = validateRoles(role);
 
     List<String> returnFields =
         List.of(
@@ -131,9 +148,26 @@ public class MessageHistory extends BaseMessageHistory {
     Filter sessionFilter =
         (sessionTag != null) ? Filter.tag(SESSION_FIELD_NAME, sessionTag) : defaultSessionFilter;
 
+    // Combine session filter with role filter if provided
+    Filter filterExpression = sessionFilter;
+    if (rolesToFilter != null) {
+      if (rolesToFilter.size() == 1) {
+        // Single role filter
+        Filter roleFilter = Filter.tag(ROLE_FIELD_NAME, rolesToFilter.get(0));
+        filterExpression = Filter.and(sessionFilter, roleFilter);
+      } else {
+        // Multiple roles - use OR logic
+        Filter roleFilter = Filter.tag(ROLE_FIELD_NAME, rolesToFilter.get(0));
+        for (int i = 1; i < rolesToFilter.size(); i++) {
+          roleFilter = Filter.or(roleFilter, Filter.tag(ROLE_FIELD_NAME, rolesToFilter.get(i)));
+        }
+        filterExpression = Filter.and(sessionFilter, roleFilter);
+      }
+    }
+
     FilterQuery query =
         FilterQuery.builder()
-            .filterExpression(sessionFilter)
+            .filterExpression(filterExpression)
             .returnFields(returnFields)
             .numResults(topK)
             .sortBy(TIMESTAMP_FIELD_NAME)
