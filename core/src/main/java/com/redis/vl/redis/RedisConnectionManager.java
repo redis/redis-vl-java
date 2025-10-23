@@ -2,17 +2,21 @@ package com.redis.vl.redis;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.JedisSentinelPool;
+import redis.clients.jedis.util.Pool;
 
 /** Manages Redis connections and provides connection pooling. */
 @Slf4j
 public class RedisConnectionManager implements Closeable {
 
-  private final JedisPool jedisPool;
+  private final Pool<Jedis> jedisPool;
 
   /**
    * Create a new connection manager with the given configuration.
@@ -25,12 +29,33 @@ public class RedisConnectionManager implements Closeable {
   }
 
   /**
+   * Create a new connection manager with Sentinel configuration.
+   *
+   * @param config The Sentinel connection configuration
+   */
+  public RedisConnectionManager(SentinelConfig config) {
+    this.jedisPool = createJedisSentinelPool(config);
+    log.info("Redis Sentinel connection manager initialized");
+  }
+
+  /**
    * Create a connection manager from a URI.
    *
-   * @param uri The Redis connection URI (e.g., redis://localhost:6379)
+   * <p>Supports both standard Redis URLs and Sentinel URLs:
+   *
+   * <ul>
+   *   <li>redis://[username:password@]host:port[/database] - Standard Redis connection
+   *   <li>redis+sentinel://[username:password@]host1:port1,host2:port2/service_name[/database] -
+   *       Sentinel connection
+   * </ul>
+   *
+   * @param uri The Redis connection URI
    * @return A new RedisConnectionManager instance
    */
   public static RedisConnectionManager from(String uri) {
+    if (uri != null && uri.startsWith("redis+sentinel://")) {
+      return new RedisConnectionManager(SentinelConfig.fromUrl(uri));
+    }
     return new RedisConnectionManager(RedisConnectionConfig.fromUri(uri));
   }
 
@@ -70,6 +95,34 @@ public class RedisConnectionManager implements Closeable {
       return new JedisPool(
           poolConfig, config.getHost(), config.getPort(), config.getConnectionTimeout());
     }
+  }
+
+  /** Create JedisSentinelPool from Sentinel configuration */
+  private JedisSentinelPool createJedisSentinelPool(SentinelConfig config) {
+    // Convert HostPort list to Set<String> in "host:port" format
+    Set<String> sentinelHosts =
+        config.getSentinelHosts().stream()
+            .map(hp -> hp.getHost() + ":" + hp.getPort())
+            .collect(Collectors.toSet());
+
+    // Create pool config with defaults
+    JedisPoolConfig poolConfig = new JedisPoolConfig();
+    poolConfig.setMaxTotal(10);
+    poolConfig.setMaxIdle(5);
+    poolConfig.setMinIdle(1);
+    poolConfig.setTestOnBorrow(true);
+
+    // Create Sentinel pool
+    return new JedisSentinelPool(
+        config.getServiceName(),
+        sentinelHosts,
+        poolConfig,
+        config.getConnectionTimeout(),
+        config.getSocketTimeout(),
+        config.getUsername(),
+        config.getPassword(),
+        config.getDatabase() != null ? config.getDatabase() : 0,
+        null); // clientName
   }
 
   /**
