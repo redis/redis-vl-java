@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Base class for message history implementations.
@@ -14,6 +15,9 @@ import java.util.Map;
  * <p>Matches the Python BaseMessageHistory from redisvl.extensions.message_history.base_history
  */
 public abstract class BaseMessageHistory {
+
+  /** Valid role values for message filtering. */
+  private static final Set<String> VALID_ROLES = Set.of("system", "user", "llm", "tool");
 
   protected final String name;
   protected final String sessionTag;
@@ -55,10 +59,14 @@ public abstract class BaseMessageHistory {
    * @param raw Whether to return the full Redis hash entry or just the role/content/tool_call_id.
    * @param sessionTag Tag of the entries linked to a specific conversation session. Defaults to
    *     instance ULID.
+   * @param role Filter messages by role(s). Can be a single role string ("system", "user", "llm",
+   *     "tool"), a List of role strings, or null for no filtering.
    * @return List of messages (either as text strings or maps depending on asText parameter)
-   * @throws IllegalArgumentException if topK is not an integer greater than or equal to 0
+   * @throws IllegalArgumentException if topK is not an integer greater than or equal to 0, or if
+   *     role contains invalid values
    */
-  public abstract <T> List<T> getRecent(int topK, boolean asText, boolean raw, String sessionTag);
+  public abstract <T> List<T> getRecent(
+      int topK, boolean asText, boolean raw, String sessionTag, Object role);
 
   /**
    * Insert a prompt:response pair into the message history.
@@ -115,6 +123,60 @@ public abstract class BaseMessageHistory {
     }
 
     return context;
+  }
+
+  /**
+   * Validate and normalize role parameter for filtering messages.
+   *
+   * <p>Matches Python _validate_roles from base_history.py (lines 90-128)
+   *
+   * @param role A single role string, List of roles, or null
+   * @return List of valid role strings if role is provided, null otherwise
+   * @throws IllegalArgumentException if role contains invalid values or is the wrong type
+   */
+  @SuppressWarnings("unchecked")
+  protected List<String> validateRoles(Object role) {
+    if (role == null) {
+      return null;
+    }
+
+    // Handle single role string
+    if (role instanceof String) {
+      String roleStr = (String) role;
+      if (!VALID_ROLES.contains(roleStr)) {
+        throw new IllegalArgumentException(
+            String.format("Invalid role '%s'. Valid roles are: %s", roleStr, VALID_ROLES));
+      }
+      return List.of(roleStr);
+    }
+
+    // Handle list of roles
+    if (role instanceof List) {
+      List<?> roleList = (List<?>) role;
+
+      if (roleList.isEmpty()) {
+        throw new IllegalArgumentException("roles cannot be empty");
+      }
+
+      // Validate all roles in the list
+      List<String> validatedRoles = new ArrayList<>();
+      for (Object r : roleList) {
+        if (!(r instanceof String)) {
+          throw new IllegalArgumentException(
+              "role list must contain only strings, found: " + r.getClass().getSimpleName());
+        }
+        String roleStr = (String) r;
+        if (!VALID_ROLES.contains(roleStr)) {
+          throw new IllegalArgumentException(
+              String.format("Invalid role '%s'. Valid roles are: %s", roleStr, VALID_ROLES));
+        }
+        validatedRoles.add(roleStr);
+      }
+
+      return validatedRoles;
+    }
+
+    throw new IllegalArgumentException("role must be a String, List<String>, or null");
   }
 
   public String getName() {
