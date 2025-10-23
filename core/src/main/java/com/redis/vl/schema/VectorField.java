@@ -50,6 +50,35 @@ public class VectorField extends BaseField {
   @JsonProperty("epsilon")
   private final Double epsilon;
 
+  // SVS-VAMANA algorithm parameters
+  /** Maximum edges per node in the VAMANA graph (default: 40) */
+  @JsonProperty("graphMaxDegree")
+  private final Integer graphMaxDegree;
+
+  /** Build-time candidate window size (default: 250) */
+  @JsonProperty("constructionWindowSize")
+  private final Integer constructionWindowSize;
+
+  /** Search-time candidate window size (default: 20) - primary tuning parameter */
+  @JsonProperty("searchWindowSize")
+  private final Integer searchWindowSize;
+
+  /** Range query boundary expansion factor for SVS (default: 0.01) */
+  @JsonProperty("svsEpsilon")
+  private final Double svsEpsilon;
+
+  /** Vector compression type (optional) */
+  @JsonProperty("compression")
+  private final CompressionType compression;
+
+  /** Dimensionality reduction for LeanVec compression (must be < dimensions) */
+  @JsonProperty("reduce")
+  private final Integer reduce;
+
+  /** Minimum vectors before compression training kicks in (default: 10,240) */
+  @JsonProperty("trainingThreshold")
+  private final Integer trainingThreshold;
+
   /**
    * Create a VectorField with name and dimensions (defaults to FLAT algorithm, COSINE distance)
    *
@@ -71,6 +100,13 @@ public class VectorField extends BaseField {
     this.hnswEfConstruction = null;
     this.hnswEfRuntime = null;
     this.epsilon = null;
+    this.graphMaxDegree = null;
+    this.constructionWindowSize = null;
+    this.searchWindowSize = null;
+    this.svsEpsilon = null;
+    this.compression = null;
+    this.reduce = null;
+    this.trainingThreshold = null;
   }
 
   /** Create a VectorField with all properties */
@@ -88,7 +124,15 @@ public class VectorField extends BaseField {
       Integer hnswM,
       Integer hnswEfConstruction,
       Integer hnswEfRuntime,
-      Double epsilon) {
+      Double epsilon,
+      // SVS-VAMANA parameters
+      Integer graphMaxDegree,
+      Integer constructionWindowSize,
+      Integer searchWindowSize,
+      Double svsEpsilon,
+      CompressionType compression,
+      Integer reduce,
+      Integer trainingThreshold) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
     if (dimensions <= 0) {
       throw new IllegalArgumentException("Dimensions must be positive");
@@ -97,12 +141,28 @@ public class VectorField extends BaseField {
     this.algorithm = algorithm != null ? algorithm : VectorAlgorithm.FLAT;
     this.distanceMetric = distanceMetric != null ? distanceMetric : DistanceMetric.COSINE;
     this.dataType = dataType != null ? dataType : VectorDataType.FLOAT32;
+
+    // FLAT parameters
     this.initialCapacity = initialCapacity;
     this.blockSize = blockSize;
+
+    // HNSW parameters
     this.hnswM = hnswM;
     this.hnswEfConstruction = hnswEfConstruction;
     this.hnswEfRuntime = hnswEfRuntime;
     this.epsilon = epsilon;
+
+    // SVS-VAMANA parameters
+    this.graphMaxDegree = graphMaxDegree;
+    this.constructionWindowSize = constructionWindowSize;
+    this.searchWindowSize = searchWindowSize;
+    this.svsEpsilon = svsEpsilon;
+    this.compression = compression;
+    this.reduce = reduce;
+    this.trainingThreshold = trainingThreshold;
+
+    // Validate SVS-specific constraints
+    validateSVSConstraints();
   }
 
   /**
@@ -133,6 +193,8 @@ public class VectorField extends BaseField {
   public Algorithm getAlgorithm() {
     if (algorithm == VectorAlgorithm.HNSW) {
       return Algorithm.HNSW;
+    } else if (algorithm == VectorAlgorithm.SVS_VAMANA) {
+      return Algorithm.SVS_VAMANA;
     }
     return Algorithm.FLAT;
   }
@@ -158,6 +220,91 @@ public class VectorField extends BaseField {
   @Override
   public FieldType getFieldType() {
     return FieldType.VECTOR;
+  }
+
+  /**
+   * Validate SVS-VAMANA specific constraints.
+   *
+   * <p>Validation rules:
+   *
+   * <ul>
+   *   <li>SVS only supports FLOAT16 and FLOAT32 data types
+   *   <li>reduce parameter must be less than dimensions
+   *   <li>reduce parameter only valid with LeanVec compression
+   *   <li>LVQ compression prohibits reduce parameter
+   * </ul>
+   *
+   * @throws IllegalArgumentException if SVS constraints are violated
+   */
+  private void validateSVSConstraints() {
+    // Only validate if using SVS-VAMANA algorithm
+    if (this.algorithm != VectorAlgorithm.SVS_VAMANA) {
+      return;
+    }
+
+    // Datatype validation: SVS only supports FLOAT16 and FLOAT32
+    if (dataType != VectorDataType.FLOAT16 && dataType != VectorDataType.FLOAT32) {
+      throw new IllegalArgumentException(
+          String.format(
+              "SVS-VAMANA only supports FLOAT16 and FLOAT32 data types. Got: %s. "
+                  + "Unsupported types: BFLOAT16, FLOAT64, INT8, UINT8.",
+              dataType.getValue()));
+    }
+
+    // Reduce validation
+    if (reduce != null) {
+      // reduce must be less than dimensions
+      if (reduce >= dimensions) {
+        throw new IllegalArgumentException(
+            String.format("reduce (%d) must be less than dimensions (%d)", reduce, dimensions));
+      }
+
+      // reduce requires compression to be set
+      if (compression == null) {
+        throw new IllegalArgumentException(
+            "reduce parameter requires compression to be set. "
+                + "Use LeanVec4x8 or LeanVec8x8 compression with reduce.");
+      }
+
+      // reduce only valid with LeanVec compression
+      if (!compression.isLeanVec()) {
+        throw new IllegalArgumentException(
+            String.format(
+                "reduce parameter is only supported with LeanVec compression types. "
+                    + "Got compression=%s. "
+                    + "Either use LeanVec4x8/LeanVec8x8 or remove the reduce parameter.",
+                compression.getValue()));
+      }
+    }
+
+    // Warning: LeanVec without reduce is not recommended
+    if (compression != null && compression.isLeanVec() && reduce == null) {
+      // Note: In Java we can't easily log warnings without a logger dependency
+      // Could add org.slf4j.Logger here or just document this in JavaDoc
+      System.err.println(
+          String.format(
+              "WARNING: LeanVec compression selected without 'reduce'. "
+                  + "Consider setting reduce=%d for better performance",
+              dimensions / 2));
+    }
+
+    // Warning: Low graph_max_degree
+    if (graphMaxDegree != null && graphMaxDegree < 32) {
+      System.err.println(
+          String.format(
+              "WARNING: graphMaxDegree=%d is low. "
+                  + "Consider values between 32-64 for better recall.",
+              graphMaxDegree));
+    }
+
+    // Warning: High search_window_size
+    if (searchWindowSize != null && searchWindowSize > 100) {
+      System.err.println(
+          String.format(
+              "WARNING: searchWindowSize=%d is high. "
+                  + "This may impact query latency. Consider values between 20-50.",
+              searchWindowSize));
+    }
   }
 
   @Override
@@ -195,6 +342,31 @@ public class VectorField extends BaseField {
       if (epsilon != null) {
         attributes.put("EPSILON", epsilon);
       }
+    } else if (algorithm == VectorAlgorithm.SVS_VAMANA) {
+      // SVS-VAMANA graph parameters
+      if (graphMaxDegree != null) {
+        attributes.put("GRAPH_MAX_DEGREE", graphMaxDegree);
+      }
+      if (constructionWindowSize != null) {
+        attributes.put("CONSTRUCTION_WINDOW_SIZE", constructionWindowSize);
+      }
+      if (searchWindowSize != null) {
+        attributes.put("SEARCH_WINDOW_SIZE", searchWindowSize);
+      }
+      if (svsEpsilon != null) {
+        attributes.put("EPSILON", svsEpsilon);
+      }
+
+      // SVS-VAMANA compression parameters
+      if (compression != null) {
+        attributes.put("COMPRESSION", compression.getValue());
+      }
+      if (reduce != null) {
+        attributes.put("REDUCE", reduce);
+      }
+      if (trainingThreshold != null) {
+        attributes.put("TRAINING_THRESHOLD", trainingThreshold);
+      }
     }
 
     return jedisField;
@@ -202,10 +374,12 @@ public class VectorField extends BaseField {
 
   /** Vector indexing algorithms */
   public enum Algorithm {
-    /** FLAT algorithm for vector indexing */
+    /** FLAT algorithm for exact vector search */
     FLAT("FLAT"),
-    /** HNSW algorithm for vector indexing */
-    HNSW("HNSW");
+    /** HNSW algorithm for approximate nearest neighbor search */
+    HNSW("HNSW"),
+    /** SVS-VAMANA algorithm with compression support (Redis ≥ 8.2.0) */
+    SVS_VAMANA("SVS-VAMANA");
 
     private final String value;
 
@@ -250,10 +424,18 @@ public class VectorField extends BaseField {
 
   /** Vector data types */
   public enum VectorDataType {
-    /** 32-bit floating point */
+    /** Brain Float 16-bit (specialized for ML) */
+    BFLOAT16("BFLOAT16"),
+    /** IEEE 754 half-precision 16-bit float */
+    FLOAT16("FLOAT16"),
+    /** IEEE 754 single-precision 32-bit float */
     FLOAT32("FLOAT32"),
-    /** 64-bit floating point */
-    FLOAT64("FLOAT64");
+    /** IEEE 754 double-precision 64-bit float */
+    FLOAT64("FLOAT64"),
+    /** 8-bit signed integer */
+    INT8("INT8"),
+    /** 8-bit unsigned integer */
+    UINT8("UINT8");
 
     private final String value;
 
@@ -268,6 +450,75 @@ public class VectorField extends BaseField {
      */
     public String getValue() {
       return value;
+    }
+  }
+
+  /**
+   * Vector compression types for SVS-VAMANA algorithm.
+   *
+   * <p>Compression families:
+   *
+   * <ul>
+   *   <li><b>LVQ</b> (Learned Vector Quantization): Reduces storage without dimensionality
+   *       reduction
+   *   <li><b>LeanVec</b>: Combines dimensionality reduction with quantization for maximum
+   *       compression
+   * </ul>
+   *
+   * <p>Bit depths:
+   *
+   * <ul>
+   *   <li>4-bit: Higher compression, lower accuracy
+   *   <li>8-bit: Lower compression, higher accuracy
+   *   <li>4x4, 4x8, 8x8: Hybrid approaches with different primary/secondary quantization
+   * </ul>
+   */
+  public enum CompressionType {
+    /** Learned Vector Quantization - 4 bits per dimension */
+    LVQ4("LVQ4"),
+    /** Learned Vector Quantization - 4x4 bits (hybrid) */
+    LVQ4x4("LVQ4x4"),
+    /** Learned Vector Quantization - 4x8 bits (hybrid) */
+    LVQ4x8("LVQ4x8"),
+    /** Learned Vector Quantization - 8 bits per dimension */
+    LVQ8("LVQ8"),
+    /** LeanVec with 4x8 bit quantization (supports dimensionality reduction) */
+    LeanVec4x8("LeanVec4x8"),
+    /** LeanVec with 8x8 bit quantization (supports dimensionality reduction) */
+    LeanVec8x8("LeanVec8x8");
+
+    private final String value;
+
+    CompressionType(String value) {
+      this.value = value;
+    }
+
+    /**
+     * Get the compression type value for Redis
+     *
+     * @return Compression type value
+     */
+    public String getValue() {
+      return value;
+    }
+
+    /**
+     * Check if this is a LeanVec compression type. LeanVec types support dimensionality reduction
+     * via the 'reduce' parameter.
+     *
+     * @return true if LeanVec compression type
+     */
+    public boolean isLeanVec() {
+      return this == LeanVec4x8 || this == LeanVec8x8;
+    }
+
+    /**
+     * Check if this is an LVQ compression type. LVQ types do NOT support dimensionality reduction.
+     *
+     * @return true if LVQ compression type
+     */
+    public boolean isLVQ() {
+      return this == LVQ4 || this == LVQ4x4 || this == LVQ4x8 || this == LVQ8;
     }
   }
 
@@ -287,6 +538,13 @@ public class VectorField extends BaseField {
     private Integer hnswEfConstruction;
     private Integer hnswEfRuntime;
     private Double epsilon;
+    private Integer graphMaxDegree;
+    private Integer constructionWindowSize;
+    private Integer searchWindowSize;
+    private Double svsEpsilon;
+    private CompressionType compression;
+    private Integer reduce;
+    private Integer trainingThreshold;
 
     private VectorFieldBuilder(String name, int dimensions) {
       this.name = name;
@@ -502,6 +760,111 @@ public class VectorField extends BaseField {
       return this;
     }
 
+    // ===== SVS-VAMANA Parameters =====
+
+    /**
+     * Set the graph max degree for SVS-VAMANA algorithm.
+     *
+     * <p>Controls the maximum number of edges per node in the VAMANA graph. Higher values improve
+     * recall but increase memory usage and build time.
+     *
+     * @param graphMaxDegree Max edges per node (recommended: 32-64, default: 40)
+     * @return This builder
+     */
+    public VectorFieldBuilder graphMaxDegree(int graphMaxDegree) {
+      this.graphMaxDegree = graphMaxDegree;
+      return this;
+    }
+
+    /**
+     * Set the construction window size for SVS-VAMANA algorithm.
+     *
+     * <p>Number of candidates considered during graph construction. Higher values improve index
+     * quality but increase build time.
+     *
+     * @param constructionWindowSize Build-time candidates (default: 250)
+     * @return This builder
+     */
+    public VectorFieldBuilder constructionWindowSize(int constructionWindowSize) {
+      this.constructionWindowSize = constructionWindowSize;
+      return this;
+    }
+
+    /**
+     * Set the search window size for SVS-VAMANA algorithm.
+     *
+     * <p>Number of candidates considered during search. This is the primary tuning parameter for
+     * accuracy vs performance trade-off. Higher values improve recall but increase query latency.
+     *
+     * @param searchWindowSize Search candidates (recommended: 20-50, default: 20)
+     * @return This builder
+     */
+    public VectorFieldBuilder searchWindowSize(int searchWindowSize) {
+      this.searchWindowSize = searchWindowSize;
+      return this;
+    }
+
+    /**
+     * Set the epsilon parameter for SVS-VAMANA range queries.
+     *
+     * <p>Boundary expansion factor for range queries.
+     *
+     * @param svsEpsilon Epsilon value (default: 0.01)
+     * @return This builder
+     */
+    public VectorFieldBuilder svsEpsilon(double svsEpsilon) {
+      this.svsEpsilon = svsEpsilon;
+      return this;
+    }
+
+    /**
+     * Set the compression type for SVS-VAMANA algorithm.
+     *
+     * <p>Available compression types:
+     *
+     * <ul>
+     *   <li><b>LVQ4, LVQ4x4, LVQ4x8, LVQ8</b>: Learned Vector Quantization (no dimension reduction)
+     *   <li><b>LeanVec4x8, LeanVec8x8</b>: Supports dimension reduction via reduce parameter
+     * </ul>
+     *
+     * @param compression Compression type
+     * @return This builder
+     */
+    public VectorFieldBuilder compression(CompressionType compression) {
+      this.compression = compression;
+      return this;
+    }
+
+    /**
+     * Set the dimensionality reduction factor for LeanVec compression.
+     *
+     * <p><b>Important</b>: Only valid with LeanVec compression types. Must be less than the vector
+     * dimensions.
+     *
+     * <p>Recommended values: dimensions/2 or dimensions/4
+     *
+     * @param reduce Target dimensions after reduction (must be &lt; dimensions)
+     * @return This builder
+     * @throws IllegalArgumentException if used without LeanVec compression
+     */
+    public VectorFieldBuilder reduce(int reduce) {
+      this.reduce = reduce;
+      return this;
+    }
+
+    /**
+     * Set the training threshold for SVS-VAMANA compression.
+     *
+     * <p>Minimum number of vectors required before compression training begins.
+     *
+     * @param trainingThreshold Minimum vectors (default: 10,240)
+     * @return This builder
+     */
+    public VectorFieldBuilder trainingThreshold(int trainingThreshold) {
+      this.trainingThreshold = trainingThreshold;
+      return this;
+    }
+
     /**
      * Build the VectorField
      *
@@ -528,7 +891,15 @@ public class VectorField extends BaseField {
           hnswM,
           hnswEfConstruction,
           hnswEfRuntime,
-          epsilon);
+          epsilon,
+          // SVS-VAMANA parameters
+          graphMaxDegree,
+          constructionWindowSize,
+          searchWindowSize,
+          svsEpsilon,
+          compression,
+          reduce,
+          trainingThreshold);
     }
   }
 }
