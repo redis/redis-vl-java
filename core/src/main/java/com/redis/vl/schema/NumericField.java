@@ -10,18 +10,22 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 @Getter
 public class NumericField extends BaseField {
 
+  /** Un-normalized form - disable normalization for sorting (only applies when sortable=true) */
+  private final boolean unf;
+
   /**
    * Create a NumericField with just a name.
    *
    * @param name The field name
    */
   public NumericField(String name) {
-    super(name);
+    this(name, null, true, false, false);
   }
 
   /** Create a NumericField with all properties */
-  private NumericField(String name, String alias, Boolean indexed, Boolean sortable) {
+  private NumericField(String name, String alias, Boolean indexed, Boolean sortable, Boolean unf) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
+    this.unf = unf != null ? unf : false;
   }
 
   /**
@@ -59,6 +63,9 @@ public class NumericField extends BaseField {
 
     if (sortable) {
       jedisField.sortable();
+      // NOTE: Jedis NumericField doesn't support sortableUNF() yet
+      // The unf flag is stored in this wrapper but cannot be passed to Redis via Jedis
+      // TODO: File issue with Jedis to add sortableUNF() support for NumericField
     }
 
     if (!indexed) {
@@ -74,6 +81,7 @@ public class NumericField extends BaseField {
     private String alias;
     private Boolean indexed;
     private Boolean sortable;
+    private Boolean unf;
 
     private NumericFieldBuilder(String name) {
       this.name = name;
@@ -145,6 +153,39 @@ public class NumericField extends BaseField {
     }
 
     /**
+     * Set whether to use un-normalized form for sorting
+     *
+     * <p>UNF disables normalization when sorting, preserving original values. Only applies when
+     * sortable=true.
+     *
+     * <p>NOTE: Jedis doesn't support sortableUNF() for NumericField yet, so this flag is stored but
+     * not passed to Redis.
+     *
+     * @param unf True to disable normalization for sorting
+     * @return This builder for chaining
+     */
+    public NumericFieldBuilder unf(boolean unf) {
+      this.unf = unf;
+      return this;
+    }
+
+    /**
+     * Use un-normalized form for sorting (equivalent to unf(true))
+     *
+     * <p>UNF disables normalization when sorting, preserving original values. Only applies when
+     * sortable=true.
+     *
+     * <p>NOTE: Jedis doesn't support sortableUNF() for NumericField yet, so this flag is stored but
+     * not passed to Redis.
+     *
+     * @return This builder for chaining
+     */
+    public NumericFieldBuilder unf() {
+      this.unf = true;
+      return this;
+    }
+
+    /**
      * Build the NumericField instance.
      *
      * @return The configured NumericField
@@ -154,7 +195,7 @@ public class NumericField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new NumericField(name, alias, indexed, sortable);
+      return new NumericField(name, alias, indexed, sortable, unf);
     }
   }
 }

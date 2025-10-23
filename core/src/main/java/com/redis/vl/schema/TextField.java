@@ -23,13 +23,17 @@ public class TextField extends BaseField {
   @JsonProperty("phonetic")
   private final String phonetic;
 
+  /** Un-normalized form - disable normalization for sorting (only applies when sortable=true) */
+  @JsonProperty("unf")
+  private final boolean unf;
+
   /**
    * Create a TextField with just a name
    *
    * @param name Field name
    */
   public TextField(String name) {
-    this(name, null, true, false, 1.0, false, null);
+    this(name, null, true, false, 1.0, false, null, false);
   }
 
   /** Create a TextField with all properties */
@@ -40,11 +44,13 @@ public class TextField extends BaseField {
       Boolean sortable,
       Double weight,
       Boolean noStem,
-      String phonetic) {
+      String phonetic,
+      Boolean unf) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
     this.weight = weight != null ? weight : 1.0;
     this.noStem = noStem != null ? noStem : false;
     this.phonetic = phonetic;
+    this.unf = unf != null ? unf : false;
   }
 
   /**
@@ -80,7 +86,11 @@ public class TextField extends BaseField {
       jedisField.as(alias);
     }
 
-    if (sortable) {
+    // Handle sortable with UNF support
+    // UNF only applies when sortable=true
+    if (sortable && unf) {
+      jedisField.sortableUNF();
+    } else if (sortable) {
       jedisField.sortable();
     }
 
@@ -112,6 +122,7 @@ public class TextField extends BaseField {
     private Double weight;
     private Boolean noStem;
     private String phonetic;
+    private Boolean unf;
 
     private TextFieldBuilder(String name) {
       this.name = name;
@@ -248,6 +259,33 @@ public class TextField extends BaseField {
     }
 
     /**
+     * Set whether to use un-normalized form for sorting
+     *
+     * <p>UNF disables normalization when sorting, preserving original character case. Only applies
+     * when sortable=true.
+     *
+     * @param unf True to disable normalization for sorting
+     * @return This builder
+     */
+    public TextFieldBuilder unf(boolean unf) {
+      this.unf = unf;
+      return this;
+    }
+
+    /**
+     * Use un-normalized form for sorting (equivalent to unf(true))
+     *
+     * <p>UNF disables normalization when sorting, preserving original character case. Only applies
+     * when sortable=true.
+     *
+     * @return This builder
+     */
+    public TextFieldBuilder unf() {
+      this.unf = true;
+      return this;
+    }
+
+    /**
      * Build the TextField
      *
      * @return TextField instance
@@ -256,7 +294,7 @@ public class TextField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new TextField(name, alias, indexed, sortable, weight, noStem, phonetic);
+      return new TextField(name, alias, indexed, sortable, weight, noStem, phonetic, unf);
     }
   }
 }
