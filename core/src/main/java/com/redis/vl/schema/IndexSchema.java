@@ -150,6 +150,14 @@ public final class IndexSchema {
     Boolean sortable = (Boolean) fieldData.get("sortable");
     Boolean indexed = (Boolean) fieldData.get("indexed");
 
+    // Read attrs map for additional field attributes
+    Map<String, Object> attrs = (Map<String, Object>) fieldData.get("attrs");
+
+    // Check for "as" attribute in attrs map (common in JSON schema definitions)
+    if (alias == null && attrs != null) {
+      alias = (String) attrs.get("as");
+    }
+
     // For JSON storage, handle JSON paths properly
     String path = (String) fieldData.get("path");
     if (storageType == StorageType.JSON) {
@@ -188,10 +196,18 @@ public final class IndexSchema {
         if (sortable != null) tagBuilder.sortable(sortable);
         if (indexed != null) tagBuilder.indexed(indexed);
 
+        // Try to get separator from top-level first, then attrs
         String separator = (String) fieldData.get("separator");
+        if (separator == null && attrs != null) {
+          separator = (String) attrs.get("separator");
+        }
         if (separator != null) tagBuilder.separator(separator);
 
+        // Try to get caseSensitive from top-level first, then attrs
         Boolean caseSensitive = (Boolean) fieldData.get("caseSensitive");
+        if (caseSensitive == null && attrs != null) {
+          caseSensitive = (Boolean) attrs.get("caseSensitive");
+        }
         if (caseSensitive != null) tagBuilder.caseSensitive(caseSensitive);
 
         return tagBuilder.build();
@@ -211,7 +227,6 @@ public final class IndexSchema {
         return geoBuilder.build();
 
       case VECTOR:
-        Map<String, Object> attrs = (Map<String, Object>) fieldData.get("attrs");
         if (attrs == null) {
           throw new IllegalArgumentException("Vector field requires 'attrs' section");
         }

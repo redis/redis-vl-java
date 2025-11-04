@@ -25,6 +25,36 @@ public final class Utils {
     return seconds + (microseconds / 1000.0); // Add microsecond component
   }
 
+  /**
+   * Normalize a Redis COSINE distance (0-2) to a similarity score (0-1).
+   *
+   * <p>Redis COSINE distance ranges from 0 (identical) to 2 (opposite). This method converts it to
+   * a normalized similarity score where 0 is completely dissimilar and 1 is identical.
+   *
+   * <p>Matches Python's norm_cosine_distance() from redisvl.utils.utils.
+   *
+   * @param value Redis COSINE distance value (0-2)
+   * @return Normalized similarity score (0-1)
+   */
+  public static float normCosineDistance(float value) {
+    return Math.max((2.0f - value) / 2.0f, 0.0f);
+  }
+
+  /**
+   * Denormalize a similarity score (0-1) to a Redis COSINE distance (0-2).
+   *
+   * <p>Converts a normalized similarity score (where 1 is identical and 0 is dissimilar) back to
+   * Redis COSINE distance format (where 0 is identical and 2 is opposite).
+   *
+   * <p>Matches Python's denorm_cosine_distance() from redisvl.utils.utils.
+   *
+   * @param value Normalized similarity score (0-1)
+   * @return Redis COSINE distance value (0-2)
+   */
+  public static float denormCosineDistance(float value) {
+    return Math.max(2.0f - 2.0f * value, 0.0f);
+  }
+
   private Utils() {
     // Prevent instantiation
   }
