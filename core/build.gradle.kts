@@ -85,6 +85,9 @@ tasks.test {
     useJUnitPlatform {
         excludeTags("slow", "integration")
     }
+
+    // Pass environment variables to tests
+    environment("LANGCACHE_API_KEY", System.getenv("LANGCACHE_API_KEY") ?: "")
 }
 
 // Create a task for running integration tests

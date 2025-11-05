@@ -140,6 +140,270 @@ String answer3 = bot.answerQuestion("Password reset procedure?");
 // answer2 and answer3 will be cache hits if threshold allows
 ----
 
+== LangCache Wrapper
+
+LangCache Wrapper provides integration with the https://langcache.com[LangCache] managed service, allowing you to leverage cloud-based semantic caching without managing your own Redis infrastructure. LangCache handles embedding generation, similarity search, and cache management through a simple API.
+
+=== How It Works
+
+LangCache Wrapper acts as a bridge between RedisVL and the LangCache API service:
+
+. User asks a question
+. LangCache generates embeddings and searches for similar cached questions
+. If found (above threshold), return cached response from LangCache
+. Otherwise, call LLM and cache the result via LangCache
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.extensions.cache.LangCacheSemanticCache;
+
+// Create LangCache wrapper
+LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+    .name("my-langcache")
+    .serverUrl("https://api.langcache.com")
+    .cacheId("your-cache-id")
+    .apiKey("your-api-key")
+    .ttl(3600)  // Optional: 1 hour TTL
+    .build();
+
+// Check for cached response
+String prompt = "What is Redis?";
+List<Map<String, Object>> hits = cache.check(prompt, null, 1, null, null, null);
+
+if (!hits.isEmpty()) {
+    // Cache hit! Use cached response
+    Map<String, Object> hit = hits.get(0);
+    System.out.println("Cache hit! Response: " + hit.get("response"));
+} else {
+    // Cache miss - call LLM
+    String response = callLLM(prompt);  // your LLM call
+
+    // Store in cache for future use
+    String entryId = cache.store(prompt, response, null);
+    System.out.println("Cached new response with ID: " + entryId);
+}
+----
+
+=== Configuration Options
+
+[source,java]
+----
+// Create with custom configuration
+LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+    .name("my-langcache")
+    .serverUrl("https://api.langcache.com")
+    .cacheId("your-cache-id")
+    .apiKey("your-api-key")
+    .ttl(7200)                          // Time-to-live in seconds
+    .useExactSearch(true)               // Enable exact match search (default: true)
+    .useSemanticSearch(true)            // Enable semantic search (default: true)
+    .distanceScale("normalized")        // "normalized" (0-1) or "redis" (0-2)
+    .build();
+----
+
+=== Distance Scale
+
+LangCache returns similarity scores (0-1, higher is better), but RedisVL uses distance (lower is better). The `distanceScale` parameter controls how distance thresholds are interpreted:
+
+* *"normalized"* (default): Distance thresholds are 0-1
+** `distance_threshold=0.1` means "accept results with distance ≤ 0.1"
+** Converts to LangCache: `similarity_threshold = 1.0 - 0.1 = 0.9`
+
+* *"redis"*: Distance thresholds are in Redis COSINE format (0-2)
+** `distance_threshold=0.4` means "accept results with Redis COSINE distance ≤ 0.4"
+** Converts to LangCache: `similarity_threshold = (2 - 0.4) / 2 = 0.8`
+
+[source,java]
+----
+// Using normalized scale (default)
+LangCacheSemanticCache normalizedCache = new LangCacheSemanticCache.Builder()
+    .cacheId("cache-id")
+    .apiKey("api-key")
+    .distanceScale("normalized")
+    .build();
+
+// Distance threshold 0.15 = similarity threshold 0.85
+normalizedCache.check(prompt, null, 1, null, null, 0.15f);
+
+// Using Redis COSINE scale
+LangCacheSemanticCache redisCache = new LangCacheSemanticCache.Builder()
+    .cacheId("cache-id")
+    .apiKey("api-key")
+    .distanceScale("redis")
+    .build();
+
+// Distance threshold 0.3 = similarity threshold 0.85
+redisCache.check(prompt, null, 1, null, null, 0.3f);
+----
+
+=== Metadata and Filtering
+
+Store and retrieve cache entries with custom attributes (metadata):
+
+[source,java]
+----
+// Store with metadata
+Map<String, Object> metadata = Map.of(
+    "user_id", "12345",
+    "topic", "technical",
+    "language", "en"
+);
+
+cache.store(prompt, response, metadata);
+
+// Search with attribute filtering
+Map<String, Object> attributes = Map.of("topic", "technical");
+List<Map<String, Object>> hits = cache.check(
+    prompt,
+    attributes,  // Filter by attributes
+    5,           // Return up to 5 results
+    null,        // returnFields (not used)
+    null,        // filterExpression (not supported)
+    0.15f        // distance threshold
+);
+
+for (Map<String, Object> hit : hits) {
+    System.out.println("Response: " + hit.get("response"));
+    System.out.println("Distance: " + hit.get("vector_distance"));
+    System.out.println("Metadata: " + hit.get("metadata"));
+}
+----
+
+=== Delete Operations
+
+[source,java]
+----
+// Delete entire cache
+cache.delete();
+
+// Delete specific entry by ID
+String entryId = cache.store(prompt, response, null);
+cache.deleteById(entryId);
+
+// Delete entries matching attributes
+Map<String, Object> attributes = Map.of("topic", "outdated");
+cache.deleteByAttributes(attributes);
+
+// Clear cache (alias for delete)
+cache.clear();
+----
+
+=== Search Strategies
+
+LangCache supports both exact and semantic search. You can enable either or both:
+
+[source,java]
+----
+// Both exact and semantic search (default)
+LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+    .cacheId("cache-id")
+    .apiKey("api-key")
+    .useExactSearch(true)
+    .useSemanticSearch(true)
+    .build();
+
+// Only semantic search
+LangCacheSemanticCache semanticOnly = new LangCacheSemanticCache.Builder()
+    .cacheId("cache-id")
+    .apiKey("api-key")
+    .useExactSearch(false)
+    .useSemanticSearch(true)
+    .build();
+
+// Only exact search
+LangCacheSemanticCache exactOnly = new LangCacheSemanticCache.Builder()
+    .cacheId("cache-id")
+    .apiKey("api-key")
+    .useExactSearch(true)
+    .useSemanticSearch(false)
+    .build();
+----
+
+=== Example: Multi-Tenant Chatbot
+
+[source,java]
+----
+public class MultiTenantChatbot {
+    private final LangCacheSemanticCache cache;
+    private final LLMClient llmClient;
+
+    public MultiTenantChatbot(String cacheId, String apiKey) {
+        this.cache = new LangCacheSemanticCache.Builder()
+            .name("tenant-cache")
+            .cacheId(cacheId)
+            .apiKey(apiKey)
+            .distanceScale("normalized")
+            .build();
+        this.llmClient = new LLMClient();
+    }
+
+    public String answer(String userId, String tenantId, String question) {
+        // Build attributes for filtering
+        Map<String, Object> attributes = Map.of(
+            "user_id", userId,
+            "tenant_id", tenantId
+        );
+
+        // Check cache with attributes
+        List<Map<String, Object>> hits = cache.check(
+            question,
+            attributes,
+            1,
+            null,
+            null,
+            0.1f  // Accept results with distance ≤ 0.1
+        );
+
+        if (!hits.isEmpty()) {
+            System.out.println("✓ Cache hit!");
+            return (String) hits.get(0).get("response");
+        }
+
+        // Cache miss - call LLM
+        String response = llmClient.complete(question);
+
+        // Store with attributes
+        cache.store(question, response, attributes);
+
+        return response;
+    }
+
+    public void clearTenantCache(String tenantId) {
+        // Delete all entries for this tenant
+        cache.deleteByAttributes(Map.of("tenant_id", tenantId));
+    }
+}
+----
+
+=== Limitations
+
+LangCache Wrapper has some limitations compared to SemanticCache:
+
+* *No custom vectors*: LangCache generates embeddings internally
+* *No filter expressions*: Only attribute-based filtering is supported
+* *No updates*: Entries cannot be updated; delete and recreate instead
+* *No per-entry TTL*: TTL is configured at the cache level via LangCache console
+
+=== When to Use LangCache vs SemanticCache
+
+Use *LangCache Wrapper* when:
+
+* You want a fully managed solution
+* You don't want to manage Redis infrastructure
+* You need multi-region caching
+* You want built-in monitoring and analytics
+* You prefer pay-as-you-go pricing
+
+Use *SemanticCache* when:
+
+* You already have Redis infrastructure
+* You need full control over embeddings
+* You want to use custom vectorizers
+* You need filter expressions
+* You prefer self-hosted solutions
+
 == Embeddings Cache
 
 Embeddings Cache stores vector embeddings to avoid recomputing them. This is useful when you frequently need embeddings for the same text.
