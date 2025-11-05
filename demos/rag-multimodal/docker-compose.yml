@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis/redis-stack:latest
+    container_name: redis-rag-demo
+    ports:
+      - "6399:6379"  # Map host port 6399 to container port 6379 (avoids conflicts)
+      - "8002:8001"  # RedisInsight (using 8002 to avoid conflicts)
+    environment:
+      - REDIS_ARGS=--save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  redis-data:

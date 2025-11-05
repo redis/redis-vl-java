@@ -1,0 +1,255 @@
+/* Multimodal RAG App Styles */
+
+.root {
+    -fx-font-family: "System", "Segoe UI", "Roboto", "Helvetica Neue", sans-serif;
+    -fx-font-size: 14px;
+    -fx-background-color: #F0F2F5;
+}
+
+/* Control Panel */
+.control-panel {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 0 0 0 1px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 8, 0, -2, 0);
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1C1E21;
+    -fx-padding: 5px 0;
+}
+
+.info-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #65676B;
+    -fx-padding: 3px 0;
+}
+
+.info-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #8A8D91;
+    -fx-padding: 5px 0;
+}
+
+.cache-checkbox {
+    -fx-font-size: 14px;
+    -fx-text-fill: #1C1E21;
+}
+
+.action-button {
+    -fx-background-color: #1877F2;
+    -fx-text-fill: white;
+    -fx-background-radius: 8px;
+    -fx-padding: 12px 20px;
+    -fx-font-weight: 600;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+}
+
+.action-button:hover {
+    -fx-background-color: #166FE5;
+}
+
+.action-button:pressed {
+    -fx-background-color: #1464C8;
+}
+
+.separator {
+    -fx-padding: 5px 0;
+}
+
+/* Message List */
+.message-list {
+    -fx-background-color: #F0F2F5;
+}
+
+/* ListView styling */
+.list-view {
+    -fx-background-color: #F0F2F5;
+    -fx-background-insets: 0;
+    -fx-padding: 10px;
+}
+
+.list-view .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 5px 0;
+}
+
+.list-view .list-cell:filled:selected {
+    -fx-background-color: transparent;
+}
+
+.list-view .list-cell:filled:hover {
+    -fx-background-color: transparent;
+}
+
+/* Chat message bubbles */
+.message-bubble {
+    -fx-background-radius: 18px;
+    -fx-padding: 12px 16px;
+    -fx-background-color: white;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 6, 0, 0, 2);
+}
+
+.message-bubble.user {
+    -fx-background-color: linear-gradient(to bottom right, #1877F2, #0C63D4);
+}
+
+.message-bubble.user .text {
+    -fx-fill: white;
+}
+
+.message-bubble.assistant {
+    -fx-background-color: #FFFFFF;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 6, 0, 0, 2);
+}
+
+.message-bubble.assistant .text {
+    -fx-fill: #1C1E21;
+}
+
+.message-bubble.cached {
+    -fx-border-color: #00A400;
+    -fx-border-width: 2px;
+    -fx-border-radius: 18px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,164,0,0.15), 8, 0, 0, 2);
+}
+
+/* Cost label */
+.cost-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #65676B;
+    -fx-padding: 4px 0 0 0;
+}
+
+.cost-label.cached {
+    -fx-text-fill: #00A400;
+    -fx-font-weight: 600;
+}
+
+/* Status label */
+.status-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #65676B;
+    -fx-wrap-text: true;
+}
+
+/* Input area */
+.input-area {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 1px 0 0 0;
+    -fx-padding: 15px;
+}
+
+.input-field {
+    -fx-background-color: #F0F2F5;
+    -fx-background-radius: 20px;
+    -fx-padding: 12px 18px;
+    -fx-border-color: transparent;
+    -fx-font-size: 14px;
+    -fx-text-fill: #1C1E21;
+}
+
+.input-field:focused {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #1877F2;
+    -fx-border-width: 2px;
+    -fx-border-radius: 20px;
+}
+
+/* Buttons */
+.button {
+    -fx-background-color: #1877F2;
+    -fx-text-fill: white;
+    -fx-background-radius: 8px;
+    -fx-padding: 10px 20px;
+    -fx-font-weight: 600;
+    -fx-font-size: 14px;
+    -fx-cursor: hand;
+    -fx-border-color: transparent;
+}
+
+.button:hover {
+    -fx-background-color: #166FE5;
+}
+
+.button:pressed {
+    -fx-background-color: #1464C8;
+}
+
+.button:disabled {
+    -fx-background-color: #E4E6EB;
+    -fx-text-fill: #BCC0C4;
+}
+
+.send-button {
+    -fx-background-color: #1877F2;
+    -fx-text-fill: white;
+    -fx-background-radius: 20px;
+    -fx-padding: 12px 24px;
+    -fx-font-weight: 600;
+    -fx-font-size: 14px;
+}
+
+.send-button:hover {
+    -fx-background-color: #166FE5;
+}
+
+.send-button:pressed {
+    -fx-background-color: #1464C8;
+}
+
+/* Checkbox */
+.check-box {
+    -fx-text-fill: #1C1E21;
+    -fx-font-size: 14px;
+}
+
+.check-box .box {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CED0D4;
+    -fx-border-width: 2px;
+    -fx-border-radius: 4px;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #1877F2;
+    -fx-border-color: #1877F2;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+/* Separator */
+.separator .line {
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 1px 0 0 0;
+}
+
+/* Scroll Bar */
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #CED0D4;
+    -fx-background-radius: 5px;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #BCC0C4;
+}
+
+.scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}

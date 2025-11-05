@@ -20,6 +20,12 @@ allprojects {
 }
 
 subprojects {
+    // Skip strict build rules for demo projects
+    if (name.startsWith("rag-")) {
+        apply(plugin = "java")
+        return@subprojects
+    }
+
     apply(plugin = "java")
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
