@@ -12,6 +12,7 @@
 * xref:getting-started.adoc[Getting Started]
 * xref:hybrid-queries.adoc[Querying with RedisVL]
 * xref:hash-vs-json.adoc[Hash vs JSON Storage]
+* xref:langchain4j.adoc[LangChain4J Integration]
 
 .API Reference
 * xref:api-reference.adoc[Javadoc API Reference]

@@ -140,13 +140,15 @@ String answer3 = bot.answerQuestion("Password reset procedure?");
 // answer2 and answer3 will be cache hits if threshold allows
 ----
 
-== LangCache Wrapper
+== LangCache Semantic Cache
 
-LangCache Wrapper provides integration with the https://langcache.com[LangCache] managed service, allowing you to leverage cloud-based semantic caching without managing your own Redis infrastructure. LangCache handles embedding generation, similarity search, and cache management through a simple API.
+LangCacheSemanticCache provides integration with the https://redis.io/docs/latest/develop/ai/langcache/[LangCache^] managed service, allowing you to leverage cloud-based semantic caching without managing your own Redis infrastructure. LangCache handles embedding generation, similarity search, and cache management through a simple API.
+
+For more information about LangCache, see the https://redis.io/docs/latest/develop/ai/langcache/[official LangCache documentation^].
 
 === How It Works
 
-LangCache Wrapper acts as a bridge between RedisVL and the LangCache API service:
+LangCacheSemanticCache acts as a bridge between RedisVL and the LangCache API service:
 
 . User asks a question
 . LangCache generates embeddings and searches for similar cached questions
@@ -379,7 +381,7 @@ public class MultiTenantChatbot {
 
 === Limitations
 
-LangCache Wrapper has some limitations compared to SemanticCache:
+LangCacheSemanticCache has some limitations compared to SemanticCache:
 
 * *No custom vectors*: LangCache generates embeddings internally
 * *No filter expressions*: Only attribute-based filtering is supported
@@ -388,7 +390,7 @@ LangCache Wrapper has some limitations compared to SemanticCache:
 
 === When to Use LangCache vs SemanticCache
 
-Use *LangCache Wrapper* when:
+Use *LangCacheSemanticCache* when:
 
 * You want a fully managed solution
 * You don't want to manage Redis infrastructure

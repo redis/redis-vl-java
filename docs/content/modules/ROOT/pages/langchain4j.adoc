@@ -1,0 +1,559 @@
+= LangChain4J Integration
+:navtitle: LangChain4J Integration
+:toc: left
+:toclevels: 3
+:description: Integrate RedisVL with LangChain4J for building RAG applications
+:keywords: langchain4j, rag, retrieval augmented generation, embedding store, chat memory, content retriever
+
+RedisVL provides first-class integration with https://github.com/langchain4j/langchain4j[LangChain4J^], enabling you to build sophisticated RAG (Retrieval-Augmented Generation) applications with Redis as the backend.
+
+== Overview
+
+The RedisVL LangChain4J integration provides four key components:
+
+* *RedisVLEmbeddingStore* - Implements `EmbeddingStore<TextSegment>` for vector similarity search
+* *RedisVLContentRetriever* - Implements `ContentRetriever` for RAG workflows
+* *RedisVLChatMemoryStore* - Implements `ChatMemoryStore` for persistent conversation history
+* *RedisVLDocumentStore* - Custom store for raw binary content (images, PDFs) in multimodal RAG
+
+== Installation
+
+Add LangChain4J dependency to your project:
+
+[source,xml]
+----
+<dependency>
+    <groupId>dev.langchain4j</groupId>
+    <artifactId>langchain4j</artifactId>
+    <version>0.36.2</version>
+</dependency>
+
+<dependency>
+    <groupId>com.redis</groupId>
+    <artifactId>redisvl</artifactId>
+    <version>${redisvl.version}</version>
+</dependency>
+----
+
+For Gradle:
+
+[source,groovy]
+----
+implementation 'dev.langchain4j:langchain4j:0.36.2'
+implementation "com.redis:redisvl:${redisvlVersion}"
+----
+
+== RedisVLEmbeddingStore
+
+`RedisVLEmbeddingStore` implements LangChain4J's `EmbeddingStore<TextSegment>` interface, enabling vector similarity search with Redis.
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.langchain4j.RedisVLEmbeddingStore;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.store.embedding.EmbeddingMatch;
+import redis.clients.jedis.JedisPooled;
+
+// Create Redis client
+UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+
+// Create search index with vector field
+Map<String, Object> schema = Map.of(
+    "index", Map.of(
+        "name", "embeddings",
+        "prefix", "doc:",
+        "storage_type", "hash"
+    ),
+    "fields", List.of(
+        Map.of("name", "text", "type", "text"),
+        Map.of("name", "metadata", "type", "text"),
+        Map.of(
+            "name", "vector",
+            "type", "vector",
+            "attrs", Map.of(
+                "dims", 384,
+                "algorithm", "flat",
+                "distance_metric", "cosine"
+            )
+        )
+    )
+);
+
+SearchIndex searchIndex = new SearchIndex(IndexSchema.fromDict(schema), jedis);
+searchIndex.create();
+
+// Create embedding store
+RedisVLEmbeddingStore embeddingStore = new RedisVLEmbeddingStore(searchIndex);
+
+// Add embeddings
+Embedding embedding = embeddingModel.embed("Redis is an in-memory database").content();
+TextSegment segment = TextSegment.from("Redis is an in-memory database");
+String id = embeddingStore.add(embedding, segment);
+
+// Search for similar embeddings
+Embedding queryEmbedding = embeddingModel.embed("What is Redis?").content();
+List<EmbeddingMatch<TextSegment>> matches =
+    embeddingStore.findRelevant(queryEmbedding, 5, 0.7);
+
+for (EmbeddingMatch<TextSegment> match : matches) {
+    System.out.println("Score: " + match.score());
+    System.out.println("Text: " + match.embedded().text());
+}
+----
+
+=== Adding Metadata
+
+[source,java]
+----
+import dev.langchain4j.data.document.Metadata;
+
+Metadata metadata = new Metadata();
+metadata.put("author", "John Doe");
+metadata.put("category", "database");
+metadata.put("year", 2024);
+
+TextSegment segment = TextSegment.from("Redis is fast", metadata);
+embeddingStore.add(embedding, segment);
+
+// Metadata is preserved and returned with search results
+List<EmbeddingMatch<TextSegment>> matches = embeddingStore.findRelevant(query, 5);
+String author = matches.get(0).embedded().metadata().getString("author");
+----
+
+=== Batch Operations
+
+[source,java]
+----
+List<Embedding> embeddings = documents.stream()
+    .map(doc -> embeddingModel.embed(doc).content())
+    .collect(Collectors.toList());
+
+List<TextSegment> segments = documents.stream()
+    .map(TextSegment::from)
+    .collect(Collectors.toList());
+
+List<String> ids = embeddingStore.addAll(embeddings, segments);
+----
+
+=== Score Conversion
+
+RedisVL automatically converts between Redis COSINE distance (0-2, lower=better) and LangChain4J similarity scores (0-1, higher=better):
+
+* Redis distance `0.0` → LangChain4J score `1.0` (perfect match)
+* Redis distance `2.0` → LangChain4J score `0.0` (no similarity)
+* Formula: `similarity = (2 - distance) / 2`
+
+== RedisVLContentRetriever
+
+`RedisVLContentRetriever` implements LangChain4J's `ContentRetriever` interface for RAG workflows.
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.langchain4j.RedisVLContentRetriever;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.rag.content.Content;
+import dev.langchain4j.rag.query.Query;
+
+// Create embedding model
+EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+
+// Create retriever
+RedisVLContentRetriever retriever = RedisVLContentRetriever.builder()
+    .embeddingStore(embeddingStore)
+    .embeddingModel(embeddingModel)
+    .maxResults(5)
+    .minScore(0.7)
+    .build();
+
+// Retrieve relevant content
+Query query = Query.from("What is Redis?");
+List<Content> contents = retriever.retrieve(query);
+
+for (Content content : contents) {
+    System.out.println(content.textSegment().text());
+}
+----
+
+=== Using in RAG Chain
+
+[source,java]
+----
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.service.AiServices;
+
+interface Assistant {
+    String chat(String message);
+}
+
+ChatLanguageModel chatModel = OpenAiChatModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .modelName("gpt-4")
+    .build();
+
+Assistant assistant = AiServices.builder(Assistant.class)
+    .chatLanguageModel(chatModel)
+    .contentRetriever(retriever)
+    .build();
+
+String response = assistant.chat("What is Redis?");
+System.out.println(response);
+----
+
+== RedisVLChatMemoryStore
+
+`RedisVLChatMemoryStore` implements LangChain4J's `ChatMemoryStore` interface for persistent conversation history.
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.langchain4j.RedisVLChatMemoryStore;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+
+// Create chat memory store
+ChatMemoryStore memoryStore = new RedisVLChatMemoryStore(jedis);
+
+// Or with custom configuration
+ChatMemoryStore memoryStore = RedisVLChatMemoryStore.builder()
+    .jedis(jedis)
+    .keyPrefix("chat:history:")
+    .ttlSeconds(3600)  // Expire after 1 hour
+    .build();
+
+// Use with LangChain4J chat memory
+ChatMemory chatMemory = MessageWindowChatMemory.builder()
+    .id("user-123")
+    .maxMessages(10)
+    .chatMemoryStore(memoryStore)
+    .build();
+----
+
+=== Multi-User Chat Application
+
+[source,java]
+----
+import dev.langchain4j.memory.ChatMemory;
+
+public class ChatApplication {
+    private final ChatMemoryStore memoryStore;
+    private final ChatLanguageModel model;
+
+    public String chat(String userId, String message) {
+        // Get or create chat memory for user
+        ChatMemory memory = MessageWindowChatMemory.builder()
+            .id(userId)
+            .maxMessages(20)
+            .chatMemoryStore(memoryStore)
+            .build();
+
+        // Add user message
+        memory.add(UserMessage.from(message));
+
+        // Get AI response
+        List<ChatMessage> messages = memory.messages();
+        AiMessage response = model.generate(messages).content();
+
+        // Store AI response
+        memory.add(response);
+
+        return response.text();
+    }
+}
+----
+
+=== Deleting Conversations
+
+[source,java]
+----
+// Delete specific user's conversation history
+memoryStore.deleteMessages("user-123");
+----
+
+== RedisVLDocumentStore
+
+`RedisVLDocumentStore` is a custom component for storing raw binary content (images, PDFs) in multimodal RAG applications.
+
+=== Basic Usage
+
+[source,java]
+----
+import com.redis.vl.langchain4j.RedisVLDocumentStore;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+// Create document store
+RedisVLDocumentStore documentStore = new RedisVLDocumentStore(jedis, "docs:");
+
+// Store an image
+byte[] imageBytes = Files.readAllBytes(Path.of("diagram.jpg"));
+Map<String, String> metadata = Map.of(
+    "type", "image",
+    "source", "page1.pdf",
+    "format", "jpeg"
+);
+documentStore.store("doc_001", imageBytes, metadata);
+
+// Retrieve document
+Optional<RedisVLDocumentStore.Document> doc = documentStore.retrieve("doc_001");
+if (doc.isPresent()) {
+    byte[] content = doc.get().content();
+    Map<String, String> meta = doc.get().metadata();
+    // Use with vision LLM
+}
+
+// Delete document
+documentStore.delete("doc_001");
+
+// List all document IDs
+List<String> ids = documentStore.listDocumentIds();
+----
+
+=== Multimodal RAG Pattern
+
+[source,java]
+----
+// 1. Store text summary with embedding for search
+TextSegment summary = TextSegment.from("Diagram showing Redis architecture");
+Embedding summaryEmbedding = embeddingModel.embed(summary.text()).content();
+String embeddingId = embeddingStore.add(summaryEmbedding, summary);
+
+// 2. Store raw image for generation
+byte[] imageBytes = extractImageFromPdf(pdf, pageNum);
+documentStore.store(embeddingId, imageBytes, Map.of("type", "image"));
+
+// 3. Later: Search for relevant content
+List<EmbeddingMatch<TextSegment>> matches =
+    embeddingStore.findRelevant(queryEmbedding, 3);
+
+// 4. Retrieve raw images for the matches
+for (EmbeddingMatch<TextSegment> match : matches) {
+    Optional<RedisVLDocumentStore.Document> image =
+        documentStore.retrieve(match.embeddingId());
+    if (image.isPresent()) {
+        // Send to vision LLM
+        String response = visionModel.generate(query, image.get().content());
+    }
+}
+----
+
+== Complete RAG Example
+
+Here's a complete example combining all components:
+
+[source,java]
+----
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.service.AiServices;
+
+public class RedisVLRAGApplication {
+
+    public static void main(String[] args) {
+        // 1. Setup Redis
+        UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+
+        // 2. Create search index
+        SearchIndex searchIndex = createSearchIndex(jedis);
+
+        // 3. Setup stores
+        RedisVLEmbeddingStore embeddingStore = new RedisVLEmbeddingStore(searchIndex);
+        ChatMemoryStore memoryStore = new RedisVLChatMemoryStore(jedis);
+
+        // 4. Setup models
+        EmbeddingModel embeddingModel = new AllMiniLmL6V2EmbeddingModel();
+        ChatLanguageModel chatModel = OpenAiChatModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .modelName("gpt-4")
+            .build();
+
+        // 5. Create retriever
+        RedisVLContentRetriever retriever = RedisVLContentRetriever.builder()
+            .embeddingStore(embeddingStore)
+            .embeddingModel(embeddingModel)
+            .maxResults(5)
+            .minScore(0.7)
+            .build();
+
+        // 6. Index documents
+        indexDocuments(embeddingStore, embeddingModel);
+
+        // 7. Create AI service with RAG
+        Assistant assistant = AiServices.builder(Assistant.class)
+            .chatLanguageModel(chatModel)
+            .contentRetriever(retriever)
+            .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                .id(memoryId)
+                .maxMessages(20)
+                .chatMemoryStore(memoryStore)
+                .build())
+            .build();
+
+        // 8. Chat with context and memory
+        String response = assistant.chat("user-123", "What is Redis?");
+        System.out.println(response);
+    }
+
+    interface Assistant {
+        String chat(@MemoryId String userId, @UserMessage String message);
+    }
+
+    private static void indexDocuments(
+            RedisVLEmbeddingStore store,
+            EmbeddingModel model) {
+        List<String> documents = List.of(
+            "Redis is an in-memory data structure store.",
+            "Redis can be used as a database, cache, and message broker.",
+            "Redis supports data structures like strings, hashes, lists, sets."
+        );
+
+        for (String doc : documents) {
+            Embedding embedding = model.embed(doc).content();
+            TextSegment segment = TextSegment.from(doc);
+            store.add(embedding, segment);
+        }
+    }
+
+    private static SearchIndex createSearchIndex(UnifiedJedis jedis) {
+        Map<String, Object> schema = Map.of(
+            "index", Map.of(
+                "name", "docs",
+                "prefix", "doc:",
+                "storage_type", "hash"
+            ),
+            "fields", List.of(
+                Map.of("name", "text", "type", "text"),
+                Map.of("name", "metadata", "type", "text"),
+                Map.of(
+                    "name", "vector",
+                    "type", "vector",
+                    "attrs", Map.of(
+                        "dims", 384,
+                        "algorithm", "flat",
+                        "distance_metric", "cosine"
+                    )
+                )
+            )
+        );
+
+        SearchIndex index = new SearchIndex(IndexSchema.fromDict(schema), jedis);
+        index.create(true);
+        return index;
+    }
+}
+----
+
+== Best Practices
+
+=== Choose the Right Distance Metric
+
+* *COSINE* - Best for normalized embeddings (most embedding models)
+* *L2* - Best for absolute distance measurements
+* *IP (Inner Product)* - Best when embeddings are not normalized
+
+=== Optimize Search Performance
+
+[source,java]
+----
+// Use HNSW for large datasets (>10k documents)
+Map<String, Object> vectorField = Map.of(
+    "name", "vector",
+    "type", "vector",
+    "attrs", Map.of(
+        "dims", 384,
+        "algorithm", "hnsw",  // Instead of "flat"
+        "distance_metric", "cosine",
+        "m", 16,              // HNSW parameter
+        "ef_construction", 200 // HNSW parameter
+    )
+);
+----
+
+=== Manage Chat Memory
+
+[source,java]
+----
+// Set TTL to prevent memory bloat
+ChatMemoryStore memoryStore = RedisVLChatMemoryStore.builder()
+    .jedis(jedis)
+    .ttlSeconds(86400)  // 24 hours
+    .build();
+
+// Or limit message window
+ChatMemory memory = MessageWindowChatMemory.builder()
+    .maxMessages(20)  // Keep last 20 messages
+    .chatMemoryStore(memoryStore)
+    .build();
+----
+
+=== Handle Multimodal Content
+
+[source,java]
+----
+// Store text summaries for search, raw images for generation
+String summaryText = "Architecture diagram showing Redis cluster";
+Embedding embedding = embeddingModel.embed(summaryText).content();
+String id = embeddingStore.add(embedding, TextSegment.from(summaryText));
+
+// Use same ID for document store
+documentStore.store(id, imageBytes, Map.of("type", "image"));
+----
+
+== Troubleshooting
+
+=== Score Mismatch
+
+If you're getting unexpected similarity scores, remember that RedisVL uses COSINE distance (0-2) internally but converts to LangChain4J similarity (0-1):
+
+[source,java]
+----
+// Redis distance: 0.4
+// LangChain4J score: (2 - 0.4) / 2 = 0.8
+----
+
+=== Empty Results
+
+If searches return no results:
+
+1. Check that documents are indexed: `searchIndex.info()`
+2. Verify vector dimensions match: embedding model dim == schema dim
+3. Lower the `minScore` threshold
+
+=== Memory Issues
+
+For large chat histories:
+
+[source,java]
+----
+// Use TTL
+ChatMemoryStore memoryStore = RedisVLChatMemoryStore.builder()
+    .ttlSeconds(3600)
+    .build();
+
+// Or manually clean up
+memoryStore.deleteMessages(userId);
+----
+
+== Next Steps
+
+* See xref:getting-started.adoc[Getting Started] for RedisVL basics
+* See xref:vectorizers.adoc[Vectorizers] for embedding model options
+* See xref:llmcache.adoc[LLM Cache] for semantic caching
+* Check out the https://github.com/langchain4j/langchain4j[LangChain4J documentation^]
+
+== Additional Resources
+
+* https://github.com/redis/redis-vl-java[RedisVL GitHub^]
+* https://github.com/langchain4j/langchain4j[LangChain4J GitHub^]
+* https://discord.gg/redis[Redis Discord^]

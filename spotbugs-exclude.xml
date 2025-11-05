@@ -47,4 +47,15 @@
         <Bug pattern="CT_CONSTRUCTOR_THROW" />
     </Match>
 
+    <!-- Exclude EI warnings for LangChain4J adapter classes - storing infrastructure objects is intended -->
+    <Match>
+        <Package name="com.redis.vl.langchain4j" />
+        <Bug pattern="EI_EXPOSE_REP" />
+    </Match>
+
+    <Match>
+        <Package name="com.redis.vl.langchain4j" />
+        <Bug pattern="EI_EXPOSE_REP2" />
+    </Match>
+
 </FindBugsFilter>

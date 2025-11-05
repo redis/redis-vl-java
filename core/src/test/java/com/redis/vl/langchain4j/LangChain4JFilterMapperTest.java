@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for LangChain4JFilterMapper.
  *
- * <p>Tests the mapping from LangChain4J Filter types to RedisVL Filter queries. Based on tests
- * from LangChain4J community PR #183.
+ * <p>Tests the mapping from LangChain4J Filter types to RedisVL Filter queries. Based on tests from
+ * LangChain4J community PR #183.
  */
 class LangChain4JFilterMapperTest {
 
@@ -43,7 +43,8 @@ class LangChain4JFilterMapperTest {
   @Test
   void testMapNumericEqualDouble() {
     // Given: numeric equality filter with double
-    dev.langchain4j.store.embedding.filter.Filter lc4jFilter = metadataKey("price").isEqualTo(19.99);
+    dev.langchain4j.store.embedding.filter.Filter lc4jFilter =
+        metadataKey("price").isEqualTo(19.99);
 
     // When
     Filter result = LangChain4JFilterMapper.map(lc4jFilter);
@@ -88,8 +89,7 @@ class LangChain4JFilterMapperTest {
   @Test
   void testMapGreaterThan() {
     // Given: greater than filter
-    dev.langchain4j.store.embedding.filter.Filter lc4jFilter =
-        metadataKey("age").isGreaterThan(20);
+    dev.langchain4j.store.embedding.filter.Filter lc4jFilter = metadataKey("age").isGreaterThan(20);
 
     // When
     Filter result = LangChain4JFilterMapper.map(lc4jFilter);
