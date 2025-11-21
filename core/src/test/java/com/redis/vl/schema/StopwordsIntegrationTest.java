@@ -4,13 +4,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
+import com.redis.vl.schema.IndexSchema.StorageType;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
-import com.redis.vl.schema.IndexSchema.StorageType;
+import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for index-level stopwords support (PR #436).
@@ -18,11 +18,12 @@ import com.redis.vl.schema.IndexSchema.StorageType;
  * <p>Port of tests from redis-vl-python/tests/integration/test_stopwords_integration.py
  *
  * <p>These tests verify:
+ *
  * <ul>
- *   <li>Creating indices with default stopwords (null)</li>
- *   <li>Creating indices with disabled stopwords (empty list)</li>
- *   <li>Creating indices with custom stopwords list</li>
- *   <li>Ability to search for common words when stopwords are disabled</li>
+ *   <li>Creating indices with default stopwords (null)
+ *   <li>Creating indices with disabled stopwords (empty list)
+ *   <li>Creating indices with custom stopwords list
+ *   <li>Ability to search for common words when stopwords are disabled
  * </ul>
  */
 @Tag("integration")
@@ -48,12 +49,13 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testCreateIndexWithDefaultStopwords() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_default_stopwords")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_default_stopwords")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTextField("content", field -> {})
+            .build();
 
     // Verify stopwords is null (default)
     assertNull(schema.getIndex().getStopwords());
@@ -73,13 +75,14 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testCreateIndexWithDisabledStopwords() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_disabled_stopwords")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .stopwords(Collections.emptyList())
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_disabled_stopwords")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .stopwords(Collections.emptyList())
+            .addTextField("content", field -> {})
+            .build();
 
     // Verify stopwords is empty list
     assertNotNull(schema.getIndex().getStopwords());
@@ -97,13 +100,14 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testCreateIndexWithNoStopwordsBuilder() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_no_stopwords_builder")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .noStopwords()
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_no_stopwords_builder")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .noStopwords()
+            .addTextField("content", field -> {})
+            .build();
 
     // Verify stopwords is empty list
     assertNotNull(schema.getIndex().getStopwords());
@@ -123,13 +127,14 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
   void testCreateIndexWithCustomStopwords() {
     List<String> customStopwords = Arrays.asList("foo", "bar", "baz");
 
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_custom_stopwords")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .stopwords(customStopwords)
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_custom_stopwords")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .stopwords(customStopwords)
+            .addTextField("content", field -> {})
+            .build();
 
     // Verify stopwords matches custom list
     assertNotNull(schema.getIndex().getStopwords());
@@ -153,13 +158,14 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testSearchWithDisabledStopwords() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_search_disabled_stopwords")
-        .storageType(StorageType.HASH)
-        .prefix("search:")
-        .noStopwords()
-        .addTextField("name", field -> {})
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_search_disabled_stopwords")
+            .storageType(StorageType.HASH)
+            .prefix("search:")
+            .noStopwords()
+            .addTextField("name", field -> {})
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     index.create();
@@ -171,7 +177,8 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
 
     // Search for "of" - should find docs containing "of" since stopwords are disabled
     var results = unifiedJedis.ftSearch(index.getName(), "of");
-    assertTrue(results.getTotalResults() >= 2,
+    assertTrue(
+        results.getTotalResults() >= 2,
         "Should find documents containing 'of' when stopwords are disabled");
   }
 
@@ -183,25 +190,27 @@ public class StopwordsIntegrationTest extends BaseIntegrationTest {
   @Test
   void testMultipleIndicesDifferentStopwords() {
     // Index with default stopwords
-    IndexSchema schema1 = IndexSchema.builder()
-        .name("test_multi_default")
-        .storageType(StorageType.HASH)
-        .prefix("default:")
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema1 =
+        IndexSchema.builder()
+            .name("test_multi_default")
+            .storageType(StorageType.HASH)
+            .prefix("default:")
+            .addTextField("content", field -> {})
+            .build();
 
     SearchIndex index1 = new SearchIndex(schema1, unifiedJedis);
     assertDoesNotThrow(() -> index1.create());
     assertTrue(index1.exists());
 
     // Index with disabled stopwords
-    IndexSchema schema2 = IndexSchema.builder()
-        .name("test_multi_disabled")
-        .storageType(StorageType.HASH)
-        .prefix("disabled:")
-        .noStopwords()
-        .addTextField("content", field -> {})
-        .build();
+    IndexSchema schema2 =
+        IndexSchema.builder()
+            .name("test_multi_disabled")
+            .storageType(StorageType.HASH)
+            .prefix("disabled:")
+            .noStopwords()
+            .addTextField("content", field -> {})
+            .build();
 
     SearchIndex index2 = new SearchIndex(schema2, unifiedJedis);
     assertDoesNotThrow(() -> index2.create());

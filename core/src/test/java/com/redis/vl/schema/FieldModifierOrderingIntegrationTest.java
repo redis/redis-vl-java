@@ -4,22 +4,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
-import java.util.List;
-import java.util.Map;
+import com.redis.vl.schema.IndexSchema.StorageType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
-import redis.clients.jedis.search.IndexDefinition;
-import com.redis.vl.schema.IndexSchema.StorageType;
+import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for field modifier ordering fix (PR #434).
  *
- * <p>Port of tests from redis-vl-python/tests/integration/test_field_modifier_ordering_integration.py
+ * <p>Port of tests from
+ * redis-vl-python/tests/integration/test_field_modifier_ordering_integration.py
  *
  * <p>These tests verify that field modifiers appear in the correct canonical order required by
  * RediSearch parser:
+ *
  * <ul>
  *   <li>TextField: [INDEXEMPTY] [INDEXMISSING] [SORTABLE [UNF]] [NOINDEX]
  *   <li>TagField: [INDEXEMPTY] [INDEXMISSING] [SORTABLE] [NOINDEX]
@@ -60,14 +59,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testTextFieldSortableAndIndexMissing() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_text_sortable_indexmissing")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTextField("title", field -> field
-            .sortable(true)
-            .indexMissing(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_text_sortable_indexmissing")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTextField("title", field -> field.sortable(true).indexMissing(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
 
@@ -86,16 +84,15 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testTextFieldAllModifiers() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_text_all_modifiers")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTextField("description", field -> field
-            .sortable(true)
-            .unf(true)
-            .indexMissing(true)
-            .indexEmpty(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_text_all_modifiers")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTextField(
+                "description",
+                field -> field.sortable(true).unf(true).indexMissing(true).indexEmpty(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -109,14 +106,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testTagFieldSortableAndIndexMissing() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_tag_sortable_indexmissing")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTagField("category", field -> field
-            .sortable(true)
-            .indexMissing(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_tag_sortable_indexmissing")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTagField("category", field -> field.sortable(true).indexMissing(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -130,15 +126,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testTagFieldAllModifiers() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_tag_all_modifiers")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTagField("tags", field -> field
-            .sortable(true)
-            .indexMissing(true)
-            .indexEmpty(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_tag_all_modifiers")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTagField("tags", field -> field.sortable(true).indexMissing(true).indexEmpty(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -154,14 +148,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testNumericFieldSortableAndIndexMissing() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_numeric_sortable_indexmissing")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addNumericField("price", field -> field
-            .sortable(true)
-            .indexMissing(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_numeric_sortable_indexmissing")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addNumericField("price", field -> field.sortable(true).indexMissing(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -175,15 +168,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testNumericFieldWithModifiers() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_numeric_modifiers")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addNumericField("score", field -> field
-            .sortable(true)
-            .unf(true)
-            .indexMissing(true))
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_numeric_modifiers")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addNumericField("score", field -> field.sortable(true).unf(true).indexMissing(true))
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -199,16 +190,13 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testGeoFieldSortableAndIndexMissing() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_geo_sortable_indexmissing")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .field(GeoField.builder()
-            .name("location")
-            .sortable(true)
-            .indexMissing(true)
-            .build())
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_geo_sortable_indexmissing")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .field(GeoField.builder().name("location").sortable(true).indexMissing(true).build())
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());
@@ -222,26 +210,17 @@ public class FieldModifierOrderingIntegrationTest extends BaseIntegrationTest {
    */
   @Test
   void testMixedFieldTypesWithModifiers() {
-    IndexSchema schema = IndexSchema.builder()
-        .name("test_mixed_fields")
-        .storageType(StorageType.HASH)
-        .prefix("doc:")
-        .addTextField("title", field -> field
-            .sortable(true)
-            .indexMissing(true))
-        .addTagField("category", field -> field
-            .sortable(true)
-            .indexMissing(true)
-            .indexEmpty(true))
-        .addNumericField("price", field -> field
-            .sortable(true)
-            .indexMissing(true))
-        .field(GeoField.builder()
-            .name("location")
-            .sortable(true)
-            .indexMissing(true)
-            .build())
-        .build();
+    IndexSchema schema =
+        IndexSchema.builder()
+            .name("test_mixed_fields")
+            .storageType(StorageType.HASH)
+            .prefix("doc:")
+            .addTextField("title", field -> field.sortable(true).indexMissing(true))
+            .addTagField(
+                "category", field -> field.sortable(true).indexMissing(true).indexEmpty(true))
+            .addNumericField("price", field -> field.sortable(true).indexMissing(true))
+            .field(GeoField.builder().name("location").sortable(true).indexMissing(true).build())
+            .build();
 
     index = new SearchIndex(schema, unifiedJedis);
     assertDoesNotThrow(() -> index.create());

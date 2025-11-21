@@ -26,9 +26,7 @@ public class TagField extends BaseField {
   @JsonProperty("index_missing")
   private final boolean indexMissing;
 
-  /**
-   * Index empty values - allow indexing and searching for empty strings
-   */
+  /** Index empty values - allow indexing and searching for empty strings */
   @JsonProperty("index_empty")
   private final boolean indexEmpty;
 

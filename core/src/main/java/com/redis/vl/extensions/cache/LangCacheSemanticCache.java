@@ -53,23 +53,25 @@ public class LangCacheSemanticCache {
    * Translation map for encoding problematic attribute characters.
    *
    * <p>LangCache service rejects or mishandles certain characters in attribute values:
+   *
    * <ul>
-   *   <li>Comma (,) - U+002C: Rejected by service validation</li>
-   *   <li>Forward slash (/) - U+002F: May not reliably match in filters</li>
-   *   <li>Backslash (\) - U+005C: Causes encoding issues</li>
-   *   <li>Question mark (?) - U+003F: Causes filtering failures</li>
+   *   <li>Comma (,) - U+002C: Rejected by service validation
+   *   <li>Forward slash (/) - U+002F: May not reliably match in filters
+   *   <li>Backslash (\) - U+005C: Causes encoding issues
+   *   <li>Question mark (?) - U+003F: Causes filtering failures
    * </ul>
    *
    * <p>We replace these with visually similar fullwidth Unicode variants that the service accepts.
    *
    * <p>Port of redis-vl-python PR #437 & #438
    */
-  private static final Map<Character, Character> ENCODE_TRANS = Map.of(
-      ',', '，',  // U+FF0C FULLWIDTH COMMA
-      '/', '∕',  // U+2215 DIVISION SLASH
-      '\\', '＼',  // U+FF3C FULLWIDTH REVERSE SOLIDUS
-      '?', '？'   // U+FF1F FULLWIDTH QUESTION MARK
-  );
+  private static final Map<Character, Character> ENCODE_TRANS =
+      Map.of(
+          ',', '，', // U+FF0C FULLWIDTH COMMA
+          '/', '∕', // U+2215 DIVISION SLASH
+          '\\', '＼', // U+FF3C FULLWIDTH REVERSE SOLIDUS
+          '?', '？' // U+FF1F FULLWIDTH QUESTION MARK
+          );
 
   /**
    * Translation map for decoding attribute characters back to original form.
@@ -102,7 +104,7 @@ public class LangCacheSemanticCache {
       return value;
     }
 
-    StringBuilder result = null;  // Lazy allocation
+    StringBuilder result = null; // Lazy allocation
     int length = value.length();
 
     for (int i = 0; i < length; i++) {
@@ -128,9 +130,9 @@ public class LangCacheSemanticCache {
   /**
    * Encode attribute map for LangCache service.
    *
-   * <p>Returns a copy of attributes with string values safely encoded. Only top-level string
-   * values are encoded; non-string values are left unchanged. If no values require encoding, the
-   * original map is returned unchanged.
+   * <p>Returns a copy of attributes with string values safely encoded. Only top-level string values
+   * are encoded; non-string values are left unchanged. If no values require encoding, the original
+   * map is returned unchanged.
    *
    * @param attributes The original attributes
    * @return Encoded attributes (may be same instance if no encoding needed)
@@ -140,7 +142,7 @@ public class LangCacheSemanticCache {
       return attributes;
     }
 
-    Map<String, Object> encoded = null;  // Lazy allocation
+    Map<String, Object> encoded = null; // Lazy allocation
 
     for (Map.Entry<String, Object> entry : attributes.entrySet()) {
       Object value = entry.getValue();
@@ -164,8 +166,8 @@ public class LangCacheSemanticCache {
   /**
    * Decode a string attribute value returned from the LangCache service.
    *
-   * <p>Reverses {@link #encodeAttributeValue}, translating fullwidth characters back to their
-   * ASCII counterparts so callers see the original values they stored.
+   * <p>Reverses {@link #encodeAttributeValue}, translating fullwidth characters back to their ASCII
+   * counterparts so callers see the original values they stored.
    *
    * @param value The encoded attribute value from LangCache
    * @return The decoded original value
@@ -175,7 +177,7 @@ public class LangCacheSemanticCache {
       return value;
     }
 
-    StringBuilder result = null;  // Lazy allocation
+    StringBuilder result = null; // Lazy allocation
     int length = value.length();
 
     for (int i = 0; i < length; i++) {
@@ -202,8 +204,8 @@ public class LangCacheSemanticCache {
    * Decode attribute map from LangCache service.
    *
    * <p>Returns a copy of attributes with string values safely decoded. This is the inverse of
-   * {@link #encodeAttributes}. Only top-level string values are decoded; non-string values are
-   * left unchanged. If no values require decoding, the original map is returned unchanged.
+   * {@link #encodeAttributes}. Only top-level string values are decoded; non-string values are left
+   * unchanged. If no values require decoding, the original map is returned unchanged.
    *
    * @param attributes The encoded attributes from LangCache
    * @return Decoded attributes (may be same instance if no decoding needed)
@@ -213,7 +215,7 @@ public class LangCacheSemanticCache {
       return attributes;
     }
 
-    Map<String, Object> decoded = null;  // Lazy allocation
+    Map<String, Object> decoded = null; // Lazy allocation
 
     for (Map.Entry<String, Object> entry : attributes.entrySet()) {
       Object value = entry.getValue();

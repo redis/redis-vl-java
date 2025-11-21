@@ -579,10 +579,11 @@ class LangCacheSemanticCacheTest {
    * <p>Port of test_check_with_attributes from redis-vl-python (PR #437 & #438)
    *
    * <p>Verifies that problematic characters (comma, slash, backslash, question mark) are:
+   *
    * <ul>
-   *   <li>Encoded when sending attributes to LangCache API</li>
-   *   <li>Decoded when receiving attributes back from LangCache API</li>
-   *   <li>Round-trip correctly so callers see original values</li>
+   *   <li>Encoded when sending attributes to LangCache API
+   *   <li>Decoded when receiving attributes back from LangCache API
+   *   <li>Round-trip correctly so callers see original values
    * </ul>
    */
   @Test
@@ -599,7 +600,7 @@ class LangCacheSemanticCacheTest {
     // LangCache returns attributes with encoded special characters
     ObjectNode attrs = objectMapper.createObjectNode();
     attrs.put("language", "python");
-    attrs.put("topic", "programming，with∕encoding＼and？");  // Encoded characters
+    attrs.put("topic", "programming，with∕encoding＼and？"); // Encoded characters
     entry.set("attributes", attrs);
 
     ArrayNode dataArray = objectMapper.createArrayNode();
@@ -608,34 +609,39 @@ class LangCacheSemanticCacheTest {
     ObjectNode responseBody = objectMapper.createObjectNode();
     responseBody.set("data", dataArray);
 
-    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
-    Response mockResponse = new Response.Builder()
-        .request(new Request.Builder().url("http://test.com").build())
-        .protocol(Protocol.HTTP_1_1)
-        .code(200)
-        .message("OK")
-        .body(mockResponseBody)
-        .build();
+    ResponseBody mockResponseBody =
+        ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse =
+        new Response.Builder()
+            .request(new Request.Builder().url("http://test.com").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(mockResponseBody)
+            .build();
 
     Call mockCall = mock(Call.class);
     when(mockCall.execute()).thenReturn(mockResponse);
     when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
 
-    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
-        .name("test")
-        .serverUrl("https://api.example.com")
-        .cacheId("test-cache")
-        .apiKey("test-key")
-        .httpClient(mockHttpClient)
-        .build();
+    LangCacheSemanticCache cache =
+        new LangCacheSemanticCache.Builder()
+            .name("test")
+            .serverUrl("https://api.example.com")
+            .cacheId("test-cache")
+            .apiKey("test-key")
+            .httpClient(mockHttpClient)
+            .build();
 
     // Search with attributes containing special characters (unencoded)
-    Map<String, Object> searchAttributes = Map.of(
-        "language", "python",
-        "topic", "programming,with/encoding\\and?"  // Original unencoded values
-    );
+    Map<String, Object> searchAttributes =
+        Map.of(
+            "language", "python",
+            "topic", "programming,with/encoding\\and?" // Original unencoded values
+            );
 
-    List<Map<String, Object>> results = cache.check("What is Python?", searchAttributes, 1, null, null, null);
+    List<Map<String, Object>> results =
+        cache.check("What is Python?", searchAttributes, 1, null, null, null);
 
     assertEquals(1, results.size());
     assertEquals("entry-123", results.get(0).get("entry_id"));
@@ -661,7 +667,8 @@ class LangCacheSemanticCacheTest {
     Map<String, Object> metadata = (Map<String, Object>) results.get(0).get("metadata");
     assertNotNull(metadata);
     assertEquals("python", metadata.get("language"));
-    assertEquals("programming,with/encoding\\and?", metadata.get("topic"));  // Decoded back to original
+    assertEquals(
+        "programming,with/encoding\\and?", metadata.get("topic")); // Decoded back to original
   }
 
   /**
@@ -675,34 +682,37 @@ class LangCacheSemanticCacheTest {
     ObjectNode responseBody = objectMapper.createObjectNode();
     responseBody.put("entry_id", "entry-456");
 
-    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
-    Response mockResponse = new Response.Builder()
-        .request(new Request.Builder().url("http://test.com").build())
-        .protocol(Protocol.HTTP_1_1)
-        .code(200)
-        .message("OK")
-        .body(mockResponseBody)
-        .build();
+    ResponseBody mockResponseBody =
+        ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse =
+        new Response.Builder()
+            .request(new Request.Builder().url("http://test.com").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(mockResponseBody)
+            .build();
 
     Call mockCall = mock(Call.class);
     when(mockCall.execute()).thenReturn(mockResponse);
     when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
 
-    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
-        .name("test")
-        .serverUrl("https://api.example.com")
-        .cacheId("test-cache")
-        .apiKey("test-key")
-        .httpClient(mockHttpClient)
-        .build();
+    LangCacheSemanticCache cache =
+        new LangCacheSemanticCache.Builder()
+            .name("test")
+            .serverUrl("https://api.example.com")
+            .cacheId("test-cache")
+            .apiKey("test-key")
+            .httpClient(mockHttpClient)
+            .build();
 
     // Store with metadata containing special characters
-    Map<String, Object> metadata = Map.of(
-        "category", "Q&A",
-        "path", "docs/api/v1",
-        "regex", "\\d+",
-        "separator", "a,b,c"
-    );
+    Map<String, Object> metadata =
+        Map.of(
+            "category", "Q&A",
+            "path", "docs/api/v1",
+            "regex", "\\d+",
+            "separator", "a,b,c");
 
     String entryId = cache.store("Test prompt", "Test response", metadata);
     assertEquals("entry-456", entryId);
@@ -720,10 +730,11 @@ class LangCacheSemanticCacheTest {
     ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
 
     // Special characters should be encoded (& is not encoded, only ,/\? are)
-    assertEquals("Q&A", requestAttrs.get("category").asText());  // & is not in ENCODE_TRANS, stays as is
-    assertEquals("docs∕api∕v1", requestAttrs.get("path").asText());  // / encoded
-    assertEquals("＼d+", requestAttrs.get("regex").asText());  // \ encoded
-    assertEquals("a，b，c", requestAttrs.get("separator").asText());  // , encoded
+    assertEquals(
+        "Q&A", requestAttrs.get("category").asText()); // & is not in ENCODE_TRANS, stays as is
+    assertEquals("docs∕api∕v1", requestAttrs.get("path").asText()); // / encoded
+    assertEquals("＼d+", requestAttrs.get("regex").asText()); // \ encoded
+    assertEquals("a，b，c", requestAttrs.get("separator").asText()); // , encoded
   }
 
   /**
@@ -737,31 +748,32 @@ class LangCacheSemanticCacheTest {
     ObjectNode responseBody = objectMapper.createObjectNode();
     responseBody.put("deleted_entries_count", 2);
 
-    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
-    Response mockResponse = new Response.Builder()
-        .request(new Request.Builder().url("http://test.com").build())
-        .protocol(Protocol.HTTP_1_1)
-        .code(200)
-        .message("OK")
-        .body(mockResponseBody)
-        .build();
+    ResponseBody mockResponseBody =
+        ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse =
+        new Response.Builder()
+            .request(new Request.Builder().url("http://test.com").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(mockResponseBody)
+            .build();
 
     Call mockCall = mock(Call.class);
     when(mockCall.execute()).thenReturn(mockResponse);
     when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
 
-    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
-        .name("test")
-        .serverUrl("https://api.example.com")
-        .cacheId("test-cache")
-        .apiKey("test-key")
-        .httpClient(mockHttpClient)
-        .build();
+    LangCacheSemanticCache cache =
+        new LangCacheSemanticCache.Builder()
+            .name("test")
+            .serverUrl("https://api.example.com")
+            .cacheId("test-cache")
+            .apiKey("test-key")
+            .httpClient(mockHttpClient)
+            .build();
 
     // Delete by attributes containing special characters
-    Map<String, Object> attributes = Map.of(
-        "topic", "programming,with/encoding\\and?"
-    );
+    Map<String, Object> attributes = Map.of("topic", "programming,with/encoding\\and?");
 
     Map<String, Object> result = cache.deleteByAttributes(attributes);
     assertEquals(2, result.get("deleted_entries_count"));
