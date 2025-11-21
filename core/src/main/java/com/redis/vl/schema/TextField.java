@@ -28,12 +28,26 @@ public class TextField extends BaseField {
   private final boolean unf;
 
   /**
+   * Index missing values - allow indexing and searching for missing values (documents without this
+   * field)
+   */
+  @JsonProperty("index_missing")
+  private final boolean indexMissing;
+
+  /**
+   * Index empty values - allow indexing and searching for empty strings (only applies to text
+   * fields)
+   */
+  @JsonProperty("index_empty")
+  private final boolean indexEmpty;
+
+  /**
    * Create a TextField with just a name
    *
    * @param name Field name
    */
   public TextField(String name) {
-    this(name, null, true, false, 1.0, false, null, false);
+    this(name, null, true, false, 1.0, false, null, false, false, false);
   }
 
   /** Create a TextField with all properties */
@@ -45,12 +59,16 @@ public class TextField extends BaseField {
       Double weight,
       Boolean noStem,
       String phonetic,
-      Boolean unf) {
+      Boolean unf,
+      Boolean indexMissing,
+      Boolean indexEmpty) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
     this.weight = weight != null ? weight : 1.0;
     this.noStem = noStem != null ? noStem : false;
     this.phonetic = phonetic;
     this.unf = unf != null ? unf : false;
+    this.indexMissing = indexMissing != null ? indexMissing : false;
+    this.indexEmpty = indexEmpty != null ? indexEmpty : false;
   }
 
   /**
@@ -86,6 +104,18 @@ public class TextField extends BaseField {
       jedisField.as(alias);
     }
 
+    // Apply modifiers in canonical order required by RediSearch parser:
+    // [INDEXEMPTY] [INDEXMISSING] [SORTABLE [UNF]] [NOINDEX]
+    // This fixes issue #431 - INDEXMISSING must appear before SORTABLE
+
+    if (indexEmpty) {
+      jedisField.indexEmpty();
+    }
+
+    if (indexMissing) {
+      jedisField.indexMissing();
+    }
+
     // Handle sortable with UNF support
     // UNF only applies when sortable=true
     if (sortable && unf) {
@@ -94,6 +124,11 @@ public class TextField extends BaseField {
       jedisField.sortable();
     }
 
+    if (!indexed) {
+      jedisField.noIndex();
+    }
+
+    // These modifiers don't have ordering constraints
     if (noStem) {
       jedisField.noStem();
     }
@@ -104,10 +139,6 @@ public class TextField extends BaseField {
 
     if (phonetic != null) {
       jedisField.phonetic(phonetic);
-    }
-
-    if (!indexed) {
-      jedisField.noIndex();
     }
 
     return jedisField;
@@ -123,6 +154,8 @@ public class TextField extends BaseField {
     private Boolean noStem;
     private String phonetic;
     private Boolean unf;
+    private Boolean indexMissing;
+    private Boolean indexEmpty;
 
     private TextFieldBuilder(String name) {
       this.name = name;
@@ -286,6 +319,58 @@ public class TextField extends BaseField {
     }
 
     /**
+     * Set whether to index missing values (documents without this field).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @param indexMissing True to index missing values
+     * @return This builder
+     */
+    public TextFieldBuilder indexMissing(boolean indexMissing) {
+      this.indexMissing = indexMissing;
+      return this;
+    }
+
+    /**
+     * Index missing values (equivalent to indexMissing(true)).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @return This builder
+     */
+    public TextFieldBuilder indexMissing() {
+      this.indexMissing = true;
+      return this;
+    }
+
+    /**
+     * Set whether to index empty string values.
+     *
+     * <p>When enabled, allows searching for documents where this field contains an empty string.
+     *
+     * @param indexEmpty True to index empty values
+     * @return This builder
+     */
+    public TextFieldBuilder indexEmpty(boolean indexEmpty) {
+      this.indexEmpty = indexEmpty;
+      return this;
+    }
+
+    /**
+     * Index empty string values (equivalent to indexEmpty(true)).
+     *
+     * <p>When enabled, allows searching for documents where this field contains an empty string.
+     *
+     * @return This builder
+     */
+    public TextFieldBuilder indexEmpty() {
+      this.indexEmpty = true;
+      return this;
+    }
+
+    /**
      * Build the TextField
      *
      * @return TextField instance
@@ -294,7 +379,8 @@ public class TextField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new TextField(name, alias, indexed, sortable, weight, noStem, phonetic, unf);
+      return new TextField(
+          name, alias, indexed, sortable, weight, noStem, phonetic, unf, indexMissing, indexEmpty);
     }
   }
 }

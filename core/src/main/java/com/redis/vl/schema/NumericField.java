@@ -1,5 +1,6 @@
 package com.redis.vl.schema;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import redis.clients.jedis.search.schemafields.SchemaField;
 
@@ -11,7 +12,15 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 public class NumericField extends BaseField {
 
   /** Un-normalized form - disable normalization for sorting (only applies when sortable=true) */
+  @JsonProperty("unf")
   private final boolean unf;
+
+  /**
+   * Index missing values - allow indexing and searching for missing values (documents without this
+   * field)
+   */
+  @JsonProperty("index_missing")
+  private final boolean indexMissing;
 
   /**
    * Create a NumericField with just a name.
@@ -19,13 +28,20 @@ public class NumericField extends BaseField {
    * @param name The field name
    */
   public NumericField(String name) {
-    this(name, null, true, false, false);
+    this(name, null, true, false, false, false);
   }
 
   /** Create a NumericField with all properties */
-  private NumericField(String name, String alias, Boolean indexed, Boolean sortable, Boolean unf) {
+  private NumericField(
+      String name,
+      String alias,
+      Boolean indexed,
+      Boolean sortable,
+      Boolean unf,
+      Boolean indexMissing) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
     this.unf = unf != null ? unf : false;
+    this.indexMissing = indexMissing != null ? indexMissing : false;
   }
 
   /**
@@ -61,6 +77,14 @@ public class NumericField extends BaseField {
       jedisField.as(alias);
     }
 
+    // Apply modifiers in canonical order required by RediSearch parser:
+    // [INDEXMISSING] [SORTABLE [UNF]] [NOINDEX]
+    // This fixes issue #431 - INDEXMISSING must appear before SORTABLE
+
+    if (indexMissing) {
+      jedisField.indexMissing();
+    }
+
     if (sortable) {
       jedisField.sortable();
       // NOTE: Jedis NumericField doesn't support sortableUNF() yet
@@ -82,6 +106,7 @@ public class NumericField extends BaseField {
     private Boolean indexed;
     private Boolean sortable;
     private Boolean unf;
+    private Boolean indexMissing;
 
     private NumericFieldBuilder(String name) {
       this.name = name;
@@ -186,6 +211,33 @@ public class NumericField extends BaseField {
     }
 
     /**
+     * Set whether to index missing values (documents without this field).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @param indexMissing True to index missing values
+     * @return This builder for chaining
+     */
+    public NumericFieldBuilder indexMissing(boolean indexMissing) {
+      this.indexMissing = indexMissing;
+      return this;
+    }
+
+    /**
+     * Index missing values (equivalent to indexMissing(true)).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @return This builder for chaining
+     */
+    public NumericFieldBuilder indexMissing() {
+      this.indexMissing = true;
+      return this;
+    }
+
+    /**
      * Build the NumericField instance.
      *
      * @return The configured NumericField
@@ -195,7 +247,7 @@ public class NumericField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new NumericField(name, alias, indexed, sortable, unf);
+      return new NumericField(name, alias, indexed, sortable, unf, indexMissing);
     }
   }
 }

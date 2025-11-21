@@ -20,12 +20,25 @@ public class TagField extends BaseField {
   private final boolean caseSensitive;
 
   /**
+   * Index missing values - allow indexing and searching for missing values (documents without this
+   * field)
+   */
+  @JsonProperty("index_missing")
+  private final boolean indexMissing;
+
+  /**
+   * Index empty values - allow indexing and searching for empty strings
+   */
+  @JsonProperty("index_empty")
+  private final boolean indexEmpty;
+
+  /**
    * Create a TagField with just a name
    *
    * @param name Field name
    */
   public TagField(String name) {
-    this(name, null, true, false, ",", false);
+    this(name, null, true, false, ",", false, false, false);
   }
 
   /** Create a TagField with all properties */
@@ -35,11 +48,15 @@ public class TagField extends BaseField {
       Boolean indexed,
       Boolean sortable,
       String separator,
-      Boolean caseSensitive) {
+      Boolean caseSensitive,
+      Boolean indexMissing,
+      Boolean indexEmpty) {
     super(name, alias, indexed != null ? indexed : true, sortable != null ? sortable : false);
     // Handle empty separator by using default
     this.separator = (separator == null || separator.isEmpty()) ? "," : separator;
     this.caseSensitive = caseSensitive != null ? caseSensitive : false;
+    this.indexMissing = indexMissing != null ? indexMissing : false;
+    this.indexEmpty = indexEmpty != null ? indexEmpty : false;
   }
 
   /**
@@ -75,20 +92,33 @@ public class TagField extends BaseField {
       jedisField.as(alias);
     }
 
+    // Apply modifiers in canonical order required by RediSearch parser:
+    // [INDEXEMPTY] [INDEXMISSING] [SORTABLE] [NOINDEX]
+    // Note: TagField does not support UNF
+
+    if (indexEmpty) {
+      jedisField.indexEmpty();
+    }
+
+    if (indexMissing) {
+      jedisField.indexMissing();
+    }
+
     if (sortable) {
       jedisField.sortable();
     }
 
+    if (!indexed) {
+      jedisField.noIndex();
+    }
+
+    // These modifiers don't have ordering constraints
     if (!separator.equals(",")) {
       jedisField.separator(separator.charAt(0));
     }
 
     if (caseSensitive) {
       jedisField.caseSensitive();
-    }
-
-    if (!indexed) {
-      jedisField.noIndex();
     }
 
     return jedisField;
@@ -102,6 +132,8 @@ public class TagField extends BaseField {
     private Boolean sortable;
     private String separator;
     private Boolean caseSensitive;
+    private Boolean indexMissing;
+    private Boolean indexEmpty;
 
     private TagFieldBuilder(String name) {
       this.name = name;
@@ -216,6 +248,48 @@ public class TagField extends BaseField {
     }
 
     /**
+     * Set whether to index missing values (documents without this field).
+     *
+     * @param indexMissing True to index missing values
+     * @return This builder
+     */
+    public TagFieldBuilder indexMissing(boolean indexMissing) {
+      this.indexMissing = indexMissing;
+      return this;
+    }
+
+    /**
+     * Index missing values (equivalent to indexMissing(true)).
+     *
+     * @return This builder
+     */
+    public TagFieldBuilder indexMissing() {
+      this.indexMissing = true;
+      return this;
+    }
+
+    /**
+     * Set whether to index empty string values.
+     *
+     * @param indexEmpty True to index empty values
+     * @return This builder
+     */
+    public TagFieldBuilder indexEmpty(boolean indexEmpty) {
+      this.indexEmpty = indexEmpty;
+      return this;
+    }
+
+    /**
+     * Index empty string values (equivalent to indexEmpty(true)).
+     *
+     * @return This builder
+     */
+    public TagFieldBuilder indexEmpty() {
+      this.indexEmpty = true;
+      return this;
+    }
+
+    /**
      * Build the TagField
      *
      * @return TagField instance
@@ -224,7 +298,8 @@ public class TagField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new TagField(name, alias, indexed, sortable, separator, caseSensitive);
+      return new TagField(
+          name, alias, indexed, sortable, separator, caseSensitive, indexMissing, indexEmpty);
     }
   }
 }

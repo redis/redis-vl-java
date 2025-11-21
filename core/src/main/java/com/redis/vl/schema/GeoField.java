@@ -1,5 +1,6 @@
 package com.redis.vl.schema;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import redis.clients.jedis.search.schemafields.SchemaField;
 
@@ -11,12 +12,19 @@ import redis.clients.jedis.search.schemafields.SchemaField;
 public class GeoField extends BaseField {
 
   /**
+   * Index missing values - allow indexing and searching for missing values (documents without this
+   * field)
+   */
+  @JsonProperty("index_missing")
+  private final boolean indexMissing;
+
+  /**
    * Create a GeoField with just a name.
    *
    * @param name The field name
    */
   public GeoField(String name) {
-    super(name);
+    this(name, null, true, false, false);
   }
 
   /**
@@ -26,9 +34,12 @@ public class GeoField extends BaseField {
    * @param alias The field alias
    * @param indexed Whether the field is indexed
    * @param sortable Whether the field is sortable
+   * @param indexMissing Whether to index missing values
    */
-  private GeoField(String name, String alias, Boolean indexed, Boolean sortable) {
+  private GeoField(
+      String name, String alias, Boolean indexed, Boolean sortable, Boolean indexMissing) {
     super(name, alias, indexed != null ? indexed : true, sortable != null && sortable);
+    this.indexMissing = indexMissing != null ? indexMissing : false;
   }
 
   /**
@@ -64,6 +75,14 @@ public class GeoField extends BaseField {
       jedisField.as(alias);
     }
 
+    // Apply modifiers in canonical order required by RediSearch parser:
+    // [INDEXMISSING] [SORTABLE] [NOINDEX]
+    // Note: GeoField does not support INDEXEMPTY or UNF
+
+    if (indexMissing) {
+      jedisField.indexMissing();
+    }
+
     if (sortable) {
       jedisField.sortable();
     }
@@ -81,6 +100,7 @@ public class GeoField extends BaseField {
     private String alias;
     private Boolean indexed;
     private Boolean sortable;
+    private Boolean indexMissing;
 
     private GeoFieldBuilder(String name) {
       this.name = name;
@@ -152,6 +172,33 @@ public class GeoField extends BaseField {
     }
 
     /**
+     * Set whether to index missing values (documents without this field).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @param indexMissing True to index missing values
+     * @return This builder for chaining
+     */
+    public GeoFieldBuilder indexMissing(boolean indexMissing) {
+      this.indexMissing = indexMissing;
+      return this;
+    }
+
+    /**
+     * Index missing values (equivalent to indexMissing(true)).
+     *
+     * <p>When enabled, allows searching for documents where this field is missing using the
+     * ismissing() filter.
+     *
+     * @return This builder for chaining
+     */
+    public GeoFieldBuilder indexMissing() {
+      this.indexMissing = true;
+      return this;
+    }
+
+    /**
      * Build the GeoField.
      *
      * @return A new GeoField instance
@@ -161,7 +208,7 @@ public class GeoField extends BaseField {
       if (name == null || name.trim().isEmpty()) {
         throw new IllegalArgumentException("Field name cannot be null or empty");
       }
-      return new GeoField(name, alias, indexed, sortable);
+      return new GeoField(name, alias, indexed, sortable, indexMissing);
     }
   }
 }

@@ -33,6 +33,7 @@ dependencies {
     // SpotBugs annotations for suppressing false positives
     // Use compileOnly since these are just markers for static analysis
     compileOnly("com.github.spotbugs:spotbugs-annotations:4.8.3")
+    testCompileOnly("com.github.spotbugs:spotbugs-annotations:4.8.3")
 
     // LangChain4J - Core API (required for vectorizers)
     compileOnly("dev.langchain4j:langchain4j:0.36.2")
