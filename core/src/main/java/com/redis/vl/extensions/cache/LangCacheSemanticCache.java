@@ -49,6 +49,191 @@ public class LangCacheSemanticCache {
   private static final Logger logger = LoggerFactory.getLogger(LangCacheSemanticCache.class);
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
+  /**
+   * Translation map for encoding problematic attribute characters.
+   *
+   * <p>LangCache service rejects or mishandles certain characters in attribute values:
+   * <ul>
+   *   <li>Comma (,) - U+002C: Rejected by service validation</li>
+   *   <li>Forward slash (/) - U+002F: May not reliably match in filters</li>
+   *   <li>Backslash (\) - U+005C: Causes encoding issues</li>
+   *   <li>Question mark (?) - U+003F: Causes filtering failures</li>
+   * </ul>
+   *
+   * <p>We replace these with visually similar fullwidth Unicode variants that the service accepts.
+   *
+   * <p>Port of redis-vl-python PR #437 & #438
+   */
+  private static final Map<Character, Character> ENCODE_TRANS = Map.of(
+      ',', '，',  // U+FF0C FULLWIDTH COMMA
+      '/', '∕',  // U+2215 DIVISION SLASH
+      '\\', '＼',  // U+FF3C FULLWIDTH REVERSE SOLIDUS
+      '?', '？'   // U+FF1F FULLWIDTH QUESTION MARK
+  );
+
+  /**
+   * Translation map for decoding attribute characters back to original form.
+   *
+   * <p>Reverses the encoding applied by ENCODE_TRANS so callers receive the original values.
+   */
+  private static final Map<Character, Character> DECODE_TRANS;
+
+  static {
+    // Build reverse translation map
+    Map<Character, Character> decode = new HashMap<>();
+    for (Map.Entry<Character, Character> entry : ENCODE_TRANS.entrySet()) {
+      decode.put(entry.getValue(), entry.getKey());
+    }
+    DECODE_TRANS = Collections.unmodifiableMap(decode);
+  }
+
+  /**
+   * Encode a string attribute value for use with the LangCache service.
+   *
+   * <p>Replaces problematic characters (comma, slash, backslash, question mark) with visually
+   * similar Unicode variants that LangCache accepts. This keeps attribute values round-trippable
+   * and usable for attribute filtering.
+   *
+   * @param value The original attribute value
+   * @return The encoded value safe for LangCache
+   */
+  private static String encodeAttributeValue(String value) {
+    if (value == null || value.isEmpty()) {
+      return value;
+    }
+
+    StringBuilder result = null;  // Lazy allocation
+    int length = value.length();
+
+    for (int i = 0; i < length; i++) {
+      char ch = value.charAt(i);
+      Character replacement = ENCODE_TRANS.get(ch);
+
+      if (replacement != null) {
+        // First problematic char found - allocate StringBuilder and copy prefix
+        if (result == null) {
+          result = new StringBuilder(length);
+          result.append(value, 0, i);
+        }
+        result.append(replacement);
+      } else if (result != null) {
+        // Already building encoded string
+        result.append(ch);
+      }
+    }
+
+    return result != null ? result.toString() : value;
+  }
+
+  /**
+   * Encode attribute map for LangCache service.
+   *
+   * <p>Returns a copy of attributes with string values safely encoded. Only top-level string
+   * values are encoded; non-string values are left unchanged. If no values require encoding, the
+   * original map is returned unchanged.
+   *
+   * @param attributes The original attributes
+   * @return Encoded attributes (may be same instance if no encoding needed)
+   */
+  private static Map<String, Object> encodeAttributes(Map<String, Object> attributes) {
+    if (attributes == null || attributes.isEmpty()) {
+      return attributes;
+    }
+
+    Map<String, Object> encoded = null;  // Lazy allocation
+
+    for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+      Object value = entry.getValue();
+      if (value instanceof String) {
+        String originalStr = (String) value;
+        String encodedStr = encodeAttributeValue(originalStr);
+
+        if (!encodedStr.equals(originalStr)) {
+          // First change found - allocate map and copy all entries so far
+          if (encoded == null) {
+            encoded = new HashMap<>(attributes);
+          }
+          encoded.put(entry.getKey(), encodedStr);
+        }
+      }
+    }
+
+    return encoded != null ? encoded : attributes;
+  }
+
+  /**
+   * Decode a string attribute value returned from the LangCache service.
+   *
+   * <p>Reverses {@link #encodeAttributeValue}, translating fullwidth characters back to their
+   * ASCII counterparts so callers see the original values they stored.
+   *
+   * @param value The encoded attribute value from LangCache
+   * @return The decoded original value
+   */
+  private static String decodeAttributeValue(String value) {
+    if (value == null || value.isEmpty()) {
+      return value;
+    }
+
+    StringBuilder result = null;  // Lazy allocation
+    int length = value.length();
+
+    for (int i = 0; i < length; i++) {
+      char ch = value.charAt(i);
+      Character replacement = DECODE_TRANS.get(ch);
+
+      if (replacement != null) {
+        // First encoded char found - allocate StringBuilder and copy prefix
+        if (result == null) {
+          result = new StringBuilder(length);
+          result.append(value, 0, i);
+        }
+        result.append(replacement);
+      } else if (result != null) {
+        // Already building decoded string
+        result.append(ch);
+      }
+    }
+
+    return result != null ? result.toString() : value;
+  }
+
+  /**
+   * Decode attribute map from LangCache service.
+   *
+   * <p>Returns a copy of attributes with string values safely decoded. This is the inverse of
+   * {@link #encodeAttributes}. Only top-level string values are decoded; non-string values are
+   * left unchanged. If no values require decoding, the original map is returned unchanged.
+   *
+   * @param attributes The encoded attributes from LangCache
+   * @return Decoded attributes (may be same instance if no decoding needed)
+   */
+  private static Map<String, Object> decodeAttributes(Map<String, Object> attributes) {
+    if (attributes == null || attributes.isEmpty()) {
+      return attributes;
+    }
+
+    Map<String, Object> decoded = null;  // Lazy allocation
+
+    for (Map.Entry<String, Object> entry : attributes.entrySet()) {
+      Object value = entry.getValue();
+      if (value instanceof String) {
+        String originalStr = (String) value;
+        String decodedStr = decodeAttributeValue(originalStr);
+
+        if (!decodedStr.equals(originalStr)) {
+          // First change found - allocate map and copy all entries so far
+          if (decoded == null) {
+            decoded = new HashMap<>(attributes);
+          }
+          decoded.put(entry.getKey(), decodedStr);
+        }
+      }
+    }
+
+    return decoded != null ? decoded : attributes;
+  }
+
   private final String name;
   private final String serverUrl;
   private final String cacheId;
@@ -137,6 +322,9 @@ public class LangCacheSemanticCache {
       Map<String, Object> metadata =
           objectMapper.convertValue(attributes, new TypeReference<Map<String, Object>>() {});
       if (!metadata.isEmpty()) {
+        // Decode attribute values that were encoded for LangCache so callers
+        // see the original metadata values they stored (PR #437)
+        metadata = decodeAttributes(metadata);
         hit.put("metadata", metadata);
       }
     }
@@ -168,7 +356,10 @@ public class LangCacheSemanticCache {
     requestBody.put("response", response);
 
     if (metadata != null && !metadata.isEmpty()) {
-      requestBody.set("attributes", objectMapper.valueToTree(metadata));
+      // Encode all string attribute values so they are accepted by the
+      // LangCache service and remain filterable (PR #437 & #438)
+      Map<String, Object> safeMetadata = encodeAttributes(metadata);
+      requestBody.set("attributes", objectMapper.valueToTree(safeMetadata));
     }
 
     // Make API request
@@ -251,7 +442,10 @@ public class LangCacheSemanticCache {
 
     // Add attributes if provided
     if (attributes != null && !attributes.isEmpty()) {
-      requestBody.set("attributes", objectMapper.valueToTree(attributes));
+      // Encode all string attribute values so they are accepted by the
+      // LangCache service and remain filterable (PR #437 & #438)
+      Map<String, Object> safeAttributes = encodeAttributes(attributes);
+      requestBody.set("attributes", objectMapper.valueToTree(safeAttributes));
     }
 
     // Make API request
@@ -379,7 +573,9 @@ public class LangCacheSemanticCache {
 
     // Build request body
     ObjectNode requestBody = objectMapper.createObjectNode();
-    requestBody.set("attributes", objectMapper.valueToTree(attributes));
+    // Encode all string attribute values so they match what was stored (PR #437 & #438)
+    Map<String, Object> safeAttributes = encodeAttributes(attributes);
+    requestBody.set("attributes", objectMapper.valueToTree(safeAttributes));
 
     Request request =
         new Request.Builder()

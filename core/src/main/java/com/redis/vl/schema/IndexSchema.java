@@ -594,10 +594,11 @@ public final class IndexSchema {
 
     /**
      * Stopwords configuration for the index. Supports three modes:
+     *
      * <ul>
-     *   <li>null (default): Uses Redis's built-in default stopwords list</li>
-     *   <li>Empty list: Disables stopwords entirely (STOPWORDS 0)</li>
-     *   <li>Custom list: User-specified stopwords like ["the", "a", "an"]</li>
+     *   <li>null (default): Uses Redis's built-in default stopwords list
+     *   <li>Empty list: Disables stopwords entirely (STOPWORDS 0)
+     *   <li>Custom list: User-specified stopwords like ["the", "a", "an"]
      * </ul>
      *
      * <p>Port of redis-vl-python PR #436: Index-level stopwords support
@@ -874,7 +875,7 @@ public final class IndexSchema {
      * @return this builder
      */
     public Builder stopwords(List<String> stopwords) {
-      this.stopwords = stopwords;
+      this.stopwords = stopwords != null ? new ArrayList<>(stopwords) : null;
       return this;
     }
 

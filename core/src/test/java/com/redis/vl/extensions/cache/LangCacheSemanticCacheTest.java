@@ -572,4 +572,213 @@ class LangCacheSemanticCacheTest {
 
     assertTrue(exception.getMessage().contains("distance_scale"));
   }
+
+  /**
+   * Test attribute encoding/decoding round-trip.
+   *
+   * <p>Port of test_check_with_attributes from redis-vl-python (PR #437 & #438)
+   *
+   * <p>Verifies that problematic characters (comma, slash, backslash, question mark) are:
+   * <ul>
+   *   <li>Encoded when sending attributes to LangCache API</li>
+   *   <li>Decoded when receiving attributes back from LangCache API</li>
+   *   <li>Round-trip correctly so callers see original values</li>
+   * </ul>
+   */
+  @Test
+  void testAttributeEncodingDecoding() throws Exception {
+    // Mock HTTP response with encoded attributes
+    ObjectNode entry = objectMapper.createObjectNode();
+    entry.put("id", "entry-123");
+    entry.put("prompt", "What is Python?");
+    entry.put("response", "Python is a programming language.");
+    entry.put("similarity", 0.95);
+    entry.put("created_at", 1234567890.0);
+    entry.put("updated_at", 1234567890.0);
+
+    // LangCache returns attributes with encoded special characters
+    ObjectNode attrs = objectMapper.createObjectNode();
+    attrs.put("language", "python");
+    attrs.put("topic", "programming，with∕encoding＼and？");  // Encoded characters
+    entry.set("attributes", attrs);
+
+    ArrayNode dataArray = objectMapper.createArrayNode();
+    dataArray.add(entry);
+
+    ObjectNode responseBody = objectMapper.createObjectNode();
+    responseBody.set("data", dataArray);
+
+    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse = new Response.Builder()
+        .request(new Request.Builder().url("http://test.com").build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(200)
+        .message("OK")
+        .body(mockResponseBody)
+        .build();
+
+    Call mockCall = mock(Call.class);
+    when(mockCall.execute()).thenReturn(mockResponse);
+    when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
+
+    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+        .name("test")
+        .serverUrl("https://api.example.com")
+        .cacheId("test-cache")
+        .apiKey("test-key")
+        .httpClient(mockHttpClient)
+        .build();
+
+    // Search with attributes containing special characters (unencoded)
+    Map<String, Object> searchAttributes = Map.of(
+        "language", "python",
+        "topic", "programming,with/encoding\\and?"  // Original unencoded values
+    );
+
+    List<Map<String, Object>> results = cache.check("What is Python?", searchAttributes, 1, null, null, null);
+
+    assertEquals(1, results.size());
+    assertEquals("entry-123", results.get(0).get("entry_id"));
+
+    // Verify attributes were encoded when sent to LangCache
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockHttpClient).newCall(requestCaptor.capture());
+
+    Request capturedRequest = requestCaptor.getValue();
+    okio.Buffer buffer = new okio.Buffer();
+    capturedRequest.body().writeTo(buffer);
+    String requestBodyStr = buffer.readUtf8();
+
+    ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
+    ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
+
+    // The comma, slash, backslash, and question mark should be encoded for LangCache
+    assertEquals("python", requestAttrs.get("language").asText());
+    assertEquals("programming，with∕encoding＼and？", requestAttrs.get("topic").asText());
+
+    // Verify attributes were decoded when returned to caller
+    @SuppressWarnings("unchecked")
+    Map<String, Object> metadata = (Map<String, Object>) results.get(0).get("metadata");
+    assertNotNull(metadata);
+    assertEquals("python", metadata.get("language"));
+    assertEquals("programming,with/encoding\\and?", metadata.get("topic"));  // Decoded back to original
+  }
+
+  /**
+   * Test that store() encodes metadata attributes.
+   *
+   * <p>Port of store test with special characters from redis-vl-python (PR #437 & #438)
+   */
+  @Test
+  void testStoreEncodesMetadata() throws Exception {
+    // Mock HTTP response
+    ObjectNode responseBody = objectMapper.createObjectNode();
+    responseBody.put("entry_id", "entry-456");
+
+    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse = new Response.Builder()
+        .request(new Request.Builder().url("http://test.com").build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(200)
+        .message("OK")
+        .body(mockResponseBody)
+        .build();
+
+    Call mockCall = mock(Call.class);
+    when(mockCall.execute()).thenReturn(mockResponse);
+    when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
+
+    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+        .name("test")
+        .serverUrl("https://api.example.com")
+        .cacheId("test-cache")
+        .apiKey("test-key")
+        .httpClient(mockHttpClient)
+        .build();
+
+    // Store with metadata containing special characters
+    Map<String, Object> metadata = Map.of(
+        "category", "Q&A",
+        "path", "docs/api/v1",
+        "regex", "\\d+",
+        "separator", "a,b,c"
+    );
+
+    String entryId = cache.store("Test prompt", "Test response", metadata);
+    assertEquals("entry-456", entryId);
+
+    // Verify metadata was encoded when sent to LangCache
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockHttpClient).newCall(requestCaptor.capture());
+
+    Request capturedRequest = requestCaptor.getValue();
+    okio.Buffer buffer = new okio.Buffer();
+    capturedRequest.body().writeTo(buffer);
+    String requestBodyStr = buffer.readUtf8();
+
+    ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
+    ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
+
+    // Special characters should be encoded (& is not encoded, only ,/\? are)
+    assertEquals("Q&A", requestAttrs.get("category").asText());  // & is not in ENCODE_TRANS, stays as is
+    assertEquals("docs∕api∕v1", requestAttrs.get("path").asText());  // / encoded
+    assertEquals("＼d+", requestAttrs.get("regex").asText());  // \ encoded
+    assertEquals("a，b，c", requestAttrs.get("separator").asText());  // , encoded
+  }
+
+  /**
+   * Test that deleteByAttributes() encodes attribute filters.
+   *
+   * <p>Port of delete_by_attributes test from redis-vl-python (PR #437 & #438)
+   */
+  @Test
+  void testDeleteByAttributesEncodesAttributes() throws Exception {
+    // Mock HTTP response
+    ObjectNode responseBody = objectMapper.createObjectNode();
+    responseBody.put("deleted_entries_count", 2);
+
+    ResponseBody mockResponseBody = ResponseBody.create(responseBody.toString(), MediaType.get("application/json"));
+    Response mockResponse = new Response.Builder()
+        .request(new Request.Builder().url("http://test.com").build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(200)
+        .message("OK")
+        .body(mockResponseBody)
+        .build();
+
+    Call mockCall = mock(Call.class);
+    when(mockCall.execute()).thenReturn(mockResponse);
+    when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
+
+    LangCacheSemanticCache cache = new LangCacheSemanticCache.Builder()
+        .name("test")
+        .serverUrl("https://api.example.com")
+        .cacheId("test-cache")
+        .apiKey("test-key")
+        .httpClient(mockHttpClient)
+        .build();
+
+    // Delete by attributes containing special characters
+    Map<String, Object> attributes = Map.of(
+        "topic", "programming,with/encoding\\and?"
+    );
+
+    Map<String, Object> result = cache.deleteByAttributes(attributes);
+    assertEquals(2, result.get("deleted_entries_count"));
+
+    // Verify attributes were encoded when sent to LangCache
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockHttpClient).newCall(requestCaptor.capture());
+
+    Request capturedRequest = requestCaptor.getValue();
+    okio.Buffer buffer = new okio.Buffer();
+    capturedRequest.body().writeTo(buffer);
+    String requestBodyStr = buffer.readUtf8();
+
+    ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
+    ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
+
+    // Special characters should be encoded to match what was stored
+    assertEquals("programming，with∕encoding＼and？", requestAttrs.get("topic").asText());
+  }
 }
