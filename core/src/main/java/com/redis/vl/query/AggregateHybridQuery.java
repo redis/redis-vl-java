@@ -1,13 +1,12 @@
 package com.redis.vl.query;
 
-import java.util.List;
 import java.util.Set;
 
 /**
  * AggregateHybridQuery combines text and vector search in Redis using aggregation.
  *
- * <p>This is the primary name for hybrid queries in RedisVL, matching the Python implementation.
- * It is a type alias for {@link HybridQuery}.
+ * <p>This is the primary name for hybrid queries in RedisVL, matching the Python implementation. It
+ * is a type alias for {@link HybridQuery}.
  *
  * <p>Ported from Python: redisvl/query/aggregate.py:57-315 (AggregateHybridQuery class)
  *
