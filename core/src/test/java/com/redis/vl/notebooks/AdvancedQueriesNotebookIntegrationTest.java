@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 
 import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
+import com.redis.vl.query.AggregateHybridQuery;
 import com.redis.vl.query.Filter;
+import com.redis.vl.query.HybridQuery;
 import com.redis.vl.query.MultiVectorQuery;
 import com.redis.vl.query.TextQuery;
 import com.redis.vl.schema.*;
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.*;
  *
  * <ol>
  *   <li><b>TextQuery</b>: Full text search with advanced scoring algorithms (BM25, TFIDF)
+ *   <li><b>AggregateHybridQuery</b>: Combines text and vector search for hybrid retrieval
  *   <li><b>MultiVectorQuery</b>: Search over multiple vector fields simultaneously
  * </ol>
  *
@@ -324,12 +327,127 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
   }
 
   /**
+   * ## 2. AggregateHybridQuery: Combining Text and Vector Search
+   *
+   * <p>Python cell 23: Basic hybrid query combining text and vector search
+   */
+  @Test
+  @Order(5)
+  @DisplayName("Basic Aggregate Hybrid Query - Python cell 23")
+  void testBasicAggregateHybridQuery() {
+    // Python: AggregateHybridQuery(text="running shoes", text_field_name="brief_description",
+    //         vector=[0.1, 0.2, 0.1], vector_field_name="text_embedding", ...)
+    HybridQuery hybridQuery =
+        AggregateHybridQuery.builder()
+            .text("running shoes")
+            .textFieldName("brief_description")
+            .vector(new float[] {0.1f, 0.2f, 0.1f})
+            .vectorFieldName("text_embedding")
+            .numResults(5)
+            .build();
+
+    List<Map<String, Object>> results = index.query(hybridQuery);
+
+    assertThat(results).isNotEmpty();
+    // Should combine text matching (running, shoes) with vector similarity
+    assertThat(results).anyMatch(doc -> "prod_1".equals(doc.get("product_id")));
+  }
+
+  /**
+   * ### Adjusting the Alpha Parameter
+   *
+   * <p>Python cell 25: Emphasize vector search with alpha=0.9 (90% vector, 10% text)
+   */
+  @Test
+  @Order(6)
+  @DisplayName("Hybrid Query with Alpha Parameter - Python cell 25")
+  void testHybridQueryWithAlpha() {
+    // Python: alpha=0.9 (90% vector, 10% text)
+    HybridQuery vectorHeavyQuery =
+        AggregateHybridQuery.builder()
+            .text("comfortable")
+            .textFieldName("brief_description")
+            .vector(new float[] {0.15f, 0.25f, 0.15f})
+            .vectorFieldName("text_embedding")
+            .alpha(0.9f) // 90% vector, 10% text
+            .numResults(3)
+            .build();
+
+    List<Map<String, Object>> results = index.query(vectorHeavyQuery);
+
+    assertThat(results).isNotEmpty();
+    // Results should prioritize vector similarity over text matching
+  }
+
+  /**
+   * ### Aggregate Hybrid Query with Filters
+   *
+   * <p>Python cell 27: Hybrid search with price filter
+   */
+  @Test
+  @Order(7)
+  @DisplayName("Hybrid Query with Filters - Python cell 27")
+  void testHybridQueryWithFilters() {
+    // Python: filter_expression=Num("price") > 100
+    HybridQuery filteredHybridQuery =
+        AggregateHybridQuery.builder()
+            .text("professional equipment")
+            .textFieldName("brief_description")
+            .vector(new float[] {0.9f, 0.1f, 0.05f})
+            .vectorFieldName("text_embedding")
+            .filterExpression(Filter.numeric("price").gt(100))
+            .numResults(5)
+            .build();
+
+    List<Map<String, Object>> results = index.query(filteredHybridQuery);
+
+    assertThat(results).isNotEmpty();
+    // Verify all results have price > $100
+    assertThat(results)
+        .allMatch(
+            doc -> {
+              Object priceObj = doc.get("price");
+              double price =
+                  priceObj instanceof Number
+                      ? ((Number) priceObj).doubleValue()
+                      : Double.parseDouble(priceObj.toString());
+              return price > 100;
+            });
+  }
+
+  /**
+   * ### Using Different Text Scorers
+   *
+   * <p>Python cell 29: Hybrid query with TFIDF scorer
+   */
+  @Test
+  @Order(8)
+  @DisplayName("Hybrid Query with TFIDF Scorer - Python cell 29")
+  void testHybridQueryWithTFIDF() {
+    // Python: text_scorer="TFIDF"
+    HybridQuery hybridTfidf =
+        AggregateHybridQuery.builder()
+            .text("shoes support")
+            .textFieldName("brief_description")
+            .vector(new float[] {0.12f, 0.18f, 0.12f})
+            .vectorFieldName("text_embedding")
+            .textScorer("TFIDF")
+            .numResults(3)
+            .build();
+
+    List<Map<String, Object>> results = index.query(hybridTfidf);
+
+    assertThat(results).isNotEmpty();
+    // Should use TFIDF for text scoring combined with vector similarity
+  }
+
+  /**
    * ## 3. MultiVectorQuery: Multi-Vector Search
    *
    * <p>Python cell 32: Search over multiple vector fields (text + image embeddings)
    */
   @Test
-  @Order(5)
+  @Order(9)
   @DisplayName("Basic Multi-Vector Query - Python cell 32")
   void testBasicMultiVectorQuery() {
     // Python:
@@ -366,7 +484,7 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
    * <p>Python cell 34: Emphasize image similarity (80% image, 20% text)
    */
   @Test
-  @Order(6)
+  @Order(10)
   @DisplayName("Multi-Vector Query with Different Weights - Python cell 34")
   void testMultiVectorQueryWithDifferentWeights() {
     // Python: More emphasis on image similarity
@@ -401,7 +519,7 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
    * <p>Python cell 36: Combine multi-vector search with category filter
    */
   @Test
-  @Order(7)
+  @Order(11)
   @DisplayName("Multi-Vector Query with Filters - Python cell 36")
   void testMultiVectorQueryWithFilters() {
     // Python: filter_expression=Tag("category") == "footwear"
@@ -441,7 +559,7 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
    * <p>Python cells 38-40: Side-by-side comparison of TextQuery and MultiVectorQuery
    */
   @Test
-  @Order(8)
+  @Order(12)
   @DisplayName("Comparing Query Types - Python cells 38-40")
   void testCompareQueryTypes() {
     // Python cell 38: TextQuery - keyword-based search
