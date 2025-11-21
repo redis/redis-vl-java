@@ -504,6 +504,19 @@ public final class SearchIndex {
         createParams.on(indexType);
       }
 
+      // Set stopwords if configured (PR #436)
+      List<String> stopwords = schema.getIndex().getStopwords();
+      if (stopwords != null) {
+        if (stopwords.isEmpty()) {
+          // Empty list = disable stopwords (STOPWORDS 0)
+          createParams.stopwords();
+        } else {
+          // Custom stopwords list
+          createParams.stopwords(stopwords.toArray(new String[0]));
+        }
+      }
+      // If stopwords is null, use Redis default stopwords (don't set anything)
+
       // Create the index
       String result = jedis.ftCreate(schema.getName(), createParams, schemaFields);
 

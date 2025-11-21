@@ -518,6 +518,7 @@ public final class IndexSchema {
     copy.setPrefixRaw(index.getPrefixRaw());
     copy.setKeySeparator(index.getKeySeparator());
     copy.setStorageType(index.getStorageType());
+    copy.setStopwords(index.getStopwords());
     return copy;
   }
 
@@ -590,6 +591,18 @@ public final class IndexSchema {
 
     private String keySeparator = ":";
     private StorageType storageType = StorageType.HASH;
+
+    /**
+     * Stopwords configuration for the index. Supports three modes:
+     * <ul>
+     *   <li>null (default): Uses Redis's built-in default stopwords list</li>
+     *   <li>Empty list: Disables stopwords entirely (STOPWORDS 0)</li>
+     *   <li>Custom list: User-specified stopwords like ["the", "a", "an"]</li>
+     * </ul>
+     *
+     * <p>Port of redis-vl-python PR #436: Index-level stopwords support
+     */
+    private List<String> stopwords = null;
 
     /** Creates a new Index with default values */
     public Index() {}
@@ -723,6 +736,27 @@ public final class IndexSchema {
       this.storageType = storageType;
     }
 
+    /**
+     * Get the stopwords configuration.
+     *
+     * @return null for default stopwords, empty list for disabled, or custom stopwords list
+     */
+    public List<String> getStopwords() {
+      return stopwords;
+    }
+
+    /**
+     * Set the stopwords configuration.
+     *
+     * <p>Pass null to use Redis default stopwords, empty list to disable stopwords entirely
+     * (STOPWORDS 0), or a custom list of stopwords.
+     *
+     * @param stopwords the stopwords configuration
+     */
+    public void setStopwords(List<String> stopwords) {
+      this.stopwords = stopwords != null ? List.copyOf(stopwords) : null;
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
@@ -731,12 +765,13 @@ public final class IndexSchema {
       return Objects.equals(name, index.name)
           && Objects.equals(prefix, index.prefix)
           && Objects.equals(keySeparator, index.keySeparator)
-          && storageType == index.storageType;
+          && storageType == index.storageType
+          && Objects.equals(stopwords, index.stopwords);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(name, prefix, keySeparator, storageType);
+      return Objects.hash(name, prefix, keySeparator, storageType, stopwords);
     }
   }
 
@@ -746,6 +781,7 @@ public final class IndexSchema {
     private String name;
     private Object prefix; // Can be String or List<String>
     private StorageType storageType;
+    private List<String> stopwords;
 
     /** Package-private constructor used by builder() and of() factory methods. */
     Builder() {}
@@ -823,6 +859,34 @@ public final class IndexSchema {
      */
     public Builder withStorageType(StorageType storageType) {
       this.storageType = storageType;
+      return this;
+    }
+
+    /**
+     * Set the stopwords configuration.
+     *
+     * <p>Pass null to use Redis default stopwords, empty list to disable stopwords entirely
+     * (STOPWORDS 0), or a custom list of stopwords.
+     *
+     * <p>Port of redis-vl-python PR #436: Index-level stopwords support
+     *
+     * @param stopwords the stopwords configuration
+     * @return this builder
+     */
+    public Builder stopwords(List<String> stopwords) {
+      this.stopwords = stopwords;
+      return this;
+    }
+
+    /**
+     * Disable stopwords entirely (equivalent to stopwords(Collections.emptyList())).
+     *
+     * <p>When stopwords are disabled, all words including common terms are indexed and searchable.
+     *
+     * @return this builder
+     */
+    public Builder noStopwords() {
+      this.stopwords = Collections.emptyList();
       return this;
     }
 
@@ -919,6 +983,11 @@ public final class IndexSchema {
       // Access the actual index field directly, not the defensive copy from getIndex()
       if (prefix instanceof List) {
         schema.index.setPrefixRaw(prefix);
+      }
+
+      // Set stopwords if configured
+      if (stopwords != null) {
+        schema.index.setStopwords(stopwords);
       }
 
       return schema;
