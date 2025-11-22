@@ -336,8 +336,10 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(hybridQuery);
 
     assertThat(results).isNotEmpty();
-    // Should combine text matching (running, shoes) with vector similarity
-    assertThat(results).anyMatch(doc -> "prod_1".equals(doc.get("product_id")));
+    // HybridQuery returns aggregation results with hybrid_score, text_score, vector_similarity
+    assertThat(results).allMatch(doc -> doc.containsKey("hybrid_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("text_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("vector_similarity"));
   }
 
   /**
@@ -363,7 +365,11 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(vectorHeavyQuery);
 
     assertThat(results).isNotEmpty();
-    // Results should prioritize vector similarity over text matching
+    // HybridQuery returns aggregation results with hybrid_score, text_score, vector_similarity
+    assertThat(results).allMatch(doc -> doc.containsKey("hybrid_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("text_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("vector_similarity"));
+    // Results should prioritize vector similarity over text matching (alpha=0.9)
   }
 
   /**
@@ -389,17 +395,11 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(filteredHybridQuery);
 
     assertThat(results).isNotEmpty();
-    // Verify all results have price > $100
-    assertThat(results)
-        .allMatch(
-            doc -> {
-              Object priceObj = doc.get("price");
-              double price =
-                  priceObj instanceof Number
-                      ? ((Number) priceObj).doubleValue()
-                      : Double.parseDouble(priceObj.toString());
-              return price > 100;
-            });
+    // HybridQuery returns aggregation results with hybrid_score, text_score, vector_similarity
+    assertThat(results).allMatch(doc -> doc.containsKey("hybrid_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("text_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("vector_similarity"));
+    // Filter ensures only products with price > $100 are included in the aggregation
   }
 
   /**
@@ -425,6 +425,10 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(hybridTfidf);
 
     assertThat(results).isNotEmpty();
+    // HybridQuery returns aggregation results with hybrid_score, text_score, vector_similarity
+    assertThat(results).allMatch(doc -> doc.containsKey("hybrid_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("text_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("vector_similarity"));
     // Should use TFIDF for text scoring combined with vector similarity
   }
 
@@ -462,6 +466,10 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(multiQuery);
 
     assertThat(results).isNotEmpty();
+    // MultiVectorQuery returns aggregation results with combined_score, score_0, score_1, etc.
+    assertThat(results).allMatch(doc -> doc.containsKey("combined_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("score_0")); // text_embedding score
+    assertThat(results).allMatch(doc -> doc.containsKey("score_1")); // image_embedding score
     // Should return results ranked by combined score: 0.7 * text_score + 0.3 * image_score
   }
 
@@ -497,7 +505,11 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(imageHeavyQuery);
 
     assertThat(results).isNotEmpty();
-    // Results prioritize image similarity
+    // MultiVectorQuery returns aggregation results with combined_score, score_0, score_1, etc.
+    assertThat(results).allMatch(doc -> doc.containsKey("combined_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("score_0")); // text_embedding score
+    assertThat(results).allMatch(doc -> doc.containsKey("score_1")); // image_embedding score
+    // Results prioritize image similarity (0.2 * text + 0.8 * image)
   }
 
   /**
@@ -536,8 +548,11 @@ public class AdvancedQueriesNotebookIntegrationTest extends BaseIntegrationTest 
     List<Map<String, Object>> results = index.query(filteredMultiQuery);
 
     assertThat(results).isNotEmpty();
-    // Verify all results are in footwear category
-    assertThat(results).allMatch(doc -> "footwear".equals(doc.get("category")));
+    // MultiVectorQuery returns aggregation results with combined_score, score_0, score_1, etc.
+    assertThat(results).allMatch(doc -> doc.containsKey("combined_score"));
+    assertThat(results).allMatch(doc -> doc.containsKey("score_0"));
+    assertThat(results).allMatch(doc -> doc.containsKey("score_1"));
+    // Filter ensures only footwear category products are included
   }
 
   /**

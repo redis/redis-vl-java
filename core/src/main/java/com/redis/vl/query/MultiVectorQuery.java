@@ -3,6 +3,8 @@ package com.redis.vl.query;
 import com.redis.vl.utils.ArrayUtils;
 import java.util.*;
 import lombok.Getter;
+import redis.clients.jedis.search.aggr.AggregationBuilder;
+import redis.clients.jedis.search.aggr.SortedField;
 
 /**
  * MultiVectorQuery allows for search over multiple vector fields in a document simultaneously.
@@ -59,7 +61,7 @@ import lombok.Getter;
  * </pre>
  */
 @Getter
-public final class MultiVectorQuery {
+public final class MultiVectorQuery extends AggregationQuery {
 
   /** Distance threshold for VECTOR_RANGE (hardcoded at 2.0 to include all eligible documents) */
   private static final double DISTANCE_THRESHOLD = 2.0;
@@ -109,6 +111,19 @@ public final class MultiVectorQuery {
    * @return Query string
    */
   public String toQueryString() {
+    return buildQueryString();
+  }
+
+  /**
+   * Build the Redis query string for multi-vector search.
+   *
+   * <p>Format: {@code @field1:[VECTOR_RANGE 2.0 $vector_0]=>{$YIELD_DISTANCE_AS: distance_0} |
+   * @field2:[VECTOR_RANGE 2.0 $vector_1]=>{$YIELD_DISTANCE_AS: distance_1}}
+   *
+   * @return Query string
+   */
+  @Override
+  public String buildQueryString() {
     List<String> rangeQueries = new ArrayList<>();
 
     for (int i = 0; i < vectors.size(); i++) {
@@ -139,6 +154,18 @@ public final class MultiVectorQuery {
    * @return Parameters map
    */
   public Map<String, Object> toParams() {
+    return getParams();
+  }
+
+  /**
+   * Convert to parameter map for query execution.
+   *
+   * <p>Returns map with vector_0, vector_1, etc. as byte arrays
+   *
+   * @return Parameters map
+   */
+  @Override
+  public Map<String, Object> getParams() {
     Map<String, Object> params = new HashMap<>();
 
     for (int i = 0; i < vectors.size(); i++) {
@@ -148,6 +175,56 @@ public final class MultiVectorQuery {
     }
 
     return params;
+  }
+
+  /**
+   * Build the Redis AggregationBuilder for multi-vector search.
+   *
+   * <p>Creates an aggregation pipeline with:
+   * <ul>
+   *   <li>LOAD all return fields</li>
+   *   <li>APPLY score calculations for each vector: score_i = (2 - distance_i) / 2</li>
+   *   <li>APPLY final combined score: w_1 * score_1 + w_2 * score_2 + ...</li>
+   *   <li>SORTBY combined_score DESC</li>
+   *   <li>LIMIT numResults</li>
+   * </ul>
+   *
+   * @return Configured AggregationBuilder
+   */
+  @Override
+  public AggregationBuilder buildRedisAggregation() {
+    String queryString = buildQueryString();
+    AggregationBuilder aggregation = new AggregationBuilder(queryString);
+
+    // Set dialect
+    aggregation.dialect(dialect);
+
+    // LOAD return fields (or all fields if not specified)
+    if (!returnFields.isEmpty()) {
+      for (String field : returnFields) {
+        aggregation.load(field);
+      }
+    } else {
+      aggregation.loadAll();
+    }
+
+    // APPLY: Calculate individual scores from distances
+    // score_i = (2 - distance_i) / 2
+    for (int i = 0; i < vectors.size(); i++) {
+      String scoreCalc = String.format("(2 - @distance_%d)/2", i);
+      aggregation.apply(scoreCalc, String.format("score_%d", i));
+    }
+
+    // APPLY: Calculate combined score
+    // combined_score = w_1 * score_1 + w_2 * score_2 + ...
+    String combinedScoreFormula = getScoringFormula();
+    aggregation.apply(combinedScoreFormula, "combined_score");
+
+    // SORTBY combined_score DESC and LIMIT to numResults
+    // Jedis API: sortBy(limit, SortedField.desc("field"))
+    aggregation.sortBy(numResults, SortedField.desc("@combined_score"));
+
+    return aggregation;
   }
 
   /**
@@ -164,7 +241,7 @@ public final class MultiVectorQuery {
 
     for (int i = 0; i < vectors.size(); i++) {
       Vector v = vectors.get(i);
-      scoreTerms.add(String.format("%.2f * score_%d", v.getWeight(), i));
+      scoreTerms.add(String.format("%.2f * @score_%d", v.getWeight(), i));
     }
 
     return String.join(" + ", scoreTerms);
@@ -189,7 +266,7 @@ public final class MultiVectorQuery {
 
   @Override
   public String toString() {
-    return toQueryString();
+    return buildQueryString();
   }
 
   /** Builder for creating MultiVectorQuery instances. */
