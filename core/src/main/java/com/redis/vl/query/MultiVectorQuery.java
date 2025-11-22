@@ -181,12 +181,13 @@ public final class MultiVectorQuery extends AggregationQuery {
    * Build the Redis AggregationBuilder for multi-vector search.
    *
    * <p>Creates an aggregation pipeline with:
+   *
    * <ul>
-   *   <li>LOAD all return fields</li>
-   *   <li>APPLY score calculations for each vector: score_i = (2 - distance_i) / 2</li>
-   *   <li>APPLY final combined score: w_1 * score_1 + w_2 * score_2 + ...</li>
-   *   <li>SORTBY combined_score DESC</li>
-   *   <li>LIMIT numResults</li>
+   *   <li>LOAD all return fields
+   *   <li>APPLY score calculations for each vector: score_i = (2 - distance_i) / 2
+   *   <li>APPLY final combined score: w_1 * score_1 + w_2 * score_2 + ...
+   *   <li>SORTBY combined_score DESC
+   *   <li>LIMIT numResults
    * </ul>
    *
    * @return Configured AggregationBuilder

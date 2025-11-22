@@ -289,8 +289,8 @@ class MultiVectorQueryTest {
 
     String formula = query.getScoringFormula();
 
-    // Expected: "0.20 * score_0 + 0.70 * score_1"
-    assertThat(formula).contains("0.20 * score_0").contains("0.70 * score_1").contains(" + ");
+    // Expected: "0.20 * @score_0 + 0.70 * @score_1" (@ prefix required for Redis aggregation)
+    assertThat(formula).contains("0.20 * @score_0").contains("0.70 * @score_1").contains(" + ");
   }
 
   @Test
