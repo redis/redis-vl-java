@@ -19,6 +19,11 @@ import redis.clients.jedis.search.aggr.SortedField;
  * <p>It allows you to perform a hybrid search using both text and vector similarity. It scores
  * documents based on a weighted combination of text and vector similarity.
  *
+ * <p><strong>Note on Runtime Parameters:</strong> HybridQuery uses Redis FT.AGGREGATE for
+ * aggregation-based hybrid search. As of Redis Stack 7.2+, runtime parameters (efRuntime, epsilon,
+ * etc.) are NOT supported in FT.AGGREGATE queries. If you need runtime parameter support, use
+ * {@link VectorQuery} or {@link VectorRangeQuery} instead. See Python PR #439 for details.
+ *
  * <p>Python equivalent:
  *
  * <pre>

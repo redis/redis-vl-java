@@ -17,6 +17,12 @@ import redis.clients.jedis.search.aggr.SortedField;
  * <p>Vectors may be of different size and datatype, but must be indexed using the 'cosine'
  * distance_metric.
  *
+ * <p><strong>Note on Runtime Parameters:</strong> MultiVectorQuery uses Redis FT.AGGREGATE for
+ * aggregation-based multi-vector search. As of Redis Stack 7.2+, runtime parameters (efRuntime,
+ * epsilon, etc.) are NOT supported in FT.AGGREGATE queries. If you need runtime parameter support
+ * with single-vector queries, use {@link VectorQuery} or {@link VectorRangeQuery} instead. See
+ * Python PR #439 for details.
+ *
  * <p>Ported from Python: redisvl/query/aggregate.py:257-400 (MultiVectorQuery class)
  *
  * <p>Python equivalent:

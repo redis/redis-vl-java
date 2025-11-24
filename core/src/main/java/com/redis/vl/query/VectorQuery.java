@@ -43,6 +43,15 @@ public class VectorQuery {
   /** EF runtime parameter for HNSW algorithm */
   private Integer efRuntime;
 
+  /** Search window size for SVS-VAMANA algorithm (Python PR #439) */
+  private Integer searchWindowSize;
+
+  /** Search history usage for SVS-VAMANA algorithm: OFF, ON, AUTO (Python PR #439) */
+  private String useSearchHistory;
+
+  /** Search buffer capacity for SVS-VAMANA algorithm (Python PR #439) */
+  private Integer searchBufferCapacity;
+
   /** Filter query for pre-filtering */
   private Filter filter;
 
@@ -76,6 +85,9 @@ public class VectorQuery {
       String hybridField,
       String hybridQuery,
       Integer efRuntime,
+      Integer searchWindowSize,
+      String useSearchHistory,
+      Integer searchBufferCapacity,
       List<String> returnFields,
       boolean normalizeVectorDistance,
       String sortBy,
@@ -92,6 +104,9 @@ public class VectorQuery {
     this.hybridField = hybridField;
     this.hybridQuery = hybridQuery;
     this.efRuntime = efRuntime;
+    this.searchWindowSize = searchWindowSize;
+    this.useSearchHistory = useSearchHistory;
+    this.searchBufferCapacity = searchBufferCapacity;
     this.returnFields = returnFields;
     this.normalizeVectorDistance = normalizeVectorDistance;
     this.sortBy = sortBy;
@@ -293,9 +308,23 @@ public class VectorQuery {
     byte[] vectorBytes = ArrayUtils.floatArrayToBytes(vector);
     params.put("vec", vectorBytes);
 
-    // Add EF runtime if specified (for HNSW)
+    // Add runtime parameters if specified
+    // EF runtime for HNSW
     if (efRuntime != null) {
       params.put("ef_runtime", efRuntime);
+    }
+
+    // SVS-VAMANA runtime parameters (Python PR #439)
+    if (searchWindowSize != null) {
+      params.put("search_window_size", searchWindowSize);
+    }
+
+    if (useSearchHistory != null) {
+      params.put("use_search_history", useSearchHistory);
+    }
+
+    if (searchBufferCapacity != null) {
+      params.put("search_buffer_capacity", searchBufferCapacity);
     }
 
     return params;
@@ -407,9 +436,79 @@ public class VectorQuery {
    * Set the EF runtime parameter for HNSW
    *
    * @param efRuntime EF runtime value
+   * @throws IllegalArgumentException if efRuntime is not positive
    */
   public void setEfRuntime(int efRuntime) {
+    if (efRuntime <= 0) {
+      throw new IllegalArgumentException("efRuntime must be positive");
+    }
     this.efRuntime = efRuntime;
+  }
+
+  /**
+   * Get the search window size for SVS-VAMANA
+   *
+   * @return Search window size value
+   */
+  public Integer getSearchWindowSize() {
+    return searchWindowSize;
+  }
+
+  /**
+   * Set the search window size parameter for SVS-VAMANA
+   *
+   * @param searchWindowSize Search window size value
+   * @throws IllegalArgumentException if searchWindowSize is not positive
+   */
+  public void setSearchWindowSize(int searchWindowSize) {
+    if (searchWindowSize <= 0) {
+      throw new IllegalArgumentException("searchWindowSize must be positive");
+    }
+    this.searchWindowSize = searchWindowSize;
+  }
+
+  /**
+   * Get the use search history parameter for SVS-VAMANA
+   *
+   * @return Use search history value (OFF, ON, or AUTO)
+   */
+  public String getUseSearchHistory() {
+    return useSearchHistory;
+  }
+
+  /**
+   * Set the use search history parameter for SVS-VAMANA
+   *
+   * @param useSearchHistory Use search history value (must be OFF, ON, or AUTO)
+   * @throws IllegalArgumentException if useSearchHistory is not one of the allowed values
+   */
+  public void setUseSearchHistory(String useSearchHistory) {
+    if (useSearchHistory != null && !useSearchHistory.matches("OFF|ON|AUTO")) {
+      throw new IllegalArgumentException("useSearchHistory must be one of: OFF, ON, AUTO");
+    }
+    this.useSearchHistory = useSearchHistory;
+  }
+
+  /**
+   * Get the search buffer capacity for SVS-VAMANA
+   *
+   * @return Search buffer capacity value
+   */
+  public Integer getSearchBufferCapacity() {
+    return searchBufferCapacity;
+  }
+
+  /**
+   * Set the search buffer capacity parameter for SVS-VAMANA
+   *
+   * @param searchBufferCapacity Search buffer capacity value
+   * @throws IllegalArgumentException if searchBufferCapacity is not positive
+   */
+  public void setSearchBufferCapacity(int searchBufferCapacity) {
+    if (searchBufferCapacity <= 0) {
+      throw new IllegalArgumentException("searchBufferCapacity must be positive");
+    }
+    this.searchBufferCapacity = searchBufferCapacity;
   }
 
   /**
@@ -560,6 +659,9 @@ public class VectorQuery {
     private String hybridField;
     private String hybridQuery;
     private Integer efRuntime;
+    private Integer searchWindowSize;
+    private String useSearchHistory;
+    private Integer searchBufferCapacity;
     private List<String> returnFields;
     private boolean normalizeVectorDistance = false;
     private String sortBy;
@@ -774,8 +876,12 @@ public class VectorQuery {
      *
      * @param efRuntime EF runtime value
      * @return This builder
+     * @throws IllegalArgumentException if efRuntime is not positive
      */
     public Builder efRuntime(Integer efRuntime) {
+      if (efRuntime != null && efRuntime <= 0) {
+        throw new IllegalArgumentException("efRuntime must be positive");
+      }
       this.efRuntime = efRuntime;
       return this;
     }
@@ -785,9 +891,70 @@ public class VectorQuery {
      *
      * @param efRuntime EF runtime value
      * @return This builder
+     * @throws IllegalArgumentException if efRuntime is not positive
      */
     public Builder withEfRuntime(int efRuntime) {
+      if (efRuntime <= 0) {
+        throw new IllegalArgumentException("efRuntime must be positive");
+      }
       this.efRuntime = efRuntime;
+      return this;
+    }
+
+    /**
+     * Set the search window size parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls the KNN search window size. Must be positive.
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param searchWindowSize Search window size (must be positive)
+     * @return This builder
+     * @throws IllegalArgumentException if searchWindowSize is not positive
+     */
+    public Builder searchWindowSize(Integer searchWindowSize) {
+      if (searchWindowSize != null && searchWindowSize <= 0) {
+        throw new IllegalArgumentException("searchWindowSize must be positive");
+      }
+      this.searchWindowSize = searchWindowSize;
+      return this;
+    }
+
+    /**
+     * Set the use search history parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls search buffer usage. Valid values: "OFF", "ON", "AUTO"
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param useSearchHistory Search history mode (OFF, ON, or AUTO)
+     * @return This builder
+     * @throws IllegalArgumentException if useSearchHistory is not one of: OFF, ON, AUTO
+     */
+    public Builder useSearchHistory(String useSearchHistory) {
+      if (useSearchHistory != null && !useSearchHistory.matches("OFF|ON|AUTO")) {
+        throw new IllegalArgumentException("useSearchHistory must be one of: OFF, ON, AUTO");
+      }
+      this.useSearchHistory = useSearchHistory;
+      return this;
+    }
+
+    /**
+     * Set the search buffer capacity parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls compression tuning. Must be positive.
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param searchBufferCapacity Search buffer capacity (must be positive)
+     * @return This builder
+     * @throws IllegalArgumentException if searchBufferCapacity is not positive
+     */
+    public Builder searchBufferCapacity(Integer searchBufferCapacity) {
+      if (searchBufferCapacity != null && searchBufferCapacity <= 0) {
+        throw new IllegalArgumentException("searchBufferCapacity must be positive");
+      }
+      this.searchBufferCapacity = searchBufferCapacity;
       return this;
     }
 
@@ -995,6 +1162,9 @@ public class VectorQuery {
           hybridField,
           hybridQuery,
           efRuntime,
+          searchWindowSize,
+          useSearchHistory,
+          searchBufferCapacity,
           returnFields,
           normalizeVectorDistance,
           sortBy,

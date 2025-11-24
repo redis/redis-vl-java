@@ -19,6 +19,16 @@ public final class VectorRangeQuery {
   private final boolean normalizeVectorDistance;
   private double distanceThreshold;
   private Double epsilon;
+
+  /** Search window size for SVS-VAMANA algorithm (Python PR #439) */
+  private Integer searchWindowSize;
+
+  /** Search history usage for SVS-VAMANA algorithm: OFF, ON, AUTO (Python PR #439) */
+  private String useSearchHistory;
+
+  /** Search buffer capacity for SVS-VAMANA algorithm (Python PR #439) */
+  private Integer searchBufferCapacity;
+
   private final String sortBy;
   private final boolean sortDescending;
   private final boolean inOrder;
@@ -42,6 +52,9 @@ public final class VectorRangeQuery {
     this.returnScore = builder.returnScore;
     this.normalizeVectorDistance = builder.normalizeVectorDistance;
     this.epsilon = builder.epsilon;
+    this.searchWindowSize = builder.searchWindowSize;
+    this.useSearchHistory = builder.useSearchHistory;
+    this.searchBufferCapacity = builder.searchBufferCapacity;
     this.sortBy = builder.sortBy;
     this.sortDescending = builder.sortDescending;
     this.inOrder = builder.inOrder;
@@ -158,10 +171,88 @@ public final class VectorRangeQuery {
   /**
    * Set the epsilon value for approximate search.
    *
-   * @param epsilon Epsilon value for HNSW search
+   * <p>Python PR #439: Runtime parameter for range query approximation. Must be non-negative.
+   *
+   * @param epsilon Epsilon value for range search (must be non-negative)
+   * @throws IllegalArgumentException if epsilon is negative
    */
   public void setEpsilon(double epsilon) {
+    if (epsilon < 0) {
+      throw new IllegalArgumentException("epsilon must be non-negative");
+    }
     this.epsilon = epsilon;
+  }
+
+  /**
+   * Get the search window size for SVS-VAMANA algorithm.
+   *
+   * @return Search window size or null
+   */
+  public Integer getSearchWindowSize() {
+    return searchWindowSize;
+  }
+
+  /**
+   * Set the search window size for SVS-VAMANA algorithm.
+   *
+   * <p>Python PR #439: SVS-VAMANA runtime parameter for KNN search window.
+   *
+   * @param searchWindowSize Search window size (must be positive)
+   * @throws IllegalArgumentException if searchWindowSize is not positive
+   */
+  public void setSearchWindowSize(int searchWindowSize) {
+    if (searchWindowSize <= 0) {
+      throw new IllegalArgumentException("searchWindowSize must be positive");
+    }
+    this.searchWindowSize = searchWindowSize;
+  }
+
+  /**
+   * Get the use search history mode for SVS-VAMANA algorithm.
+   *
+   * @return Use search history mode or null
+   */
+  public String getUseSearchHistory() {
+    return useSearchHistory;
+  }
+
+  /**
+   * Set the use search history mode for SVS-VAMANA algorithm.
+   *
+   * <p>Python PR #439: SVS-VAMANA runtime parameter for search buffer control.
+   *
+   * @param useSearchHistory Search history mode (OFF, ON, or AUTO)
+   * @throws IllegalArgumentException if not one of: OFF, ON, AUTO
+   */
+  public void setUseSearchHistory(String useSearchHistory) {
+    if (useSearchHistory != null && !useSearchHistory.matches("OFF|ON|AUTO")) {
+      throw new IllegalArgumentException("useSearchHistory must be one of: OFF, ON, AUTO");
+    }
+    this.useSearchHistory = useSearchHistory;
+  }
+
+  /**
+   * Get the search buffer capacity for SVS-VAMANA algorithm.
+   *
+   * @return Search buffer capacity or null
+   */
+  public Integer getSearchBufferCapacity() {
+    return searchBufferCapacity;
+  }
+
+  /**
+   * Set the search buffer capacity for SVS-VAMANA algorithm.
+   *
+   * <p>Python PR #439: SVS-VAMANA runtime parameter for compression tuning.
+   *
+   * @param searchBufferCapacity Search buffer capacity (must be positive)
+   * @throws IllegalArgumentException if searchBufferCapacity is not positive
+   */
+  public void setSearchBufferCapacity(int searchBufferCapacity) {
+    if (searchBufferCapacity <= 0) {
+      throw new IllegalArgumentException("searchBufferCapacity must be positive");
+    }
+    this.searchBufferCapacity = searchBufferCapacity;
   }
 
   /**
@@ -228,9 +319,23 @@ public final class VectorRangeQuery {
     // Add distance threshold (Python: DISTANCE_THRESHOLD_PARAM)
     params.put("threshold", distanceThreshold);
 
-    // Add epsilon if specified
+    // Add runtime parameters if specified
+    // Epsilon for range search approximation
     if (epsilon != null) {
       params.put("EPSILON", epsilon);
+    }
+
+    // SVS-VAMANA runtime parameters (Python PR #439)
+    if (searchWindowSize != null) {
+      params.put("search_window_size", searchWindowSize);
+    }
+
+    if (useSearchHistory != null) {
+      params.put("use_search_history", useSearchHistory);
+    }
+
+    if (searchBufferCapacity != null) {
+      params.put("search_buffer_capacity", searchBufferCapacity);
     }
 
     return params;
@@ -251,6 +356,9 @@ public final class VectorRangeQuery {
     private boolean returnScore = false;
     private boolean normalizeVectorDistance = false;
     private Double epsilon;
+    private Integer searchWindowSize;
+    private String useSearchHistory;
+    private Integer searchBufferCapacity;
     private String sortBy;
     private boolean sortDescending = false;
     private boolean inOrder = false;
@@ -367,7 +475,67 @@ public final class VectorRangeQuery {
      * @return This builder
      */
     public Builder epsilon(double epsilon) {
+      if (epsilon < 0) {
+        throw new IllegalArgumentException("epsilon must be non-negative");
+      }
       this.epsilon = epsilon;
+      return this;
+    }
+
+    /**
+     * Set the search window size parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls the KNN search window size. Must be positive.
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param searchWindowSize Search window size (must be positive)
+     * @return This builder
+     * @throws IllegalArgumentException if searchWindowSize is not positive
+     */
+    public Builder searchWindowSize(Integer searchWindowSize) {
+      if (searchWindowSize != null && searchWindowSize <= 0) {
+        throw new IllegalArgumentException("searchWindowSize must be positive");
+      }
+      this.searchWindowSize = searchWindowSize;
+      return this;
+    }
+
+    /**
+     * Set the use search history parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls search buffer usage. Valid values: "OFF", "ON", "AUTO"
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param useSearchHistory Search history mode (OFF, ON, or AUTO)
+     * @return This builder
+     * @throws IllegalArgumentException if useSearchHistory is not one of: OFF, ON, AUTO
+     */
+    public Builder useSearchHistory(String useSearchHistory) {
+      if (useSearchHistory != null && !useSearchHistory.matches("OFF|ON|AUTO")) {
+        throw new IllegalArgumentException("useSearchHistory must be one of: OFF, ON, AUTO");
+      }
+      this.useSearchHistory = useSearchHistory;
+      return this;
+    }
+
+    /**
+     * Set the search buffer capacity parameter for SVS-VAMANA algorithm.
+     *
+     * <p>Controls compression tuning. Must be positive.
+     *
+     * <p>Python PR #439: SVS-VAMANA runtime parameter support
+     *
+     * @param searchBufferCapacity Search buffer capacity (must be positive)
+     * @return This builder
+     * @throws IllegalArgumentException if searchBufferCapacity is not positive
+     */
+    public Builder searchBufferCapacity(Integer searchBufferCapacity) {
+      if (searchBufferCapacity != null && searchBufferCapacity <= 0) {
+        throw new IllegalArgumentException("searchBufferCapacity must be positive");
+      }
+      this.searchBufferCapacity = searchBufferCapacity;
       return this;
     }
 
