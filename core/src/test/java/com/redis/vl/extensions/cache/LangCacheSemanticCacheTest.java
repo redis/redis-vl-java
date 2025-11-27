@@ -142,6 +142,63 @@ class LangCacheSemanticCacheTest {
     assertNotNull(capturedRequest.body());
   }
 
+  /**
+   * Test that store() correctly converts TTL from seconds to milliseconds.
+   *
+   * <p>Port of test_store_with_per_entry_ttl from redis-vl-python (PR #442)
+   *
+   * <p>Verifies that when storing with TTL=2 seconds, the API receives ttl_millis=2000.
+   */
+  @Test
+  void testStoreWithPerEntryTtl() throws Exception {
+    // Mock HTTP response
+    ObjectNode responseJson = objectMapper.createObjectNode();
+    responseJson.put("entry_id", "entry-789");
+
+    ResponseBody responseBody =
+        ResponseBody.create(responseJson.toString(), MediaType.get("application/json"));
+
+    Response mockResponse =
+        new Response.Builder()
+            .request(new Request.Builder().url("https://api.example.com/set").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body(responseBody)
+            .build();
+
+    Call mockCall = mock(Call.class);
+    when(mockCall.execute()).thenReturn(mockResponse);
+    when(mockHttpClient.newCall(any(Request.class))).thenReturn(mockCall);
+
+    LangCacheSemanticCache cache =
+        new LangCacheSemanticCache.Builder()
+            .name("test")
+            .serverUrl("https://api.example.com")
+            .cacheId("test-cache")
+            .apiKey("test-key")
+            .httpClient(mockHttpClient)
+            .build();
+
+    // Store with TTL=2 seconds
+    String entryId = cache.store("Test prompt", "Test response", null, 2);
+    assertEquals("entry-789", entryId);
+
+    // Verify the request was sent with ttl_millis=2000
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockHttpClient).newCall(requestCaptor.capture());
+
+    Request capturedRequest = requestCaptor.getValue();
+    okio.Buffer buffer = new okio.Buffer();
+    capturedRequest.body().writeTo(buffer);
+    String requestBodyStr = buffer.readUtf8();
+
+    ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
+
+    // TTL should be converted from seconds to milliseconds: 2 seconds -> 2000 milliseconds
+    assertEquals(2000, requestJson.get("ttl_millis").asInt());
+  }
+
   @Test
   void testCheck() throws Exception {
     // Mock HTTP response for check operation
@@ -574,21 +631,23 @@ class LangCacheSemanticCacheTest {
   }
 
   /**
-   * Test attribute encoding/decoding round-trip.
+   * Test attribute encoding/decoding round-trip using URL percent-encoding.
    *
-   * <p>Port of test_check_with_attributes from redis-vl-python (PR #437 & #438)
+   * <p>Port of test_check_with_attributes from redis-vl-python (PR #442)
    *
    * <p>Verifies that problematic characters (comma, slash, backslash, question mark) are:
    *
    * <ul>
-   *   <li>Encoded when sending attributes to LangCache API
+   *   <li>URL percent-encoded when sending attributes to LangCache API
    *   <li>Decoded when receiving attributes back from LangCache API
    *   <li>Round-trip correctly so callers see original values
    * </ul>
+   *
+   * <p>Uses URL percent-encoding (e.g., %2C for comma) instead of fullwidth Unicode characters.
    */
   @Test
   void testAttributeEncodingDecoding() throws Exception {
-    // Mock HTTP response with encoded attributes
+    // Mock HTTP response with URL percent-encoded attributes
     ObjectNode entry = objectMapper.createObjectNode();
     entry.put("id", "entry-123");
     entry.put("prompt", "What is Python?");
@@ -597,10 +656,10 @@ class LangCacheSemanticCacheTest {
     entry.put("created_at", 1234567890.0);
     entry.put("updated_at", 1234567890.0);
 
-    // LangCache returns attributes with encoded special characters
+    // LangCache returns attributes with URL percent-encoded special characters
     ObjectNode attrs = objectMapper.createObjectNode();
     attrs.put("language", "python");
-    attrs.put("topic", "programming，with∕encoding＼and？"); // Encoded characters
+    attrs.put("topic", "programming%2Cwith%2Fencoding%5Cand%3F"); // URL percent-encoded
     entry.set("attributes", attrs);
 
     ArrayNode dataArray = objectMapper.createArrayNode();
@@ -646,7 +705,7 @@ class LangCacheSemanticCacheTest {
     assertEquals(1, results.size());
     assertEquals("entry-123", results.get(0).get("entry_id"));
 
-    // Verify attributes were encoded when sent to LangCache
+    // Verify attributes were URL percent-encoded when sent to LangCache
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
     verify(mockHttpClient).newCall(requestCaptor.capture());
 
@@ -658,9 +717,10 @@ class LangCacheSemanticCacheTest {
     ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
     ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
 
-    // The comma, slash, backslash, and question mark should be encoded for LangCache
+    // Special characters should be URL percent-encoded:
+    // %2C=comma, %2F=slash, %5C=backslash, %3F=question mark
     assertEquals("python", requestAttrs.get("language").asText());
-    assertEquals("programming，with∕encoding＼and？", requestAttrs.get("topic").asText());
+    assertEquals("programming%2Cwith%2Fencoding%5Cand%3F", requestAttrs.get("topic").asText());
 
     // Verify attributes were decoded when returned to caller
     @SuppressWarnings("unchecked")
@@ -672,9 +732,11 @@ class LangCacheSemanticCacheTest {
   }
 
   /**
-   * Test that store() encodes metadata attributes.
+   * Test that store() URL percent-encodes metadata attributes.
    *
-   * <p>Port of store test with special characters from redis-vl-python (PR #437 & #438)
+   * <p>Port of store test with special characters from redis-vl-python (PR #442)
+   *
+   * <p>Uses URL percent-encoding instead of fullwidth Unicode characters.
    */
   @Test
   void testStoreEncodesMetadata() throws Exception {
@@ -717,7 +779,7 @@ class LangCacheSemanticCacheTest {
     String entryId = cache.store("Test prompt", "Test response", metadata);
     assertEquals("entry-456", entryId);
 
-    // Verify metadata was encoded when sent to LangCache
+    // Verify metadata was URL percent-encoded when sent to LangCache
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
     verify(mockHttpClient).newCall(requestCaptor.capture());
 
@@ -729,18 +791,21 @@ class LangCacheSemanticCacheTest {
     ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
     ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
 
-    // Special characters should be encoded (& is not encoded, only ,/\? are)
-    assertEquals(
-        "Q&A", requestAttrs.get("category").asText()); // & is not in ENCODE_TRANS, stays as is
-    assertEquals("docs∕api∕v1", requestAttrs.get("path").asText()); // / encoded
-    assertEquals("＼d+", requestAttrs.get("regex").asText()); // \ encoded
-    assertEquals("a，b，c", requestAttrs.get("separator").asText()); // , encoded
+    // Special characters should be URL percent-encoded:
+    // %26=ampersand, %2F=slash, %5C=backslash, %2C=comma
+    // URLEncoder.encode with safe='' encodes ALL special characters including &
+    assertEquals("Q%26A", requestAttrs.get("category").asText()); // & -> %26
+    assertEquals("docs%2Fapi%2Fv1", requestAttrs.get("path").asText()); // / -> %2F
+    assertEquals("%5Cd%2B", requestAttrs.get("regex").asText()); // \ -> %5C, + -> %2B
+    assertEquals("a%2Cb%2Cc", requestAttrs.get("separator").asText()); // , -> %2C
   }
 
   /**
-   * Test that deleteByAttributes() encodes attribute filters.
+   * Test that deleteByAttributes() URL percent-encodes attribute filters.
    *
-   * <p>Port of delete_by_attributes test from redis-vl-python (PR #437 & #438)
+   * <p>Port of delete_by_attributes test from redis-vl-python (PR #442)
+   *
+   * <p>Uses URL percent-encoding instead of fullwidth Unicode characters.
    */
   @Test
   void testDeleteByAttributesEncodesAttributes() throws Exception {
@@ -778,7 +843,7 @@ class LangCacheSemanticCacheTest {
     Map<String, Object> result = cache.deleteByAttributes(attributes);
     assertEquals(2, result.get("deleted_entries_count"));
 
-    // Verify attributes were encoded when sent to LangCache
+    // Verify attributes were URL percent-encoded when sent to LangCache
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
     verify(mockHttpClient).newCall(requestCaptor.capture());
 
@@ -790,7 +855,8 @@ class LangCacheSemanticCacheTest {
     ObjectNode requestJson = (ObjectNode) objectMapper.readTree(requestBodyStr);
     ObjectNode requestAttrs = (ObjectNode) requestJson.get("attributes");
 
-    // Special characters should be encoded to match what was stored
-    assertEquals("programming，with∕encoding＼and？", requestAttrs.get("topic").asText());
+    // Special characters should be URL percent-encoded to match what was stored:
+    // %2C=comma, %2F=slash, %5C=backslash, %3F=question mark
+    assertEquals("programming%2Cwith%2Fencoding%5Cand%3F", requestAttrs.get("topic").asText());
   }
 }

@@ -9,6 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -50,7 +53,7 @@ public class LangCacheSemanticCache {
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
   /**
-   * Translation map for encoding problematic attribute characters.
+   * URL percent-encoding for attribute values.
    *
    * <p>LangCache service rejects or mishandles certain characters in attribute values:
    *
@@ -61,70 +64,35 @@ public class LangCacheSemanticCache {
    *   <li>Question mark (?) - U+003F: Causes filtering failures
    * </ul>
    *
-   * <p>We replace these with visually similar fullwidth Unicode variants that the service accepts.
+   * <p>We use standard URL percent-encoding (RFC 3986) to handle these characters, replacing the
+   * previous fullwidth Unicode character approach. This provides better compatibility and follows
+   * standard web encoding practices.
    *
-   * <p>Port of redis-vl-python PR #437 & #438
+   * <p>Port of redis-vl-python PR #442
    */
-  private static final Map<Character, Character> ENCODE_TRANS =
-      Map.of(
-          ',', '，', // U+FF0C FULLWIDTH COMMA
-          '/', '∕', // U+2215 DIVISION SLASH
-          '\\', '＼', // U+FF3C FULLWIDTH REVERSE SOLIDUS
-          '?', '？' // U+FF1F FULLWIDTH QUESTION MARK
-          );
 
   /**
-   * Translation map for decoding attribute characters back to original form.
+   * Encode a string attribute value for use with the LangCache service using URL percent-encoding.
    *
-   * <p>Reverses the encoding applied by ENCODE_TRANS so callers receive the original values.
-   */
-  private static final Map<Character, Character> DECODE_TRANS;
-
-  static {
-    // Build reverse translation map
-    Map<Character, Character> decode = new HashMap<>();
-    for (Map.Entry<Character, Character> entry : ENCODE_TRANS.entrySet()) {
-      decode.put(entry.getValue(), entry.getKey());
-    }
-    DECODE_TRANS = Collections.unmodifiableMap(decode);
-  }
-
-  /**
-   * Encode a string attribute value for use with the LangCache service.
+   * <p>Uses standard URL percent-encoding (RFC 3986) to encode problematic characters (comma,
+   * slash, backslash, question mark). This keeps attribute values round-trippable and usable for
+   * attribute filtering.
    *
-   * <p>Replaces problematic characters (comma, slash, backslash, question mark) with visually
-   * similar Unicode variants that LangCache accepts. This keeps attribute values round-trippable
-   * and usable for attribute filtering.
+   * <p>URLEncoder.encode() with UTF-8 charset ensures all special characters are properly escaped
+   * as %XX hex sequences (e.g., comma becomes %2C, slash becomes %2F).
    *
    * @param value The original attribute value
-   * @return The encoded value safe for LangCache
+   * @return The URL percent-encoded value safe for LangCache
    */
   private static String encodeAttributeValue(String value) {
     if (value == null || value.isEmpty()) {
       return value;
     }
 
-    StringBuilder result = null; // Lazy allocation
-    int length = value.length();
-
-    for (int i = 0; i < length; i++) {
-      char ch = value.charAt(i);
-      Character replacement = ENCODE_TRANS.get(ch);
-
-      if (replacement != null) {
-        // First problematic char found - allocate StringBuilder and copy prefix
-        if (result == null) {
-          result = new StringBuilder(length);
-          result.append(value, 0, i);
-        }
-        result.append(replacement);
-      } else if (result != null) {
-        // Already building encoded string
-        result.append(ch);
-      }
-    }
-
-    return result != null ? result.toString() : value;
+    // URLEncoder.encode with UTF-8 uses application/x-www-form-urlencoded format
+    // which replaces spaces with '+'. We want percent-encoding (RFC 3986) which uses %20.
+    // The quote() function in Python uses percent-encoding with safe='', so we match that.
+    return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
   }
 
   /**
@@ -164,12 +132,15 @@ public class LangCacheSemanticCache {
   }
 
   /**
-   * Decode a string attribute value returned from the LangCache service.
+   * Decode a string attribute value returned from the LangCache service using URL percent-decoding.
    *
-   * <p>Reverses {@link #encodeAttributeValue}, translating fullwidth characters back to their ASCII
-   * counterparts so callers see the original values they stored.
+   * <p>Reverses {@link #encodeAttributeValue}, translating percent-encoded sequences back to their
+   * original characters so callers see the original values they stored.
    *
-   * @param value The encoded attribute value from LangCache
+   * <p>URLDecoder.decode() with UTF-8 charset converts %XX hex sequences back to original
+   * characters (e.g., %2C becomes comma, %2F becomes slash).
+   *
+   * @param value The URL percent-encoded attribute value from LangCache
    * @return The decoded original value
    */
   private static String decodeAttributeValue(String value) {
@@ -177,27 +148,8 @@ public class LangCacheSemanticCache {
       return value;
     }
 
-    StringBuilder result = null; // Lazy allocation
-    int length = value.length();
-
-    for (int i = 0; i < length; i++) {
-      char ch = value.charAt(i);
-      Character replacement = DECODE_TRANS.get(ch);
-
-      if (replacement != null) {
-        // First encoded char found - allocate StringBuilder and copy prefix
-        if (result == null) {
-          result = new StringBuilder(length);
-          result.append(value, 0, i);
-        }
-        result.append(replacement);
-      } else if (result != null) {
-        // Already building decoded string
-        result.append(ch);
-      }
-    }
-
-    return result != null ? result.toString() : value;
+    // URLDecoder.decode reverses the encoding applied by URLEncoder.encode
+    return URLDecoder.decode(value, StandardCharsets.UTF_8);
   }
 
   /**
@@ -345,6 +297,23 @@ public class LangCacheSemanticCache {
    */
   public String store(String prompt, String response, Map<String, Object> metadata)
       throws IOException {
+    return store(prompt, response, metadata, null);
+  }
+
+  /**
+   * Store a prompt-response pair in the cache with a per-entry TTL.
+   *
+   * <p>Port of redis-vl-python PR #442
+   *
+   * @param prompt The user prompt to cache
+   * @param response The LLM response to cache
+   * @param metadata Optional metadata (stored as attributes in LangCache)
+   * @param ttl Time-to-live in seconds (null for default TTL)
+   * @return The entry ID for the cached entry
+   * @throws IOException If the API request fails
+   */
+  public String store(String prompt, String response, Map<String, Object> metadata, Integer ttl)
+      throws IOException {
     if (prompt == null || prompt.isEmpty()) {
       throw new IllegalArgumentException("prompt is required");
     }
@@ -359,9 +328,16 @@ public class LangCacheSemanticCache {
 
     if (metadata != null && !metadata.isEmpty()) {
       // Encode all string attribute values so they are accepted by the
-      // LangCache service and remain filterable (PR #437 & #438)
+      // LangCache service and remain filterable (PR #442)
       Map<String, Object> safeMetadata = encodeAttributes(metadata);
       requestBody.set("attributes", objectMapper.valueToTree(safeMetadata));
+    }
+
+    // Add per-entry TTL if specified (convert seconds to milliseconds)
+    // Port of redis-vl-python PR #442
+    if (ttl != null) {
+      int ttlMillis = Math.round(ttl * 1000.0f);
+      requestBody.put("ttl_millis", ttlMillis);
     }
 
     // Make API request
