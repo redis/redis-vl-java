@@ -145,7 +145,143 @@ A better solution is to pass only the relevant conversational context on each su
 
 For this, RedisVL has the `SemanticMessageHistory`, which uses vector similarity search to return only semantically relevant sections of the conversation.
 
-NOTE: `SemanticMessageHistory` is not yet implemented in RedisVL for Java. This feature is available in the Python version and will be added to the Java version in a future release.
+[source,java]
+----
+import com.redis.vl.extensions.messagehistory.SemanticMessageHistory;
+import com.redis.vl.utils.vectorize.SentenceTransformersVectorizer;
+import redis.clients.jedis.UnifiedJedis;
+
+UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
+
+// Create a vectorizer for embedding messages
+SentenceTransformersVectorizer vectorizer =
+    new SentenceTransformersVectorizer("sentence-transformers/all-MiniLM-L6-v2");
+
+// Create semantic message history with vectorizer
+SemanticMessageHistory semanticHistory =
+    new SemanticMessageHistory("geography_tutor", vectorizer, jedis);
+----
+
+=== Storing messages with embeddings
+
+When you store messages in `SemanticMessageHistory`, each message is automatically embedded using the configured vectorizer:
+
+[source,java]
+----
+// Store a system message
+semanticHistory.addMessage(Map.of(
+    "role", "system",
+    "content", "You are a helpful geography tutor."
+));
+
+// Store prompt-response pairs
+semanticHistory.store("What is the capital of France?", "The capital is Paris.");
+semanticHistory.store("What is the population of Japan?", "Japan has about 125 million people.");
+semanticHistory.store("What are the main exports of Brazil?", "Brazil exports coffee, soybeans, and iron ore.");
+semanticHistory.store("What is the tallest mountain in Europe?", "Mont Blanc at 4,808 meters.");
+----
+
+=== Retrieving semantically relevant messages
+
+Instead of retrieving the most recent messages, you can retrieve the most semantically relevant messages for a given prompt:
+
+[source,java]
+----
+// Find messages relevant to a question about countries
+List<Map<String, Object>> relevantContext = semanticHistory.getRelevant(
+    "Tell me about French geography",  // search prompt
+    false,                              // asText - return as maps, not strings
+    3,                                  // topK - return up to 3 results
+    false,                              // fallback - don't fall back to recent if no matches
+    null,                               // sessionTag - use default session
+    0.5,                                // distanceThreshold - max semantic distance
+    null                                // role filter - search all roles
+);
+
+for (Map<String, Object> message : relevantContext) {
+    System.out.println(message);
+}
+----
+
+Output:
+----
+{role=user, content=What is the capital of France?}
+{role=llm, content=The capital is Paris.}
+----
+
+The semantic search finds messages about France even though the search query uses different words.
+
+=== Distance threshold
+
+The `distanceThreshold` parameter controls how similar messages must be to be returned. Lower values mean stricter matching:
+
+[source,java]
+----
+// Get or set the default distance threshold
+semanticHistory.setDistanceThreshold(0.3);
+double threshold = semanticHistory.getDistanceThreshold();
+
+// Override threshold for a specific query
+List<Map<String, Object>> strictResults = semanticHistory.getRelevant(
+    "French cities", false, 5, false, null, 0.2, null);  // stricter threshold
+----
+
+=== Fallback to recent messages
+
+If no semantically relevant messages are found, you can fall back to returning the most recent messages:
+
+[source,java]
+----
+List<Map<String, Object>> context = semanticHistory.getRelevant(
+    "completely unrelated topic xyz",
+    false,
+    5,
+    true,   // fallback=true - return recent messages if no semantic matches
+    null,
+    0.3,
+    null
+);
+----
+
+=== Role filtering in semantic search
+
+You can filter semantic search results by message role:
+
+[source,java]
+----
+// Search only in user messages
+List<Map<String, Object>> userMessages = semanticHistory.getRelevant(
+    "What about France?", false, 5, false, null, 0.5, "user");
+
+// Search in multiple roles
+List<Map<String, Object>> userAndLlm = semanticHistory.getRelevant(
+    "What about France?", false, 5, false, null, 0.5, List.of("user", "llm"));
+----
+
+=== Improved LLM conversation flow
+
+With semantic message history, the conversation flow becomes more efficient:
+
+[source,java]
+----
+while (true) {
+    String prompt = getUserInput();
+
+    // Get only semantically relevant context instead of recent messages
+    List<Map<String, Object>> context = semanticHistory.getRelevant(
+        prompt,   // use the current prompt to find relevant history
+        false,    // return as maps
+        5,        // up to 5 relevant messages
+        true,     // fall back to recent if no semantic matches
+        null,     // default session
+        null,     // use default threshold
+        null      // no role filter
+    );
+
+    String response = llmApiCall(prompt, context);
+    semanticHistory.store(prompt, response);
+}
+----
 
 == Conversation control
 
