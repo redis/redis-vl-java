@@ -40,6 +40,7 @@ public class PDFViewerPanel extends BorderPane {
   private final StackPane placeholder;
   private final ScrollPane scrollPane;
 
+  @SuppressWarnings("this-escape")
   public PDFViewerPanel() {
     getStyleClass().add("pdf-viewer-panel");
 

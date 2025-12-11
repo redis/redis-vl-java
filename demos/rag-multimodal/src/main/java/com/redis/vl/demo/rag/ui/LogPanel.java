@@ -34,6 +34,7 @@ public class LogPanel extends BorderPane {
   /**
    * Creates the log panel.
    */
+  @SuppressWarnings("this-escape")
   public LogPanel() {
     getStyleClass().add("log-panel");
 

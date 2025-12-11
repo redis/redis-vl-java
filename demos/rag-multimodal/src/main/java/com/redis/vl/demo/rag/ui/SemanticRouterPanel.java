@@ -88,6 +88,7 @@ public class SemanticRouterPanel extends ScrollPane {
   /**
    * Creates the semantic router panel with sample routes preloaded.
    */
+  @SuppressWarnings("this-escape")
   public SemanticRouterPanel() {
     VBox content = new VBox(12);
     content.setPadding(new Insets(16));

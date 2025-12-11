@@ -49,6 +49,7 @@ public class SettingsPanel extends ScrollPane {
   /**
    * Creates the settings panel.
    */
+  @SuppressWarnings("this-escape")
   public SettingsPanel() {
     AppConfig config = AppConfig.getInstance();
 
