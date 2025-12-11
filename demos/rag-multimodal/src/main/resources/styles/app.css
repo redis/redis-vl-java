@@ -253,3 +253,87 @@
     -fx-background-color: transparent;
     -fx-padding: 0;
 }
+
+/* PDF Viewer Panel */
+.pdf-viewer-panel {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 0 1px 0 0;
+}
+
+.pdf-header {
+    -fx-background-color: #F8F9FA;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 0 0 1px 0;
+}
+
+.pdf-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #1C1E21;
+}
+
+.pdf-scroll-pane {
+    -fx-background-color: #E4E6EB;
+    -fx-background: #E4E6EB;
+}
+
+.pdf-scroll-pane .viewport {
+    -fx-background-color: #E4E6EB;
+}
+
+.pdf-placeholder {
+    -fx-background-color: #F0F2F5;
+    -fx-min-width: 300px;
+    -fx-min-height: 400px;
+}
+
+.placeholder-text {
+    -fx-font-size: 14px;
+    -fx-text-fill: #65676B;
+}
+
+.nav-box {
+    -fx-background-color: #F8F9FA;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 1px 0 0 0;
+}
+
+.nav-button {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #1C1E21;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 16px;
+    -fx-font-size: 14px;
+    -fx-border-color: #CED0D4;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-cursor: hand;
+}
+
+.nav-button:hover {
+    -fx-background-color: #F0F2F5;
+}
+
+.nav-button:disabled {
+    -fx-text-fill: #BCC0C4;
+    -fx-cursor: default;
+}
+
+.page-label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #65676B;
+    -fx-min-width: 80px;
+    -fx-alignment: center;
+}
+
+/* SplitPane */
+.split-pane {
+    -fx-background-color: #F0F2F5;
+    -fx-padding: 0;
+}
+
+.split-pane > .split-pane-divider {
+    -fx-background-color: #E4E6EB;
+    -fx-padding: 0 2px;
+}

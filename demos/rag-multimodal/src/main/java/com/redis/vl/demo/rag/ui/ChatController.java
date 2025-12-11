@@ -5,17 +5,18 @@ import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.demo.rag.service.JTokKitCostTracker;
 import com.redis.vl.demo.rag.service.RAGService;
+import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
-import java.io.File;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Main chat interface controller.
@@ -34,6 +35,8 @@ public class ChatController extends BorderPane {
   private final Label modelLabel;
   private final Label loadedPdfLabel;
   private Button uploadPdfButton;
+  private final PDFViewerPanel pdfViewer;
+  private File currentPdfFile;
 
   private RAGService ragService;
   private com.redis.vl.demo.rag.service.ServiceFactory serviceFactory;
@@ -47,7 +50,12 @@ public class ChatController extends BorderPane {
     uploadPdfButton = new Button("Upload PDF");
     uploadPdfButton.setOnAction(e -> uploadPdf());
 
-    // Message list (center)
+    // PDF viewer panel (left side)
+    pdfViewer = new PDFViewerPanel();
+    pdfViewer.setPrefWidth(450);
+    pdfViewer.setMinWidth(300);
+
+    // Message list (center/right side)
     messageListView = new ListView<>(messages);
     messageListView.setCellFactory(
         lv ->
@@ -64,7 +72,15 @@ public class ChatController extends BorderPane {
             });
     messageListView.setPadding(new Insets(10));
     messageListView.getStyleClass().add("message-list");
-    setCenter(messageListView);
+
+    // Use SplitPane for PDF viewer and chat
+    SplitPane splitPane = new SplitPane();
+    splitPane.setOrientation(Orientation.HORIZONTAL);
+    splitPane.getItems().addAll(pdfViewer, messageListView);
+    splitPane.setDividerPositions(0.4);
+    SplitPane.setResizableWithParent(pdfViewer, false);
+
+    setCenter(splitPane);
 
     // Right control panel
     VBox rightPanel = new VBox(15);
@@ -250,9 +266,18 @@ public class ChatController extends BorderPane {
 
     File file = fileChooser.showOpenDialog(getScene().getWindow());
     if (file != null) {
+      currentPdfFile = file;
       statusLabel.setText("Processing PDF: " + file.getName());
       addSystemMessage("Processing PDF: " + file.getName() + "...");
 
+      // Load PDF into viewer immediately (on JavaFX thread)
+      try {
+        pdfViewer.loadPDF(file);
+      } catch (Exception e) {
+        addSystemMessage("Warning: Could not display PDF preview: " + e.getMessage());
+      }
+
+      // Index PDF in background
       executor.submit(
           () -> {
             try {
@@ -336,9 +361,21 @@ public class ChatController extends BorderPane {
   }
 
   /**
-   * Shutdown executor on close.
+   * Shutdown executor and close resources.
    */
   public void shutdown() {
     executor.shutdown();
+    if (pdfViewer != null) {
+      pdfViewer.close();
+    }
+  }
+
+  /**
+   * Gets the PDF viewer panel for external navigation.
+   *
+   * @return PDFViewerPanel instance
+   */
+  public PDFViewerPanel getPdfViewer() {
+    return pdfViewer;
   }
 }

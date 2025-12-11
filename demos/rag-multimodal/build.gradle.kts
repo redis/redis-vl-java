@@ -24,7 +24,7 @@ repositories {
 
 javafx {
     version = "21"
-    modules = listOf("javafx.controls", "javafx.fxml", "javafx.web")
+    modules = listOf("javafx.controls", "javafx.fxml", "javafx.web", "javafx.swing")
 }
 
 application {
