@@ -80,3 +80,6 @@ notebooks/*_test.ipynb
 notebooks/*_output.ipynb
 
 spotbugs-output.txt
+
+# Demos
+demos/rag-multimodal/src/main/resources/application.properties

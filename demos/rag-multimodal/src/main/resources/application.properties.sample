@@ -1,0 +1,43 @@
+# RedisVL Multimodal RAG Demo Configuration
+
+# Redis Connection
+redis.host=localhost
+redis.port=6399
+
+# LLM Provider Configuration
+# Supported providers: OPENAI, ANTHROPIC, AZURE, OLLAMA
+llm.provider=OPENAI
+
+# OpenAI Configuration
+openai.api.key=YOUR_OPENAI_API_KEY_HERE
+openai.model=gpt-4o
+openai.temperature=0.7
+openai.max.tokens=2048
+
+# Anthropic Configuration
+anthropic.api.key=YOUR_ANTHROPIC_API_KEY_HERE
+anthropic.model=claude-3-5-sonnet-20241022
+anthropic.temperature=0.7
+anthropic.max.tokens=2048
+
+# Azure OpenAI Configuration
+azure.api.key=YOUR_AZURE_API_KEY_HERE
+azure.endpoint=YOUR_AZURE_ENDPOINT_HERE
+azure.deployment.name=gpt-4o
+
+# Ollama Configuration (local, no API key needed)
+ollama.base.url=http://localhost:11434
+ollama.model=llama3.2-vision
+
+# LangCache Configuration (RedisVL Semantic Cache)
+langcache.enabled=true
+langcache.url=https://aws-us-east-1.langcache.redis.io
+langcache.cache.id=8675309
+langcache.api.key=YOUR_LANGCACHE_APU_KEY
+
+# RAG Configuration
+rag.max.results=5
+rag.min.score=0.7
+
+# PDF Processing
+pdf.max.pages=500

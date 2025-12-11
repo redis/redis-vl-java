@@ -48,13 +48,13 @@ Add RedisVL to your Java (17+) project using Maven or Gradle:
 <dependency>
     <groupId>com.redis</groupId>
     <artifactId>redisvl</artifactId>
-    <version>0.0.1</version>
+    <version>0.12.0</version>
 </dependency>
 ```
 
 **Gradle:**
 ```gradle
-implementation 'com.redis:redisvl:0.0.1'
+implementation 'com.redis:redisvl:0.12.0'
 ```
 
 ## Setting up Redis

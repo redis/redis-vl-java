@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.redis.vl.demo"
-version = "0.0.1"
+version = "0.12.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
