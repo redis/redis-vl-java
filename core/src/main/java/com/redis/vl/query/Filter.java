@@ -61,7 +61,11 @@ public class Filter {
       return new Filter(FilterType.CUSTOM, field, "*", null);
     }
 
-    String valueStr = values.length == 1 ? values[0] : String.join("|", values);
+    // Escape special characters in each tag value (including spaces)
+    String[] escapedValues =
+        Arrays.stream(values).map(Filter::escapeTagValue).toArray(String[]::new);
+    String valueStr =
+        escapedValues.length == 1 ? escapedValues[0] : String.join("|", escapedValues);
 
     String expr = String.format("@%s:{%s}", escapeFieldName(field), valueStr);
     return new Filter(FilterType.TAG, field, expr, null);
@@ -278,7 +282,7 @@ public class Filter {
     }
   }
 
-  /** Escape special characters in search queries */
+  /** Escape special characters in search queries (for text filters - does NOT escape spaces) */
   private static String escapeSpecialCharacters(String value) {
     // Escape Redis search special characters
     return value
@@ -311,6 +315,12 @@ public class Filter {
         .replace("!", "\\!")
         .replace("?", "\\?")
         .replace(";", "\\;");
+  }
+
+  /** Escape special characters in tag values (includes space escaping) */
+  private static String escapeTagValue(String value) {
+    // For tag values, escape all special characters including spaces
+    return escapeSpecialCharacters(value).replace(" ", "\\ ");
   }
 
   /**

@@ -53,6 +53,35 @@ class FilterQueryTest {
   }
 
   @Test
+  @DisplayName("Should escape special characters in tag values")
+  void shouldEscapeSpecialCharactersInTagValues() {
+    // When - test value with hyphens
+    Filter filterWithHyphen = Filter.tag("user_id", "test-user-001");
+    // Then
+    assertThat(filterWithHyphen.build()).isEqualTo("@user_id:{test\\-user\\-001}");
+
+    // When - test value with colons (timestamp)
+    Filter filterWithColon = Filter.tag("timestamp", "2025-12-10T15:02:37Z");
+    // Then
+    assertThat(filterWithColon.build()).isEqualTo("@timestamp:{2025\\-12\\-10T15\\:02\\:37Z}");
+
+    // When - test value with @ symbol (email)
+    Filter filterWithAt = Filter.tag("email", "user@example.com");
+    // Then
+    assertThat(filterWithAt.build()).isEqualTo("@email:{user\\@example\\.com}");
+
+    // When - test value with spaces
+    Filter filterWithSpace = Filter.tag("category", "New York");
+    // Then
+    assertThat(filterWithSpace.build()).isEqualTo("@category:{New\\ York}");
+
+    // When - test multiple values with special characters
+    Filter filterMultiple = Filter.tag("tags", "dev-ops", "ci-cd", "k8s");
+    // Then
+    assertThat(filterMultiple.build()).isEqualTo("@tags:{dev\\-ops|ci\\-cd|k8s}");
+  }
+
+  @Test
   @DisplayName("Should create numeric range filter")
   void shouldCreateNumericRangeFilter() {
     // When
