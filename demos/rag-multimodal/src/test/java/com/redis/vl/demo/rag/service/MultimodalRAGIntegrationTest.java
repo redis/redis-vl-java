@@ -127,7 +127,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
 
     JTokKitCostTracker costTracker = new JTokKitCostTracker();
 
-    ragService = new RAGService(retriever, documentStore, chatModel, costTracker, config, null, null);
+    ragService = new RAGService(retriever, documentStore, chatModel, costTracker, config, null, null, null);
 
     // Ingest Attention.pdf
     File attentionPdf =

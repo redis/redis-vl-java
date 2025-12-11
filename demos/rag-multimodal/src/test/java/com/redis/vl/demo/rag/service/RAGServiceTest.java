@@ -37,7 +37,7 @@ class RAGServiceTest {
   void setUp() {
     MockitoAnnotations.openMocks(this);
     config = LLMConfig.defaultConfig(LLMConfig.Provider.OPENAI, "test-key");
-    ragService = new RAGService(contentRetriever, documentStore, chatModel, costTracker, config, null, null);
+    ragService = new RAGService(contentRetriever, documentStore, chatModel, costTracker, config, null, null, null);
   }
 
   @Test

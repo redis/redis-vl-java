@@ -7,6 +7,7 @@ import com.redis.vl.demo.rag.model.Reference;
 import com.redis.vl.extensions.cache.CacheHit;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
 import com.redis.vl.extensions.cache.SemanticCache;
+import com.redis.vl.extensions.router.SemanticRouter;
 import com.redis.vl.langchain4j.RedisVLContentRetriever;
 import com.redis.vl.langchain4j.RedisVLDocumentStore;
 import dev.langchain4j.data.image.Image;
@@ -48,6 +49,7 @@ public class RAGService {
   private final LLMConfig config;
   private final SemanticCache localCache;
   private final LangCacheSemanticCache langCache;
+  private final SemanticRouter responseClassifier;
 
   private static final String SYSTEM_PROMPT =
       """
@@ -68,6 +70,7 @@ public class RAGService {
    * @param config LLM configuration
    * @param localCache Local Redis-based semantic cache
    * @param langCache LangCache cloud service for semantic caching (can be null)
+   * @param responseClassifier Semantic router for classifying responses (can be null)
    */
   public RAGService(
       RedisVLContentRetriever contentRetriever,
@@ -76,7 +79,8 @@ public class RAGService {
       CostTracker costTracker,
       LLMConfig config,
       SemanticCache localCache,
-      LangCacheSemanticCache langCache) {
+      LangCacheSemanticCache langCache,
+      SemanticRouter responseClassifier) {
     this.contentRetriever = contentRetriever;
     this.documentStore = documentStore;
     this.chatModel = chatModel;
@@ -84,6 +88,7 @@ public class RAGService {
     this.config = config;
     this.localCache = localCache;
     this.langCache = langCache;
+    this.responseClassifier = responseClassifier;
   }
 
   /**
@@ -237,7 +242,21 @@ public class RAGService {
     Response<AiMessage> response = chatModel.generate(messages);
     String responseText = response.content().text();
 
-    // 4. Store in cache based on cache type
+    // 5. Clear references if response indicates no relevant information
+    if (responseClassifier != null) {
+      System.out.println("→ Classifying response: " + responseText.substring(0, Math.min(100, responseText.length())) + "...");
+      var routeMatch = responseClassifier.route(responseText);
+      System.out.println("→ Route match result: " + (routeMatch != null ? "name=" + routeMatch.getName() + ", distance=" + routeMatch.getDistance() : "null"));
+      if (routeMatch != null && routeMatch.getName() != null) {
+        references = List.of();
+        System.out.println("→ Response classified as '" + routeMatch.getName()
+            + "' (distance: " + routeMatch.getDistance() + "), clearing references");
+      }
+    } else {
+      System.out.println("→ Response classifier is NULL - not classifying response");
+    }
+
+    // 6. Store in cache based on cache type
     if (cacheType == CacheType.LOCAL && localCache != null) {
       System.out.println("→ Storing to Local Cache: " + userQuery);
       localCache.store(userQuery, responseText);
@@ -275,4 +294,5 @@ public class RAGService {
         .map(c -> c.textSegment().text())
         .collect(Collectors.joining("\n\n"));
   }
+
 }

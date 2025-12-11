@@ -4,6 +4,8 @@ import com.redis.vl.demo.rag.config.AppConfig;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
 import com.redis.vl.extensions.cache.SemanticCache;
+import com.redis.vl.extensions.router.Route;
+import com.redis.vl.extensions.router.SemanticRouter;
 import com.redis.vl.index.SearchIndex;
 import com.redis.vl.langchain4j.RedisVLContentRetriever;
 import com.redis.vl.langchain4j.RedisVLDocumentStore;
@@ -157,7 +159,10 @@ public class ServiceFactory {
     // Create chat model based on provider
     ChatLanguageModel chatModel = createChatModel(config);
 
-    return new RAGService(retriever, documentStore, chatModel, costTracker, config, localCache, langCache);
+    // Create response classifier to detect "no relevant info" responses
+    SemanticRouter responseClassifier = createResponseClassifier();
+
+    return new RAGService(retriever, documentStore, chatModel, costTracker, config, localCache, langCache, responseClassifier);
   }
 
   /**
@@ -231,6 +236,80 @@ public class ServiceFactory {
    */
   public CostTracker getCostTracker() {
     return costTracker;
+  }
+
+  /**
+   * Creates a SemanticRouter with the given routes.
+   *
+   * @param routes List of routes to configure
+   * @return SemanticRouter instance
+   * @throws IllegalStateException if services not initialized
+   */
+  public SemanticRouter createSemanticRouter(List<Route> routes) {
+    return createSemanticRouter("rag_demo_router", routes);
+  }
+
+  /**
+   * Creates a SemanticRouter with a custom name and routes.
+   *
+   * @param name Name for the router index
+   * @param routes List of routes to configure
+   * @return SemanticRouter instance
+   * @throws IllegalStateException if services not initialized
+   */
+  public SemanticRouter createSemanticRouter(String name, List<Route> routes) {
+    if (jedis == null || embeddingModel == null) {
+      throw new IllegalStateException("Services not initialized. Call initialize() first.");
+    }
+
+    LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+        "all-minilm-l6-v2", embeddingModel, VECTOR_DIM);
+
+    return SemanticRouter.builder()
+        .name(name)
+        .routes(routes)
+        .vectorizer(vectorizer)
+        .jedis(jedis)
+        .overwrite(true)  // Recreate index when routes change
+        .build();
+  }
+
+  /**
+   * Creates a response classifier router for detecting "no relevant information" responses.
+   * This router matches LLM responses that indicate the context didn't contain
+   * relevant information to answer the user's question.
+   *
+   * @return SemanticRouter configured for response classification
+   * @throws IllegalStateException if services not initialized
+   */
+  public SemanticRouter createResponseClassifier() {
+    // Reference phrases that indicate "no relevant information found"
+    // These should match typical LLM responses when context doesn't have the answer
+    List<String> noInfoReferences = List.of(
+        "The context provided does not contain information",
+        "The provided context does not contain information about this topic",
+        "I cannot find relevant information in the given context",
+        "The context doesn't mention anything about this",
+        "Based on the provided context, I don't have information on this",
+        "This topic is not covered in the available context",
+        "I don't have enough information in the context to answer",
+        "The documents provided do not address this question",
+        "There is no relevant information available to answer this",
+        "I cannot determine this from the given context",
+        "The context does not include details about this subject",
+        "does not contain information about",
+        "I'm unable to find information about this in the context"
+    );
+
+    Route noInfoRoute = Route.builder()
+        .name("no-relevant-info")
+        .references(noInfoReferences)
+        .distanceThreshold(1.5)  // Very permissive - cosine distance range is 0-2
+        .build();
+
+    SemanticRouter classifier = createSemanticRouter("response_classifier", List.of(noInfoRoute));
+    System.out.println("Response classifier initialized with " + noInfoReferences.size() + " reference phrases, threshold: 1.5");
+    return classifier;
   }
 
   /**

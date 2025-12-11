@@ -7,7 +7,11 @@ import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.demo.rag.model.LogEntry.Category;
 import com.redis.vl.demo.rag.service.EventLogger;
 import com.redis.vl.demo.rag.service.RAGService;
+import com.redis.vl.extensions.router.Route;
+import com.redis.vl.extensions.router.RouteMatch;
+import com.redis.vl.extensions.router.SemanticRouter;
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javafx.application.Platform;
@@ -27,7 +31,8 @@ import javafx.stage.FileChooser;
 public class ChatController extends BorderPane {
 
   private static final int SETTINGS_TAB = 0;
-  private static final int LOG_TAB = 1;
+  private static final int ROUTER_TAB = 1;
+  private static final int LOG_TAB = 2;
 
   private final ObservableList<ChatMessage> messages = FXCollections.observableArrayList();
   private final ListView<ChatMessage> messageListView;
@@ -37,12 +42,14 @@ public class ChatController extends BorderPane {
   private final VerticalTabPane tabPane;
   private final SettingsPanel settingsPanel;
   private final LogPanel logPanel;
+  private final SemanticRouterPanel routerPanel;
   private final EventLogger eventLogger;
   private File currentPdfFile;
 
   private RAGService ragService;
   private com.redis.vl.demo.rag.service.ServiceFactory serviceFactory;
   private com.redis.vl.demo.rag.service.PDFIngestionService pdfIngestionService;
+  private SemanticRouter semanticRouter;
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final AppConfig config = AppConfig.getInstance();
 
@@ -65,10 +72,19 @@ public class ChatController extends BorderPane {
     logPanel = new LogPanel();
     logPanel.setEventLogger(eventLogger);
 
+    // Semantic router panel content
+    routerPanel = new SemanticRouterPanel();
+    routerPanel.setOnEnabledChange(this::onRouterEnabledChange);
+
     // Vertical tab pane (right side)
+    // Icons: Settings=gear, Router=fork, Log=scroll/document
     tabPane = new VerticalTabPane();
-    tabPane.addTab("⚙", "Settings", settingsPanel);
-    tabPane.addTab("📋", "Event Log", logPanel);
+    tabPane.addTab("\u2699", "Settings", settingsPanel);           // Tab 0 - Settings (top) - gear
+    tabPane.addTab("\u2443", "Semantic Router", routerPanel);      // Tab 1 - Router (top) - fork symbol
+    tabPane.addTab("\u2261", "Event Log", logPanel, true);         // Tab 2 - Log (bottom) - identical sign (≡)
+
+    // Start with settings panel open (for PDF upload)
+    tabPane.selectTab(SETTINGS_TAB);
 
     // Update log badge when count changes
     logPanel.setCountListener(count -> {
@@ -169,6 +185,31 @@ public class ChatController extends BorderPane {
     executor.submit(
         () -> {
           try {
+            // Check semantic router BEFORE RAG if enabled
+            if (routerPanel.isRouterEnabled() && semanticRouter != null) {
+              RouteMatch match = semanticRouter.route(userInput);
+              if (match.getName() != null) {
+                // Query blocked by semantic router
+                String routeName = match.getName();
+                double distance = match.getDistance() != null ? match.getDistance() : 0.0;
+                Platform.runLater(() -> {
+                  long elapsed = System.currentTimeMillis() - startTime;
+                  String blockMessage = String.format(
+                      "This query was blocked by the semantic router.\n\n" +
+                      "Matched route: %s\nDistance: %.4f\n\n" +
+                      "The query appears to be off-topic or outside the scope of the document.",
+                      routeName, distance);
+                  addSystemMessage(blockMessage);
+                  eventLogger.warn(Category.RETRIEVAL, "Query BLOCKED by router: " + routeName + " (distance: " + String.format("%.4f", distance) + ")");
+                  setInputEnabled(true);
+                  settingsPanel.setStatus("Ready");
+                  inputField.requestFocus();
+                });
+                return; // Don't proceed to RAG
+              }
+              eventLogger.debug(Category.RETRIEVAL, "Router check passed - no route match");
+            }
+
             ChatMessage response = ragService.query(userInput, cacheType);
             long elapsed = System.currentTimeMillis() - startTime;
 
@@ -353,6 +394,70 @@ public class ChatController extends BorderPane {
    */
   public PDFViewerPanel getPdfViewer() {
     return pdfViewer;
+  }
+
+  /**
+   * Gets the semantic router panel for external configuration.
+   *
+   * @return SemanticRouterPanel instance
+   */
+  public SemanticRouterPanel getRouterPanel() {
+    return routerPanel;
+  }
+
+  /**
+   * Handles router enabled/disabled toggle changes.
+   *
+   * @param enabled Whether routing is now enabled
+   */
+  private void onRouterEnabledChange(boolean enabled) {
+    if (enabled) {
+      // Initialize the semantic router with sample routes
+      if (semanticRouter == null && serviceFactory != null) {
+        eventLogger.info(Category.RETRIEVAL, "Initializing semantic router...");
+        routerPanel.setStatus("Initializing router...");
+
+        executor.submit(() -> {
+          try {
+            // Convert sample routes to Route objects
+            List<Route> routes = routerPanel.getSampleRoutes().stream()
+                .map(sample -> Route.builder()
+                    .name(sample.name())
+                    .references(sample.references())
+                    .distanceThreshold(sample.threshold())
+                    .build())
+                .toList();
+
+            semanticRouter = serviceFactory.createSemanticRouter(routes);
+            routerPanel.setRouter(semanticRouter);
+
+            Platform.runLater(() -> {
+              eventLogger.info(Category.RETRIEVAL, "Semantic router initialized with " + routes.size() + " routes");
+              routerPanel.setStatus("Router ready - " + routes.size() + " routes");
+              addSystemMessage("Semantic router enabled with " + routes.size() + " routes:\n• " +
+                  String.join("\n• ", routes.stream().map(Route::getName).toList()));
+            });
+          } catch (Exception e) {
+            Platform.runLater(() -> {
+              eventLogger.error(Category.RETRIEVAL, "Router initialization failed: " + e.getMessage());
+              routerPanel.setStatus("Router initialization failed");
+              routerPanel.setRouterEnabled(false);  // Disable toggle on failure
+              addSystemMessage("Failed to initialize semantic router: " + e.getMessage());
+            });
+          }
+        });
+      } else if (semanticRouter != null) {
+        eventLogger.info(Category.RETRIEVAL, "Semantic router enabled");
+        addSystemMessage("Semantic router enabled. Off-topic queries will be blocked.");
+      } else {
+        eventLogger.warn(Category.RETRIEVAL, "Cannot enable router - services not initialized");
+        routerPanel.setStatus("Connect to Redis first");
+        routerPanel.setRouterEnabled(false);
+      }
+    } else {
+      eventLogger.info(Category.RETRIEVAL, "Semantic router disabled");
+      addSystemMessage("Semantic router disabled. All queries will be processed.");
+    }
   }
 
   /**

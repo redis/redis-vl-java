@@ -12,8 +12,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
@@ -26,7 +28,8 @@ import java.util.List;
  *
  * <p>Features:
  * <ul>
- *   <li>Tab bar fixed to right edge (40px)</li>
+ *   <li>Tab bar fixed to right edge (44px)</li>
+ *   <li>Tabs can be added to top or bottom of the tab bar</li>
  *   <li>Only one tab active at a time (ToggleGroup)</li>
  *   <li>Click active tab to collapse panel entirely</li>
  *   <li>Active tab indicator (left border)</li>
@@ -40,12 +43,14 @@ public class VerticalTabPane extends HBox {
   private static final Duration ANIMATION_DURATION = Duration.millis(250);
 
   private final StackPane contentArea;
-  private final VBox tabBar;
+  private final VBox topTabs;
+  private final VBox bottomTabs;
+  private final BorderPane tabBarContainer;
   private final ToggleGroup toggleGroup;
   private final List<TabEntry> tabs = new ArrayList<>();
   private final IntegerProperty selectedIndex = new SimpleIntegerProperty(-1);
 
-  private boolean collapsed = false;
+  private boolean collapsed = true;  // Start collapsed (matches constructor state)
   private Timeline animation;
 
   /**
@@ -63,18 +68,27 @@ public class VerticalTabPane extends HBox {
     contentArea.setMinWidth(0);
     HBox.setHgrow(contentArea, Priority.NEVER);
 
-    // Tab bar (right side, fixed width)
-    tabBar = new VBox(4);
-    tabBar.getStyleClass().add("vtab-bar");
-    tabBar.setAlignment(Pos.TOP_CENTER);
-    tabBar.setPadding(new Insets(8, 0, 8, 0));
-    tabBar.setMinWidth(TAB_BAR_WIDTH);
-    tabBar.setMaxWidth(TAB_BAR_WIDTH);
-    tabBar.setPrefWidth(TAB_BAR_WIDTH);
+    // Top tabs container
+    topTabs = new VBox(4);
+    topTabs.setAlignment(Pos.TOP_CENTER);
+
+    // Bottom tabs container
+    bottomTabs = new VBox(4);
+    bottomTabs.setAlignment(Pos.BOTTOM_CENTER);
+
+    // Tab bar using BorderPane for top/bottom layout
+    tabBarContainer = new BorderPane();
+    tabBarContainer.getStyleClass().add("vtab-bar");
+    tabBarContainer.setPadding(new Insets(8, 0, 8, 0));
+    tabBarContainer.setMinWidth(TAB_BAR_WIDTH);
+    tabBarContainer.setMaxWidth(TAB_BAR_WIDTH);
+    tabBarContainer.setPrefWidth(TAB_BAR_WIDTH);
+    tabBarContainer.setTop(topTabs);
+    tabBarContainer.setBottom(bottomTabs);
 
     toggleGroup = new ToggleGroup();
 
-    getChildren().addAll(contentArea, tabBar);
+    getChildren().addAll(contentArea, tabBarContainer);
 
     // Start collapsed
     contentArea.setVisible(false);
@@ -83,7 +97,7 @@ public class VerticalTabPane extends HBox {
   }
 
   /**
-   * Adds a tab with an icon and content.
+   * Adds a tab with an icon and content at the top.
    *
    * @param icon Icon text (emoji or symbol)
    * @param tooltip Tooltip text
@@ -91,6 +105,19 @@ public class VerticalTabPane extends HBox {
    * @return Index of the added tab
    */
   public int addTab(String icon, String tooltip, Node content) {
+    return addTab(icon, tooltip, content, false);
+  }
+
+  /**
+   * Adds a tab with an icon and content.
+   *
+   * @param icon Icon text (emoji or symbol)
+   * @param tooltip Tooltip text
+   * @param content Content node for this tab
+   * @param atBottom If true, add to bottom of tab bar
+   * @return Index of the added tab
+   */
+  public int addTab(String icon, String tooltip, Node content, boolean atBottom) {
     int index = tabs.size();
 
     ToggleButton tabButton = new ToggleButton(icon);
@@ -110,7 +137,7 @@ public class VerticalTabPane extends HBox {
     StackPane.setAlignment(badge, Pos.TOP_RIGHT);
     StackPane.setMargin(badge, new Insets(-4, -4, 0, 0));
 
-    TabEntry entry = new TabEntry(index, tabButton, badge, content);
+    TabEntry entry = new TabEntry(index, tabButton, badge, content, atBottom);
     tabs.add(entry);
 
     // Handle tab selection
@@ -124,7 +151,13 @@ public class VerticalTabPane extends HBox {
       }
     });
 
-    tabBar.getChildren().add(tabContainer);
+    // Add to appropriate container
+    if (atBottom) {
+      bottomTabs.getChildren().add(tabContainer);
+    } else {
+      topTabs.getChildren().add(tabContainer);
+    }
+
     contentArea.getChildren().add(content);
     content.setVisible(false);
     content.setManaged(false);
@@ -263,5 +296,5 @@ public class VerticalTabPane extends HBox {
   /**
    * Internal record for tab data.
    */
-  private record TabEntry(int index, ToggleButton button, Label badge, Node content) {}
+  private record TabEntry(int index, ToggleButton button, Label badge, Node content, boolean atBottom) {}
 }

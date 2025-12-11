@@ -171,18 +171,31 @@ public class SettingsPanel extends ScrollPane {
       }
     });
 
-    // Similarity threshold slider
+    Separator paramsSep = new Separator();
+
+    // === Cache Section ===
+    Label cacheTitle = new Label("Semantic Cache");
+    cacheTitle.getStyleClass().add("section-title");
+
+    cacheComboBox = new ComboBox<>();
+    cacheComboBox.getItems().addAll(CacheType.values());
+    cacheComboBox.setValue(CacheType.NONE);
+    cacheComboBox.getStyleClass().add("cache-combobox");
+    cacheComboBox.setMaxWidth(Double.MAX_VALUE);
+
+    // Similarity threshold slider (for cache hit detection)
     Label thresholdLabel = new Label("Similarity Threshold");
     thresholdLabel.getStyleClass().add("sub-label");
+    thresholdLabel.setPadding(new Insets(8, 0, 0, 0));
 
-    thresholdSlider = new Slider(0.0, 1.0, 0.1);
+    thresholdSlider = new Slider(0.0, 1.0, 0.9);
     thresholdSlider.setBlockIncrement(0.05);
     thresholdSlider.setMajorTickUnit(0.2);
     thresholdSlider.setMinorTickCount(1);
     thresholdSlider.setShowTickMarks(true);
     thresholdSlider.getStyleClass().add("param-slider");
 
-    thresholdValue = new Label("0.10");
+    thresholdValue = new Label("0.90");
     thresholdValue.getStyleClass().add("slider-value");
     thresholdValue.setMinWidth(40);
 
@@ -196,18 +209,6 @@ public class SettingsPanel extends ScrollPane {
         onThresholdChange.accept(value);
       }
     });
-
-    Separator paramsSep = new Separator();
-
-    // === Cache Section ===
-    Label cacheTitle = new Label("Semantic Cache");
-    cacheTitle.getStyleClass().add("section-title");
-
-    cacheComboBox = new ComboBox<>();
-    cacheComboBox.getItems().addAll(CacheType.values());
-    cacheComboBox.setValue(CacheType.NONE);
-    cacheComboBox.getStyleClass().add("cache-combobox");
-    cacheComboBox.setMaxWidth(Double.MAX_VALUE);
 
     Separator cacheSep = new Separator();
 
@@ -238,11 +239,11 @@ public class SettingsPanel extends ScrollPane {
     VBox.setVgrow(spacer, Priority.ALWAYS);
 
     content.getChildren().addAll(
-        modelTitle, providerComboBox, modelLabel, modelComboBox, apiKeyInfo, modelSep,
-        paramsTitle, chunkSizeLabel, chunkSizeBox, chunkOverlapLabel, chunkOverlapBox,
-        thresholdLabel, thresholdBox, paramsSep,
-        cacheTitle, cacheComboBox, cacheSep,
+        // Document section FIRST for easy PDF upload visibility
         docTitle, loadedPdfLabel, uploadPdfButton, docSep,
+        modelTitle, providerComboBox, modelLabel, modelComboBox, apiKeyInfo, modelSep,
+        paramsTitle, chunkSizeLabel, chunkSizeBox, chunkOverlapLabel, chunkOverlapBox, paramsSep,
+        cacheTitle, cacheComboBox, thresholdLabel, thresholdBox, cacheSep,
         spacer,
         statusTitle, statusLabel
     );

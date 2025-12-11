@@ -621,3 +621,78 @@
     -fx-tick-label-fill: #8A8D91;
     -fx-tick-length: 4px;
 }
+
+/* =========================================
+   SEMANTIC ROUTER PANEL
+   ========================================= */
+
+/* Route list styling */
+.route-list {
+    -fx-background-color: #F0F2F5;
+    -fx-background-radius: 6px;
+    -fx-border-color: #E4E6EB;
+    -fx-border-radius: 6px;
+}
+
+.route-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 6px 10px;
+    -fx-font-size: 12px;
+}
+
+.route-list .list-cell:selected {
+    -fx-background-color: #E7F3FF;
+    -fx-text-fill: #1877F2;
+}
+
+.route-list .list-cell:selected:filled {
+    -fx-background-color: #E7F3FF;
+    -fx-text-fill: #1877F2;
+}
+
+/* Route details box */
+.route-details {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 6px;
+    -fx-border-color: #E4E6EB;
+    -fx-border-radius: 6px;
+}
+
+.detail-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #1C1E21;
+}
+
+.reference-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #65676B;
+}
+
+/* Router checkbox */
+.router-checkbox {
+    -fx-font-size: 13px;
+    -fx-text-fill: #1C1E21;
+}
+
+.router-checkbox .box {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CED0D4;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.router-checkbox:selected .box {
+    -fx-background-color: #1877F2;
+    -fx-border-color: #1877F2;
+}
+
+.router-checkbox:selected .mark {
+    -fx-background-color: #FFFFFF;
+}
+
+/* Hint label */
+.hint-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #8A8D91;
+    -fx-padding: 2px 0 0 0;
+}
