@@ -568,3 +568,56 @@
 .log-list .list-cell.log-error {
     -fx-text-fill: #E06C75;
 }
+
+/* ============================================
+   Settings Panel Additional Styles
+   ============================================ */
+
+.sub-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #65676B;
+    -fx-font-weight: 600;
+}
+
+.slider-value {
+    -fx-font-size: 12px;
+    -fx-text-fill: #1C1E21;
+    -fx-font-weight: 500;
+    -fx-alignment: center-right;
+}
+
+/* Parameter Sliders */
+.param-slider {
+    -fx-pref-height: 20px;
+}
+
+.param-slider .track {
+    -fx-background-color: #E4E6EB;
+    -fx-background-radius: 4px;
+    -fx-pref-height: 4px;
+}
+
+.param-slider .thumb {
+    -fx-background-color: #1877F2;
+    -fx-background-radius: 10px;
+    -fx-pref-width: 16px;
+    -fx-pref-height: 16px;
+}
+
+.param-slider .thumb:hover {
+    -fx-background-color: #1565C0;
+}
+
+.param-slider .thumb:pressed {
+    -fx-background-color: #0D47A1;
+}
+
+.param-slider:focused .thumb {
+    -fx-effect: dropshadow(gaussian, rgba(24, 119, 242, 0.4), 6, 0, 0, 0);
+}
+
+/* Tick marks styling */
+.param-slider .axis {
+    -fx-tick-label-fill: #8A8D91;
+    -fx-tick-length: 4px;
+}

@@ -1,21 +1,36 @@
 package com.redis.vl.demo.rag.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import com.redis.vl.demo.rag.config.AppConfig;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration test for LangCache connectivity and functionality.
  *
  * <p>This test verifies that the LangCache configuration from application.properties
  * is correct and that we can successfully store and retrieve cached responses.
+ *
+ * <p>Requires LANGCACHE_API_KEY environment variable and network connectivity.
  */
+@Tag("integration")
 class LangCacheIntegrationTest {
+
+  @BeforeAll
+  static void checkPreconditions() {
+    AppConfig config = AppConfig.getInstance();
+    assumeTrue(config.isLangCacheEnabled(),
+        "LangCache is disabled in application.properties - skipping integration tests");
+    assumeTrue(System.getenv("LANGCACHE_API_KEY") != null,
+        "LANGCACHE_API_KEY not set - skipping integration tests");
+  }
 
   private LangCacheSemanticCache langCache;
   private AppConfig config;
