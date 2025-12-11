@@ -3,6 +3,7 @@ package com.redis.vl.demo.rag.service;
 import com.redis.vl.demo.rag.model.CacheType;
 import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
+import com.redis.vl.demo.rag.model.Reference;
 import com.redis.vl.extensions.cache.CacheHit;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
 import com.redis.vl.extensions.cache.SemanticCache;
@@ -145,13 +146,22 @@ public class RAGService {
       System.out.println("  [" + i + "] " + preview);
     }
 
-    // 2. Separate text and image content
+    // 2. Separate text and image content + extract references
     List<Content> textContent = new ArrayList<>();
     List<Content> imageContent = new ArrayList<>();
+    List<Reference> references = new ArrayList<>();
 
     for (Content content : retrievedContent) {
       if (content.textSegment() != null && content.textSegment().metadata() != null) {
-        String type = content.textSegment().metadata().getString("type");
+        var metadata = content.textSegment().metadata();
+        String type = metadata.getString("type");
+
+        // Extract reference info
+        Integer page = metadata.getInteger("page");
+        if (page != null) {
+          references.add(Reference.of(page, type != null ? type : "TEXT", content.textSegment().text(), 80));
+        }
+
         if ("IMAGE".equals(type)) {
           imageContent.add(content);
         } else {
@@ -161,6 +171,16 @@ public class RAGService {
         textContent.add(content);
       }
     }
+
+    // Deduplicate references by page (keep first occurrence of each page)
+    List<Reference> uniqueRefs = new ArrayList<>();
+    java.util.Set<Integer> seenPages = new java.util.HashSet<>();
+    for (Reference ref : references) {
+      if (seenPages.add(ref.page())) {
+        uniqueRefs.add(ref);
+      }
+    }
+    references = uniqueRefs;
 
     // 3. Build multimodal prompt with context and images
     String contextText = buildContext(textContent);
@@ -241,7 +261,7 @@ public class RAGService {
     int tokenCount = costTracker.countTokens(responseText);
     double cost = costTracker.calculateCost(config.provider(), config.model(), tokenCount);
 
-    return ChatMessage.assistant(responseText, tokenCount, cost, config.model(), false);
+    return ChatMessage.assistant(responseText, tokenCount, cost, config.model(), false, references);
   }
 
   /**

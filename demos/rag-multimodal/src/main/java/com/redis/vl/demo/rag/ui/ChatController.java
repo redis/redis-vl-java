@@ -67,7 +67,8 @@ public class ChatController extends BorderPane {
                 if (empty || item == null) {
                   setGraphic(null);
                 } else {
-                  setGraphic(new MessageBubble(item));
+                  // Pass page navigator to enable click-to-page references
+                  setGraphic(new MessageBubble(item, pdfViewer::goToPage));
                 }
               }
             });
@@ -323,7 +324,8 @@ public class ChatController extends BorderPane {
             0,
             0.0,
             "System",
-            false);
+            false,
+            java.util.List.of());
     messages.add(systemMessage);
     scrollToBottom();
   }

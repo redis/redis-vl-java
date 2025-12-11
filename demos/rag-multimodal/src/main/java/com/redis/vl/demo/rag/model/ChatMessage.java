@@ -1,9 +1,10 @@
 package com.redis.vl.demo.rag.model;
 
 import java.time.Instant;
+import java.util.List;
 
 /**
- * Represents a chat message with cost tracking.
+ * Represents a chat message with cost tracking and source references.
  *
  * @param id Unique message identifier
  * @param role Message role (USER or ASSISTANT)
@@ -13,6 +14,7 @@ import java.time.Instant;
  * @param costUsd Cost in USD for this message (for AI responses)
  * @param model LLM model used (for AI responses)
  * @param fromCache Whether the response came from cache
+ * @param references Source references from retrieved content
  */
 public record ChatMessage(
     String id,
@@ -22,7 +24,8 @@ public record ChatMessage(
     int tokenCount,
     double costUsd,
     String model,
-    boolean fromCache) {
+    boolean fromCache,
+    List<Reference> references) {
 
   public enum Role {
     USER,
@@ -37,7 +40,7 @@ public record ChatMessage(
    */
   public static ChatMessage user(String content) {
     return new ChatMessage(
-        generateId(), Role.USER, content, Instant.now(), 0, 0.0, null, false);
+        generateId(), Role.USER, content, Instant.now(), 0, 0.0, null, false, List.of());
   }
 
   /**
@@ -53,7 +56,24 @@ public record ChatMessage(
   public static ChatMessage assistant(
       String content, int tokenCount, double costUsd, String model, boolean fromCache) {
     return new ChatMessage(
-        generateId(), Role.ASSISTANT, content, Instant.now(), tokenCount, costUsd, model, fromCache);
+        generateId(), Role.ASSISTANT, content, Instant.now(), tokenCount, costUsd, model, fromCache, List.of());
+  }
+
+  /**
+   * Creates an assistant message with references.
+   *
+   * @param content Message content
+   * @param tokenCount Token count
+   * @param costUsd Cost in USD
+   * @param model Model name
+   * @param fromCache Whether from cache
+   * @param references Source references
+   * @return Assistant chat message with references
+   */
+  public static ChatMessage assistant(
+      String content, int tokenCount, double costUsd, String model, boolean fromCache, List<Reference> references) {
+    return new ChatMessage(
+        generateId(), Role.ASSISTANT, content, Instant.now(), tokenCount, costUsd, model, fromCache, references);
   }
 
   private static String generateId() {

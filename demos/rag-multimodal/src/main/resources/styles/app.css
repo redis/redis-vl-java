@@ -370,3 +370,41 @@
     -fx-background-color: #E7F3FF;
     -fx-text-fill: #1877F2;
 }
+
+/* References Section in Message Bubbles */
+.references-pane {
+    -fx-padding: 8px 0 0 0;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 1px 0 0 0;
+    -fx-border-insets: 8px 0 0 0;
+}
+
+.refs-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #65676B;
+    -fx-font-weight: 600;
+    -fx-padding: 2px 4px;
+}
+
+.page-link {
+    -fx-font-size: 11px;
+    -fx-text-fill: #1877F2;
+    -fx-padding: 2px 6px;
+    -fx-background-color: #E7F3FF;
+    -fx-background-radius: 10px;
+    -fx-border-color: transparent;
+}
+
+.page-link:hover {
+    -fx-background-color: #CCE4FF;
+    -fx-underline: true;
+}
+
+.page-link:pressed {
+    -fx-background-color: #B3D7FF;
+}
+
+.page-link:disabled {
+    -fx-text-fill: #BCC0C4;
+    -fx-background-color: #F0F2F5;
+}
