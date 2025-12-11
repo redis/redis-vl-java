@@ -118,6 +118,12 @@ public class RAGService {
     // 1. Retrieve relevant context
     Query query = Query.from(userQuery);
     List<Content> retrievedContent = contentRetriever.retrieve(query);
+    System.out.println("→ Retrieved " + retrievedContent.size() + " content items for query: " + userQuery);
+    for (int i = 0; i < Math.min(3, retrievedContent.size()); i++) {
+      String preview = retrievedContent.get(i).textSegment().text();
+      if (preview.length() > 100) preview = preview.substring(0, 100) + "...";
+      System.out.println("  [" + i + "] " + preview);
+    }
 
     // 2. Separate text and image content
     List<Content> textContent = new ArrayList<>();
