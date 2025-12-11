@@ -90,6 +90,7 @@ public class ServiceFactory {
             "fields",
             List.of(
                 Map.of("name", "text", "type", "text"),
+                Map.of("name", "type", "type", "tag"),  // TAG field for filtering by chunk type
                 Map.of("name", "metadata", "type", "text"),
                 Map.of(
                     "name",
@@ -128,12 +129,15 @@ public class ServiceFactory {
     }
 
     // Create content retriever
+    // Use higher maxResults to ensure TEXT chunks are retrieved (IMAGE chunks
+    // have generic descriptions that may match better semantically but contain
+    // no useful content). RAGService separates TEXT vs IMAGE for processing.
     RedisVLContentRetriever retriever =
         RedisVLContentRetriever.builder()
             .embeddingStore(embeddingStore)
             .embeddingModel(embeddingModel)
-            .maxResults(5)
-            .minScore(0.7)
+            .maxResults(15)
+            .minScore(0.2)  // Low threshold since we'll filter in RAGService
             .build();
 
     // Create chat model based on provider
