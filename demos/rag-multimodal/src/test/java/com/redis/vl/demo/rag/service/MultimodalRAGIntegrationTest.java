@@ -3,6 +3,7 @@ package com.redis.vl.demo.rag.service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.redis.vl.BaseIntegrationTest;
+import com.redis.vl.demo.rag.model.CacheType;
 import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.index.SearchIndex;
@@ -126,7 +127,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
 
     JTokKitCostTracker costTracker = new JTokKitCostTracker();
 
-    ragService = new RAGService(retriever, documentStore, chatModel, costTracker, config, null);
+    ragService = new RAGService(retriever, documentStore, chatModel, costTracker, config, null, null);
 
     // Ingest Attention.pdf
     File attentionPdf =
@@ -163,7 +164,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
     String query = "Describe the Transformer architecture diagram. What are the main components?";
 
     // When: Query the RAG system
-    ChatMessage response = ragService.query(query, false);
+    ChatMessage response = ragService.query(query, CacheType.NONE);
 
     // Then: Response should mention visual elements from the diagram
     String responseText = response.content().toLowerCase();
@@ -203,7 +204,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
     String query = "What does the attention visualization show?";
 
     // When: Query the RAG system
-    ChatMessage response = ragService.query(query, false);
+    ChatMessage response = ragService.query(query, CacheType.NONE);
 
     // Then: Response should indicate it saw the actual visualization image
     String responseText = response.content().toLowerCase();
@@ -232,7 +233,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
     String query = "How many attention heads are shown in the Multi-Head Attention diagram?";
 
     // When: Query the RAG system
-    ChatMessage response = ragService.query(query, false);
+    ChatMessage response = ragService.query(query, CacheType.NONE);
 
     // Then: Response should provide specific count from diagram
     String responseText = response.content().toLowerCase();

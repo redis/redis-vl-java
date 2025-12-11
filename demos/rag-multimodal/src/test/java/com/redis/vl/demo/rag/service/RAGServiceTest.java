@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.redis.vl.demo.rag.model.CacheType;
 import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.langchain4j.RedisVLContentRetriever;
@@ -36,7 +37,7 @@ class RAGServiceTest {
   void setUp() {
     MockitoAnnotations.openMocks(this);
     config = LLMConfig.defaultConfig(LLMConfig.Provider.OPENAI, "test-key");
-    ragService = new RAGService(contentRetriever, documentStore, chatModel, costTracker, config, null);
+    ragService = new RAGService(contentRetriever, documentStore, chatModel, costTracker, config, null, null);
   }
 
   @Test
@@ -61,7 +62,7 @@ class RAGServiceTest {
         .thenReturn(0.0001);
 
     // When
-    ChatMessage result = ragService.query(userQuery, false);
+    ChatMessage result = ragService.query(userQuery, CacheType.NONE);
 
     // Then
     assertNotNull(result);
@@ -89,7 +90,7 @@ class RAGServiceTest {
     when(costTracker.calculateCost(any(), any(), anyInt())).thenReturn(0.0);
 
     // When
-    ChatMessage result = ragService.query(userQuery, true);
+    ChatMessage result = ragService.query(userQuery, CacheType.LANGCACHE);
 
     // Then
     assertNotNull(result);
@@ -113,7 +114,7 @@ class RAGServiceTest {
     when(costTracker.calculateCost(any(), any(), anyInt())).thenReturn(0.00005);
 
     // When
-    ChatMessage result = ragService.query(userQuery, false);
+    ChatMessage result = ragService.query(userQuery, CacheType.NONE);
 
     // Then
     assertNotNull(result);
@@ -123,12 +124,12 @@ class RAGServiceTest {
   @Test
   void testQueryWithNullInput() {
     // When/Then
-    assertThrows(IllegalArgumentException.class, () -> ragService.query(null, false));
+    assertThrows(IllegalArgumentException.class, () -> ragService.query(null, CacheType.NONE));
   }
 
   @Test
   void testQueryWithEmptyInput() {
     // When/Then
-    assertThrows(IllegalArgumentException.class, () -> ragService.query("", false));
+    assertThrows(IllegalArgumentException.class, () -> ragService.query("", CacheType.NONE));
   }
 }

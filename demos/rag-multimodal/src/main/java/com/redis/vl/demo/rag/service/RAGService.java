@@ -1,8 +1,11 @@
 package com.redis.vl.demo.rag.service;
 
+import com.redis.vl.demo.rag.model.CacheType;
 import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
+import com.redis.vl.extensions.cache.CacheHit;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
+import com.redis.vl.extensions.cache.SemanticCache;
 import com.redis.vl.langchain4j.RedisVLContentRetriever;
 import com.redis.vl.langchain4j.RedisVLDocumentStore;
 import dev.langchain4j.data.image.Image;
@@ -42,6 +45,7 @@ public class RAGService {
   private final ChatLanguageModel chatModel;
   private final CostTracker costTracker;
   private final LLMConfig config;
+  private final SemanticCache localCache;
   private final LangCacheSemanticCache langCache;
 
   private static final String SYSTEM_PROMPT =
@@ -61,7 +65,8 @@ public class RAGService {
    * @param chatModel Chat language model for generation
    * @param costTracker Cost tracker for calculating costs
    * @param config LLM configuration
-   * @param langCache LangCache wrapper for semantic caching (can be null)
+   * @param localCache Local Redis-based semantic cache
+   * @param langCache LangCache cloud service for semantic caching (can be null)
    */
   public RAGService(
       RedisVLContentRetriever contentRetriever,
@@ -69,12 +74,14 @@ public class RAGService {
       ChatLanguageModel chatModel,
       CostTracker costTracker,
       LLMConfig config,
+      SemanticCache localCache,
       LangCacheSemanticCache langCache) {
     this.contentRetriever = contentRetriever;
     this.documentStore = documentStore;
     this.chatModel = chatModel;
     this.costTracker = costTracker;
     this.config = config;
+    this.localCache = localCache;
     this.langCache = langCache;
   }
 
@@ -82,17 +89,30 @@ public class RAGService {
    * Queries the RAG system.
    *
    * @param userQuery User's question
-   * @param useCache Whether to use LangCache for semantic caching
+   * @param cacheType Type of caching to use (NONE, LOCAL, or LANGCACHE)
    * @return Assistant response with cost tracking
    * @throws IllegalArgumentException if userQuery is null or empty
    */
-  public ChatMessage query(String userQuery, boolean useCache) {
+  public ChatMessage query(String userQuery, CacheType cacheType) {
     if (userQuery == null || userQuery.trim().isEmpty()) {
       throw new IllegalArgumentException("User query cannot be null or empty");
     }
 
-    // Check cache first if enabled
-    if (useCache && langCache != null) {
+    // Check cache first based on cache type
+    if (cacheType == CacheType.LOCAL && localCache != null) {
+      System.out.println("→ Checking Local Cache for: " + userQuery);
+      Optional<CacheHit> cacheHit = localCache.check(userQuery);
+
+      if (cacheHit.isPresent()) {
+        String cachedResponse = cacheHit.get().getResponse();
+        int tokenCount = costTracker.countTokens(cachedResponse);
+
+        System.out.println("✓ Local Cache HIT for query: " + userQuery);
+        return ChatMessage.assistant(cachedResponse, tokenCount, 0.0, config.model(), true);
+      } else {
+        System.out.println("✗ Local Cache MISS for query: " + userQuery);
+      }
+    } else if (cacheType == CacheType.LANGCACHE && langCache != null) {
       try {
         System.out.println("→ Checking LangCache for: " + userQuery);
         List<Map<String, Object>> cacheHits = langCache.check(userQuery, null, 1, null, null, 0.9f);
@@ -103,10 +123,10 @@ public class RAGService {
           String cachedResponse = (String) hit.get("response");
           int tokenCount = costTracker.countTokens(cachedResponse);
 
-          System.out.println("✓ Cache HIT for query: " + userQuery);
+          System.out.println("✓ LangCache HIT for query: " + userQuery);
           return ChatMessage.assistant(cachedResponse, tokenCount, 0.0, config.model(), true);
         } else {
-          System.out.println("✗ Cache MISS for query: " + userQuery);
+          System.out.println("✗ LangCache MISS for query: " + userQuery);
         }
       } catch (IOException e) {
         System.err.println("LangCache check failed: " + e.getMessage());
@@ -201,12 +221,16 @@ public class RAGService {
     Response<AiMessage> response = chatModel.generate(messages);
     String responseText = response.content().text();
 
-    // 4. Store in cache if enabled
-    if (useCache && langCache != null) {
+    // 4. Store in cache based on cache type
+    if (cacheType == CacheType.LOCAL && localCache != null) {
+      System.out.println("→ Storing to Local Cache: " + userQuery);
+      localCache.store(userQuery, responseText);
+      System.out.println("✓ Cached response in Local Cache for query: " + userQuery);
+    } else if (cacheType == CacheType.LANGCACHE && langCache != null) {
       try {
         System.out.println("→ Storing to LangCache: " + userQuery);
         String entryId = langCache.store(userQuery, responseText, null);
-        System.out.println("✓ Cached response for query: " + userQuery + " (entry_id: " + entryId + ")");
+        System.out.println("✓ Cached response in LangCache for query: " + userQuery + " (entry_id: " + entryId + ")");
       } catch (IOException e) {
         System.err.println("LangCache store failed: " + e.getMessage());
         e.printStackTrace();

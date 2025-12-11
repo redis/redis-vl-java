@@ -1,6 +1,7 @@
 package com.redis.vl.demo.rag.ui;
 
 import com.redis.vl.demo.rag.config.AppConfig;
+import com.redis.vl.demo.rag.model.CacheType;
 import com.redis.vl.demo.rag.model.ChatMessage;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.demo.rag.service.JTokKitCostTracker;
@@ -29,7 +30,7 @@ public class ChatController extends BorderPane {
   private final ListView<ChatMessage> messageListView;
   private final TextField inputField;
   private final Button sendButton;
-  private final CheckBox cacheCheckBox;
+  private final ComboBox<CacheType> cacheComboBox;
   private final Label statusLabel;
   private final Label providerLabel;
   private final Label modelLabel;
@@ -105,15 +106,17 @@ public class ChatController extends BorderPane {
 
     Separator configSeparator = new Separator();
 
-    // LangCache section
+    // Cache section
     Label cacheTitle = new Label("Semantic Cache");
     cacheTitle.getStyleClass().add("section-title");
 
-    cacheCheckBox = new CheckBox("Enable LangCache");
-    cacheCheckBox.setSelected(config.isLangCacheEnabled());
-    cacheCheckBox.getStyleClass().add("cache-checkbox");
+    cacheComboBox = new ComboBox<>();
+    cacheComboBox.getItems().addAll(CacheType.values());
+    cacheComboBox.setValue(config.isLangCacheEnabled() ? CacheType.LANGCACHE : CacheType.NONE);
+    cacheComboBox.getStyleClass().add("cache-combobox");
+    cacheComboBox.setMaxWidth(Double.MAX_VALUE);
 
-    Label cacheInfo = new Label("Toggle to demonstrate\ncost savings with\nsemantic caching");
+    Label cacheInfo = new Label("Select caching mode:\n• No Cache: Always call LLM\n• Local: Redis-based cache\n• LangCache: Cloud cache");
     cacheInfo.getStyleClass().add("info-text");
     cacheInfo.setWrapText(true);
 
@@ -142,7 +145,7 @@ public class ChatController extends BorderPane {
 
     rightPanel.getChildren().addAll(
         configTitle, providerLabel, modelLabel, loadedPdfLabel, configSeparator,
-        cacheTitle, cacheCheckBox, cacheInfo, cacheSeparator,
+        cacheTitle, cacheComboBox, cacheInfo, cacheSeparator,
         actionsTitle, uploadPdfButton, actionsSeparator,
         spacer,
         statusTitle, statusLabel
@@ -209,8 +212,8 @@ public class ChatController extends BorderPane {
     executor.submit(
         () -> {
           try {
-            boolean useCache = cacheCheckBox.isSelected();
-            ChatMessage response = ragService.query(userInput, useCache);
+            CacheType cacheType = cacheComboBox.getValue();
+            ChatMessage response = ragService.query(userInput, cacheType);
 
             Platform.runLater(
                 () -> {

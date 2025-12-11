@@ -337,3 +337,36 @@
     -fx-background-color: #E4E6EB;
     -fx-padding: 0 2px;
 }
+
+/* Cache ComboBox */
+.cache-combobox {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CED0D4;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 12px;
+    -fx-font-size: 13px;
+}
+
+.cache-combobox:hover {
+    -fx-border-color: #1877F2;
+}
+
+.cache-combobox .list-cell {
+    -fx-padding: 8px 12px;
+}
+
+.cache-combobox-popup .list-view {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CED0D4;
+}
+
+.cache-combobox-popup .list-cell:hover {
+    -fx-background-color: #F0F2F5;
+}
+
+.cache-combobox-popup .list-cell:selected {
+    -fx-background-color: #E7F3FF;
+    -fx-text-fill: #1877F2;
+}

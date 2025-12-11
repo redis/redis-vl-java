@@ -3,11 +3,13 @@ package com.redis.vl.demo.rag.service;
 import com.redis.vl.demo.rag.config.AppConfig;
 import com.redis.vl.demo.rag.model.LLMConfig;
 import com.redis.vl.extensions.cache.LangCacheSemanticCache;
+import com.redis.vl.extensions.cache.SemanticCache;
 import com.redis.vl.index.SearchIndex;
 import com.redis.vl.langchain4j.RedisVLContentRetriever;
 import com.redis.vl.langchain4j.RedisVLDocumentStore;
 import com.redis.vl.langchain4j.RedisVLEmbeddingStore;
 import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.utils.vectorize.LangChain4JVectorizer;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
@@ -34,6 +36,7 @@ public class ServiceFactory {
   private EmbeddingModel embeddingModel;
   private CostTracker costTracker;
   private LangCacheSemanticCache langCache;
+  private SemanticCache localCache;
 
   /**
    * Initializes all services with default configuration.
@@ -58,6 +61,17 @@ public class ServiceFactory {
     // Initialize stores
     embeddingStore = new RedisVLEmbeddingStore(searchIndex);
     documentStore = new RedisVLDocumentStore(jedis, "rag:docs:");
+
+    // Initialize local SemanticCache (always available)
+    LangChain4JVectorizer vectorizer = new LangChain4JVectorizer(
+        "all-minilm-l6-v2", embeddingModel, VECTOR_DIM);
+    localCache = new SemanticCache.Builder()
+        .name("rag_local_cache")
+        .redisClient(jedis)
+        .vectorizer(vectorizer)
+        .distanceThreshold(0.1f)  // 90% similarity for cache hit
+        .build();
+    System.out.println("Local SemanticCache initialized");
 
     // Initialize LangCache if enabled
     AppConfig config = AppConfig.getInstance();
@@ -143,7 +157,7 @@ public class ServiceFactory {
     // Create chat model based on provider
     ChatLanguageModel chatModel = createChatModel(config);
 
-    return new RAGService(retriever, documentStore, chatModel, costTracker, config, langCache);
+    return new RAGService(retriever, documentStore, chatModel, costTracker, config, localCache, langCache);
   }
 
   /**
