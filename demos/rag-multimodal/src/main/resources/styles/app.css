@@ -355,18 +355,29 @@
 
 .cache-combobox .list-cell {
     -fx-padding: 8px 12px;
+    -fx-text-fill: #1C1E21;
+    -fx-background-color: transparent;
 }
 
-.cache-combobox-popup .list-view {
+.cache-combobox .combo-box-popup .list-view {
     -fx-background-color: #FFFFFF;
     -fx-border-color: #CED0D4;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
 }
 
-.cache-combobox-popup .list-cell:hover {
+.cache-combobox .combo-box-popup .list-cell {
+    -fx-padding: 8px 12px;
+    -fx-text-fill: #1C1E21;
+    -fx-background-color: #FFFFFF;
+}
+
+.cache-combobox .combo-box-popup .list-cell:hover {
     -fx-background-color: #F0F2F5;
+    -fx-text-fill: #1C1E21;
 }
 
-.cache-combobox-popup .list-cell:selected {
+.cache-combobox .combo-box-popup .list-cell:filled:selected {
     -fx-background-color: #E7F3FF;
     -fx-text-fill: #1877F2;
 }
@@ -409,52 +420,93 @@
     -fx-background-color: #F0F2F5;
 }
 
-/* Log Panel - Vertical Tab Style */
-.log-panel-container {
+/* ============================================
+   Material UI-Style Vertical Tab Pane
+   ============================================ */
+
+/* Main container */
+.vertical-tab-pane {
     -fx-background-color: transparent;
 }
 
-.log-tab-button {
-    -fx-background-color: #2D3035;
-    -fx-border-color: #3A3D42;
-    -fx-border-width: 1px 0 1px 1px;
-    -fx-border-radius: 8px 0 0 8px;
-    -fx-background-radius: 8px 0 0 8px;
+/* Tab bar (right edge strip) */
+.vtab-bar {
+    -fx-background-color: #F8F9FA;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 0 0 0 1px;
+    -fx-padding: 8px 4px;
+}
+
+/* Individual tab button */
+.vtab-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #65676B;
+    -fx-font-size: 18px;
+    -fx-padding: 12px 10px;
+    -fx-background-radius: 8px;
     -fx-cursor: hand;
-    -fx-padding: 10px 4px;
-    -fx-spacing: 8px;
+    -fx-border-width: 0 0 0 3px;
+    -fx-border-color: transparent;
+    -fx-border-radius: 0 8px 8px 0;
 }
 
-.log-tab-button:hover {
-    -fx-background-color: #3A3D42;
+.vtab-button:hover {
+    -fx-background-color: rgba(24, 119, 242, 0.08);
+    -fx-text-fill: #1877F2;
 }
 
-.log-tab-button.expanded {
-    -fx-background-color: #1C1E21;
+.vtab-button:selected {
+    -fx-background-color: rgba(24, 119, 242, 0.12);
+    -fx-text-fill: #1877F2;
+    -fx-border-color: #1877F2;
 }
 
-.log-tab-text {
-    -fx-fill: #8A8D91;
-    -fx-font-size: 11px;
-    -fx-font-weight: bold;
-    -fx-text-alignment: center;
+.vtab-button:focused {
+    -fx-background-color: rgba(24, 119, 242, 0.08);
 }
 
-.log-count-badge {
-    -fx-background-color: #1877F2;
+/* Tab badge (count indicator) */
+.vtab-badge {
+    -fx-background-color: #E41E3F;
     -fx-text-fill: white;
     -fx-font-size: 9px;
     -fx-font-weight: bold;
-    -fx-padding: 2px 5px;
+    -fx-padding: 1px 5px;
     -fx-background-radius: 8px;
-    -fx-min-width: 18px;
+    -fx-min-width: 16px;
     -fx-alignment: center;
 }
 
-.log-content {
+/* Content area */
+.vtab-content-area {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E4E6EB;
+    -fx-border-width: 0 0 0 1px;
+}
+
+/* ============================================
+   Settings Panel Styles
+   ============================================ */
+
+.settings-panel {
+    -fx-background-color: #FFFFFF;
+}
+
+.settings-scroll {
+    -fx-background-color: #FFFFFF;
+    -fx-background: #FFFFFF;
+}
+
+.settings-scroll .viewport {
+    -fx-background-color: #FFFFFF;
+}
+
+/* ============================================
+   Log Panel Styles
+   ============================================ */
+
+.log-panel {
     -fx-background-color: #1C1E21;
-    -fx-border-color: #3A3D42;
-    -fx-border-width: 1px 0 1px 0;
 }
 
 .log-header {

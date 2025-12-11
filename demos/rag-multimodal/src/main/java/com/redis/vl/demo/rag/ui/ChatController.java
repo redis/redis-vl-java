@@ -15,7 +15,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
-import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
@@ -27,17 +26,16 @@ import javafx.stage.FileChooser;
  */
 public class ChatController extends BorderPane {
 
+  private static final int SETTINGS_TAB = 0;
+  private static final int LOG_TAB = 1;
+
   private final ObservableList<ChatMessage> messages = FXCollections.observableArrayList();
   private final ListView<ChatMessage> messageListView;
   private final TextField inputField;
   private final Button sendButton;
-  private final ComboBox<CacheType> cacheComboBox;
-  private final Label statusLabel;
-  private final Label providerLabel;
-  private final Label modelLabel;
-  private final Label loadedPdfLabel;
-  private Button uploadPdfButton;
   private final PDFViewerPanel pdfViewer;
+  private final VerticalTabPane tabPane;
+  private final SettingsPanel settingsPanel;
   private final LogPanel logPanel;
   private final EventLogger eventLogger;
   private File currentPdfFile;
@@ -54,20 +52,33 @@ public class ChatController extends BorderPane {
     eventLogger = new EventLogger();
     eventLogger.info(Category.SYSTEM, "Application starting...");
 
-    // Initialize fields first
-    uploadPdfButton = new Button("Upload PDF");
-    uploadPdfButton.setOnAction(e -> uploadPdf());
-
     // PDF viewer panel (left side)
     pdfViewer = new PDFViewerPanel();
-
-    // Log panel (bottom)
-    logPanel = new LogPanel();
-    logPanel.setEventLogger(eventLogger);
     pdfViewer.setPrefWidth(450);
     pdfViewer.setMinWidth(300);
 
-    // Message list (center/right side)
+    // Settings panel content
+    settingsPanel = new SettingsPanel();
+    settingsPanel.getUploadPdfButton().setOnAction(e -> uploadPdf());
+
+    // Log panel content
+    logPanel = new LogPanel();
+    logPanel.setEventLogger(eventLogger);
+
+    // Vertical tab pane (right side)
+    tabPane = new VerticalTabPane();
+    tabPane.addTab("⚙", "Settings", settingsPanel);
+    tabPane.addTab("📋", "Event Log", logPanel);
+
+    // Update log badge when count changes
+    logPanel.setCountListener(count -> {
+      tabPane.setBadge(LOG_TAB, count > 0 ? String.valueOf(count) : null);
+    });
+
+    // Start with settings tab open
+    tabPane.selectTab(SETTINGS_TAB);
+
+    // Message list (center)
     messageListView = new ListView<>(messages);
     messageListView.setCellFactory(
         lv ->
@@ -95,74 +106,6 @@ public class ChatController extends BorderPane {
 
     setCenter(splitPane);
 
-    // Right control panel
-    VBox rightPanel = new VBox(15);
-    rightPanel.setPadding(new Insets(15));
-    rightPanel.getStyleClass().add("control-panel");
-    rightPanel.setPrefWidth(300);
-    rightPanel.setMinWidth(300);
-
-    // Configuration section
-    Label configTitle = new Label("Configuration");
-    configTitle.getStyleClass().add("section-title");
-
-    providerLabel = new Label("Provider: " + config.getLLMProvider().getDisplayName());
-    providerLabel.getStyleClass().add("info-label");
-
-    modelLabel = new Label("Model: " + config.getLLMConfig().model());
-    modelLabel.getStyleClass().add("info-label");
-
-    loadedPdfLabel = new Label("No PDF loaded");
-    loadedPdfLabel.getStyleClass().add("info-label");
-    loadedPdfLabel.setWrapText(true);
-
-    Separator configSeparator = new Separator();
-
-    // Cache section
-    Label cacheTitle = new Label("Semantic Cache");
-    cacheTitle.getStyleClass().add("section-title");
-
-    cacheComboBox = new ComboBox<>();
-    cacheComboBox.getItems().addAll(CacheType.values());
-    cacheComboBox.setValue(config.isLangCacheEnabled() ? CacheType.LANGCACHE : CacheType.NONE);
-    cacheComboBox.getStyleClass().add("cache-combobox");
-    cacheComboBox.setMaxWidth(Double.MAX_VALUE);
-
-    Label cacheInfo = new Label("Select caching mode:\n• No Cache: Always call LLM\n• Local: Redis-based cache\n• LangCache: Cloud cache");
-    cacheInfo.getStyleClass().add("info-text");
-    cacheInfo.setWrapText(true);
-
-    Separator cacheSeparator = new Separator();
-
-    // Actions section
-    Label actionsTitle = new Label("Actions");
-    actionsTitle.getStyleClass().add("section-title");
-
-    uploadPdfButton.getStyleClass().add("action-button");
-    uploadPdfButton.setMaxWidth(Double.MAX_VALUE);
-
-    Separator actionsSeparator = new Separator();
-
-    // Status section
-    Label statusTitle = new Label("Status");
-    statusTitle.getStyleClass().add("section-title");
-
-    statusLabel = new Label("Ready");
-    statusLabel.getStyleClass().add("status-label");
-    statusLabel.setWrapText(true);
-
-    // Spacer to push status to bottom
-    Region spacer = new Region();
-    VBox.setVgrow(spacer, Priority.ALWAYS);
-
-    rightPanel.getChildren().addAll(
-        configTitle, providerLabel, modelLabel, loadedPdfLabel, configSeparator,
-        cacheTitle, cacheComboBox, cacheInfo, cacheSeparator,
-        actionsTitle, uploadPdfButton, actionsSeparator,
-        spacer,
-        statusTitle, statusLabel
-    );
-
     // Bottom input area
     HBox inputSection = new HBox(10);
     inputSection.setPadding(new Insets(10));
@@ -182,10 +125,8 @@ public class ChatController extends BorderPane {
     inputSection.getChildren().addAll(inputField, sendButton);
     setBottom(inputSection);
 
-    // Right side: control panel + log panel (far right edge)
-    HBox rightContainer = new HBox();
-    rightContainer.getChildren().addAll(rightPanel, logPanel);
-    setRight(rightContainer);
+    // Right side: vertical tab pane
+    setRight(tabPane);
 
     // Add welcome message
     addSystemMessage("Welcome to RedisVL Multimodal RAG Demo!\n\nConfiguration loaded from application.properties:\n• Provider: " +
@@ -218,9 +159,9 @@ public class ChatController extends BorderPane {
 
     // Disable input while processing
     setInputEnabled(false);
-    statusLabel.setText("Thinking...");
+    settingsPanel.setStatus("Thinking...");
 
-    CacheType cacheType = cacheComboBox.getValue();
+    CacheType cacheType = settingsPanel.getCacheComboBox().getValue();
     eventLogger.info(Category.LLM, "Query: \"" + truncate(userInput, 50) + "\" (cache: " + cacheType + ")");
 
     // Process in background
@@ -255,7 +196,7 @@ public class ChatController extends BorderPane {
             Platform.runLater(
                 () -> {
                   setInputEnabled(true);
-                  statusLabel.setText("Ready");
+                  settingsPanel.setStatus("Ready");
                   inputField.requestFocus();
                 });
           }
@@ -304,7 +245,7 @@ public class ChatController extends BorderPane {
     File file = fileChooser.showOpenDialog(getScene().getWindow());
     if (file != null) {
       currentPdfFile = file;
-      statusLabel.setText("Processing PDF: " + file.getName());
+      settingsPanel.setStatus("Processing PDF: " + file.getName());
       addSystemMessage("Processing PDF: " + file.getName() + "...");
       eventLogger.info(Category.PDF, "Loading PDF: " + file.getName());
 
@@ -338,15 +279,15 @@ public class ChatController extends BorderPane {
                         String.format(
                             "PDF processed successfully. Indexed %d chunks. You can now ask questions about the document.",
                             chunks));
-                    loadedPdfLabel.setText("Loaded: " + file.getName() + " (" + chunks + " chunks)");
-                    statusLabel.setText("Ready");
+                    settingsPanel.setLoadedPdf(file.getName() + " (" + chunks + " chunks)");
+                    settingsPanel.setStatus("Ready");
                     eventLogger.info(Category.PDF, "Indexed " + chunks + " chunks in " + elapsed + "ms");
                   });
             } catch (Exception e) {
               Platform.runLater(
                   () -> {
                     addSystemMessage("Error processing PDF: " + e.getMessage());
-                    statusLabel.setText("Ready");
+                    settingsPanel.setStatus("Ready");
                     eventLogger.error(Category.PDF, "Indexing failed: " + e.getMessage());
                   });
             }
@@ -391,19 +332,8 @@ public class ChatController extends BorderPane {
    */
   public void setServiceFactory(com.redis.vl.demo.rag.service.ServiceFactory serviceFactory) {
     this.serviceFactory = serviceFactory;
-    updateStatusLabel("Connected to Redis. Select provider and enter API key to start.");
+    settingsPanel.setStatus("Connected to Redis. Upload a PDF to start.");
     eventLogger.info(Category.SYSTEM, "Connected to Redis");
-  }
-
-  /**
-   * Updates the status label text.
-   *
-   * @param text Status text
-   */
-  private void updateStatusLabel(String text) {
-    if (statusLabel != null) {
-      Platform.runLater(() -> statusLabel.setText(text));
-    }
   }
 
   /**

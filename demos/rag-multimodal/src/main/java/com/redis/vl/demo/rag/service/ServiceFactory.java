@@ -143,15 +143,15 @@ public class ServiceFactory {
     }
 
     // Create content retriever
-    // Use higher maxResults to ensure TEXT chunks are retrieved (IMAGE chunks
+    // Use high maxResults to ensure TEXT chunks are retrieved (IMAGE chunks
     // have generic descriptions that may match better semantically but contain
     // no useful content). RAGService separates TEXT vs IMAGE for processing.
     RedisVLContentRetriever retriever =
         RedisVLContentRetriever.builder()
             .embeddingStore(embeddingStore)
             .embeddingModel(embeddingModel)
-            .maxResults(15)
-            .minScore(0.2)  // Low threshold since we'll filter in RAGService
+            .maxResults(40)  // Get many results to ensure we have TEXT content
+            .minScore(0.1)   // Very low threshold - let RAGService filter
             .build();
 
     // Create chat model based on provider

@@ -140,11 +140,6 @@ public class RAGService {
     Query query = Query.from(userQuery);
     List<Content> retrievedContent = contentRetriever.retrieve(query);
     System.out.println("→ Retrieved " + retrievedContent.size() + " content items for query: " + userQuery);
-    for (int i = 0; i < Math.min(3, retrievedContent.size()); i++) {
-      String preview = retrievedContent.get(i).textSegment().text();
-      if (preview.length() > 100) preview = preview.substring(0, 100) + "...";
-      System.out.println("  [" + i + "] " + preview);
-    }
 
     // 2. Separate text and image content + extract references
     List<Content> textContent = new ArrayList<>();
@@ -171,6 +166,7 @@ public class RAGService {
         textContent.add(content);
       }
     }
+    System.out.println("→ Breakdown: " + textContent.size() + " TEXT, " + imageContent.size() + " IMAGE");
 
     // Deduplicate references by page (keep first occurrence of each page)
     List<Reference> uniqueRefs = new ArrayList<>();
