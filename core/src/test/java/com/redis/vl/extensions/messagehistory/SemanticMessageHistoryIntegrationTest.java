@@ -391,8 +391,12 @@ class SemanticMessageHistoryIntegrationTest extends BaseIntegrationTest {
       // Raw should have entry_id - check any entry has it
       assertTrue(raw.stream().anyMatch(m -> m.get(ID_FIELD_NAME) != null));
       // Check user message exists with correct content
-      assertTrue(raw.stream().anyMatch(m ->
-          "user".equals(m.get(ROLE_FIELD_NAME)) && "first prompt".equals(m.get(CONTENT_FIELD_NAME))));
+      assertTrue(
+          raw.stream()
+              .anyMatch(
+                  m ->
+                      "user".equals(m.get(ROLE_FIELD_NAME))
+                          && "first prompt".equals(m.get(CONTENT_FIELD_NAME))));
     }
   }
 
