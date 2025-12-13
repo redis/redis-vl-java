@@ -2,6 +2,7 @@ plugins {
     java
     `java-library`
     `maven-publish`
+    id("io.spring.dependency-management") version "1.1.7"
 }
 
 description = "RedisVL - Vector Library for Java"
@@ -83,6 +84,11 @@ dependencies {
     testImplementation("dev.langchain4j:langchain4j-embeddings-all-minilm-l6-v2:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-hugging-face:0.36.2")
 
+    // Spring AI for VCR testing (optional - users include what they need)
+    // Version managed by spring-ai-bom (spring-ai-model contains EmbeddingModel interface)
+    compileOnly("org.springframework.ai:spring-ai-model")
+    testImplementation("org.springframework.ai:spring-ai-model")
+
     // Cohere for integration tests
     testImplementation("com.cohere:cohere-java:1.8.1")
 
@@ -95,6 +101,15 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter:1.19.7")
     testImplementation("net.bytebuddy:byte-buddy:1.14.12")
     testImplementation("net.bytebuddy:byte-buddy-agent:1.14.12")
+}
+
+// Spring AI 1.1.0 - BOM for dependency management
+val springAiVersion = "1.1.0"
+
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.ai:spring-ai-bom:$springAiVersion")
+    }
 }
 
 // Configure test execution
