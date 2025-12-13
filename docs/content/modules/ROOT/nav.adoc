@@ -17,6 +17,9 @@
 .API Reference
 * xref:api-reference.adoc[Javadoc API Reference]
 
+.Experimental
+* xref:vcr-testing.adoc[VCR Test System]
+
 .Resources
 * https://github.com/redis/redis-vl-java[GitHub^]
 * https://github.com/redis/redis-vl-python[Python Version^]

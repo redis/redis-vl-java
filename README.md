@@ -376,6 +376,34 @@ System.out.println(match.getDistance()); // Output: 0.273891836405
 
 > Learn more about [semantic routing](https://redis.github.io/redis-vl-java/redisvl/current/semantic-router.html).
 
+## 🧪 Experimental: VCR Test System
+
+RedisVL includes an experimental VCR (Video Cassette Recorder) test system for recording and replaying LLM/embedding API calls. This enables:
+
+- **Deterministic tests** - Replay recorded responses for consistent results
+- **Cost reduction** - Avoid repeated API calls during test runs
+- **Speed improvement** - Local Redis playback is faster than API calls
+- **Offline testing** - Run tests without network access
+
+```java
+import com.redis.vl.test.vcr.VCRTest;
+import com.redis.vl.test.vcr.VCRMode;
+
+@VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
+public class MyLLMTest {
+
+    @Test
+    void testLLMResponse() {
+        // First run: Records API response to Redis
+        // Subsequent runs: Replays from Redis cassette
+        String response = myLLMService.generate("What is Redis?");
+        assertNotNull(response);
+    }
+}
+```
+
+> Learn more about [VCR testing](https://redis.github.io/redis-vl-java/redisvl/current/vcr-testing.html).
+
 ## 🚀 Why RedisVL?
 
 In the age of GenAI, **vector databases** and **LLMs** are transforming information retrieval systems. With emerging and popular frameworks like [LangChain4J](https://github.com/langchain4j/langchain4j) and [Spring AI](https://spring.io/projects/spring-ai), innovation is rapid. Yet, many organizations face the challenge of delivering AI solutions **quickly** and at **scale**.
