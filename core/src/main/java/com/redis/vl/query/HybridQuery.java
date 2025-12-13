@@ -14,10 +14,21 @@ import redis.clients.jedis.search.aggr.SortedField;
 /**
  * HybridQuery combines text and vector search in Redis using aggregation.
  *
- * <p>Ported from Python: redisvl/query/aggregate.py:23-230 (HybridQuery class)
+ * <p>Ported from Python: redisvl/query/aggregate.py:57-329 (AggregateHybridQuery class)
  *
  * <p>It allows you to perform a hybrid search using both text and vector similarity. It scores
- * documents based on a weighted combination of text and vector similarity.
+ * documents based on a weighted combination of text and vector similarity using the formula:
+ *
+ * <pre>
+ * hybrid_score = (1 - alpha) * text_score + alpha * vector_similarity
+ * </pre>
+ *
+ * <p>Where {@code text_score} is the BM25 score from the text search and {@code vector_similarity}
+ * is the normalized cosine similarity from the vector search.
+ *
+ * <p><strong>Redis Version Requirements:</strong> This query uses the ADDSCORES option in
+ * FT.AGGREGATE to expose the internal text search score (@__score). This feature requires
+ * <strong>Redis 7.4.0 or later</strong>. On older Redis versions, the query will fail.
  *
  * <p><strong>Note on Runtime Parameters:</strong> HybridQuery uses Redis FT.AGGREGATE for
  * aggregation-based hybrid search. As of Redis Stack 7.2+, runtime parameters (efRuntime, epsilon,
@@ -598,30 +609,30 @@ public final class HybridQuery extends AggregationQuery {
     // Set dialect
     aggregation.dialect(dialect);
 
-    // Set text scorer (Python: self.scorer(text_scorer))
-    // Note: In Jedis, we need to use WITHSCORE to get the text score
-    // For now, we'll use vector similarity only and calculate text score differently
+    // Enable ADDSCORES to expose @__score field containing the text search score
+    // (Python: self.add_scores() - line 169)
+    // Note: Requires Redis 7.4.0+. Uses default BM25 scorer.
+    aggregation.addScores();
 
-    // Apply vector similarity calculation (Python: line 122-123)
+    // Apply vector similarity calculation (Python: line 170-172)
     // vector_similarity = (2 - @vector_distance) / 2
+    // Normalizes cosine distance [0,2] to similarity [0,1]
     aggregation.apply("(2 - @" + DISTANCE_ID + ")/2", "vector_similarity");
 
-    // Apply text score - for hybrid queries, the text matching score is implicit
-    // Since we can't easily access __score in aggregations, we'll use a constant of 1.0
-    // This means the hybrid score will be based primarily on vector similarity
-    // TODO: Investigate using WITHSCORE or custom scoring
-    aggregation.apply("1.0", "text_score");
+    // Apply text score from @__score (the BM25/text search score exposed by ADDSCORES)
+    // (Python: text_score="@__score" - line 171)
+    aggregation.apply("@__score", "text_score");
 
-    // Apply hybrid score calculation (Python: line 125)
+    // Apply hybrid score calculation (Python: line 173)
     // hybrid_score = (1-alpha) * text_score + alpha * vector_similarity
     String hybridScoreFormula =
         String.format("%f*@text_score + %f*@vector_similarity", (1 - alpha), alpha);
     aggregation.apply(hybridScoreFormula, "hybrid_score");
 
-    // Sort by hybrid score descending (Python: line 126)
+    // Sort by hybrid score descending (Python: line 174)
     aggregation.sortBy(numResults, SortedField.desc("@hybrid_score"));
 
-    // Load return fields (Python: line 129)
+    // Load return fields (Python: line 176-177)
     if (!returnFields.isEmpty()) {
       aggregation.load(returnFields.toArray(String[]::new));
     }
