@@ -36,7 +36,7 @@ RUN chmod +x gradlew && ./gradlew clean build publishToMavenLocal -x test
 WORKDIR /home/jovyan/java
 
 # Copy the built JAR to a known location (excluding javadoc and sources JARs)
-RUN cp /home/jovyan/redisvl-src/core/build/libs/redisvl-0.12.0.jar /home/jovyan/java/redisvl-core.jar
+RUN cp /home/jovyan/redisvl-src/core/build/libs/redisvl-0.12.1.jar /home/jovyan/java/redisvl-core.jar
 
 # Download all dependencies including Jedis and its transitive dependencies
 RUN mvn dependency:copy-dependencies -DoutputDirectory=./lib
