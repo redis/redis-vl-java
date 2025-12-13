@@ -44,6 +44,7 @@ RedisVL is your go-to client for:
 Add RedisVL to your Java (17+) project using Maven or Gradle:
 
 **Maven:**
+
 ```xml
 <dependency>
     <groupId>com.redis</groupId>
@@ -53,18 +54,22 @@ Add RedisVL to your Java (17+) project using Maven or Gradle:
 ```
 
 **Gradle:**
+
 ```gradle
 implementation 'com.redis:redisvl:0.12.0'
 ```
 
 ## Setting up Redis
+
 Choose from multiple Redis deployment options:
 
 1. [Redis Cloud](https://redis.io/try-free): Managed cloud database (free tier available)
-2. [Redis Stack](https://redis.io/docs/getting-started/install-stack/docker/): Docker image for development
+2. [Redis on Docker](https://hub.docker.com/_/redis): Docker image for development
+
     ```bash
     docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
     ```
+
 3. [Redis Enterprise](https://redis.io/enterprise/): Commercial, self-hosted database
 4. [Azure Managed Redis](https://azure.microsoft.com/en-us/products/managed-redis): Fully managed Redis Enterprise on Azure
 
@@ -395,6 +400,7 @@ Check out the [notebooks](notebooks/) directory for interactive Jupyter notebook
 The notebooks use Java kernel support via JJava. To run them:
 
 1. **Start the notebook environment:**
+
    ```bash
    cd notebooks
    docker compose up -d
@@ -404,6 +410,7 @@ The notebooks use Java kernel support via JJava. To run them:
    Navigate to [http://localhost:8888/](http://localhost:8888/)
 
 3. **Stop when done:**
+
    ```bash
    docker compose down
    ```
