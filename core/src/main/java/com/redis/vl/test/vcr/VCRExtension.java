@@ -1,11 +1,16 @@
 package com.redis.vl.test.vcr;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestWatcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * JUnit 5 extension that provides VCR (Video Cassette Recorder) functionality for recording and
@@ -17,17 +22,33 @@ import org.junit.jupiter.api.extension.TestWatcher;
  *   <li>Redis container lifecycle with AOF/RDB persistence
  *   <li>Cassette storage and retrieval
  *   <li>Test context and call counter management
- *   <li>LLM call interception via ByteBuddy
+ *   <li>Automatic wrapping of {@code @VCRModel} annotated fields
  * </ul>
  *
- * <p>Usage:
+ * <p>Usage with declarative field wrapping:
  *
  * <pre>{@code
- * @VCRTest(mode = VCRMode.PLAYBACK)
+ * @VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
  * class MyLLMTest {
+ *
+ *     @VCRModel
+ *     private EmbeddingModel embeddingModel;
+ *
+ *     @VCRModel
+ *     private ChatModel chatModel;
+ *
+ *     @BeforeEach
+ *     void setup() {
+ *         // Initialize models normally - VCR wraps them automatically
+ *         embeddingModel = new OpenAiEmbeddingModel(...);
+ *         chatModel = new OpenAiChatModel(...);
+ *     }
+ *
  *     @Test
  *     void testLLMCall() {
  *         // LLM calls are automatically recorded/replayed
+ *         embeddingModel.embed("Hello");
+ *         chatModel.generate("What is Redis?");
  *     }
  * }
  * }</pre>
@@ -38,6 +59,8 @@ public class VCRExtension
         BeforeEachCallback,
         AfterEachCallback,
         TestWatcher {
+
+  private static final Logger LOG = LoggerFactory.getLogger(VCRExtension.class);
 
   private static final ExtensionContext.Namespace NAMESPACE =
       ExtensionContext.Namespace.create(VCRExtension.class);
@@ -80,13 +103,97 @@ public class VCRExtension
     // Check for method-level mode overrides
     var method = extensionContext.getRequiredTestMethod();
 
+    VCRMode effectiveMode;
     if (method.isAnnotationPresent(VCRDisabled.class)) {
-      context.setEffectiveMode(VCRMode.OFF);
+      effectiveMode = VCRMode.OFF;
     } else if (method.isAnnotationPresent(VCRRecord.class)) {
-      context.setEffectiveMode(VCRMode.RECORD);
+      effectiveMode = VCRMode.RECORD;
     } else {
       // Use class-level or default mode
-      context.setEffectiveMode(context.getConfiguredMode());
+      effectiveMode = context.getConfiguredMode();
+    }
+    context.setEffectiveMode(effectiveMode);
+
+    // Wrap @VCRModel annotated fields with cassette store
+    wrapAnnotatedFields(extensionContext, testId, effectiveMode, context.getCassetteStore());
+  }
+
+  /**
+   * Scans the test instance for fields annotated with {@code @VCRModel} and wraps them with VCR
+   * interceptors.
+   */
+  private void wrapAnnotatedFields(
+      ExtensionContext extensionContext,
+      String testId,
+      VCRMode mode,
+      VCRCassetteStore cassetteStore) {
+
+    if (mode == VCRMode.OFF) {
+      return; // Don't wrap if VCR is disabled
+    }
+
+    Object testInstance = extensionContext.getRequiredTestInstance();
+    Class<?> testClass = testInstance.getClass();
+
+    // Collect all fields including from parent classes
+    List<Field> allFields = new ArrayList<>();
+    Class<?> currentClass = testClass;
+    while (currentClass != null && currentClass != Object.class) {
+      for (Field field : currentClass.getDeclaredFields()) {
+        allFields.add(field);
+      }
+      currentClass = currentClass.getSuperclass();
+    }
+
+    // Also check fields from nested test classes
+    Class<?> enclosingClass = testClass.getEnclosingClass();
+    if (enclosingClass != null) {
+      // For nested classes, we need to access the outer instance
+      for (Field field : enclosingClass.getDeclaredFields()) {
+        if (field.isAnnotationPresent(VCRModel.class)) {
+          wrapFieldInEnclosingInstance(
+              testInstance, enclosingClass, field, testId, mode, cassetteStore);
+        }
+      }
+    }
+
+    // Wrap fields in the test instance
+    for (Field field : allFields) {
+      if (field.isAnnotationPresent(VCRModel.class)) {
+        VCRModel annotation = field.getAnnotation(VCRModel.class);
+        VCRModelWrapper.wrapField(
+            testInstance, field, testId, mode, annotation.modelName(), cassetteStore);
+      }
+    }
+  }
+
+  /** Wraps a field in the enclosing instance of a nested test class. */
+  @SuppressWarnings("java:S3011") // Reflection access is intentional
+  private void wrapFieldInEnclosingInstance(
+      Object nestedInstance,
+      Class<?> enclosingClass,
+      Field field,
+      String testId,
+      VCRMode mode,
+      VCRCassetteStore cassetteStore) {
+    try {
+      // Find the synthetic field that holds reference to the enclosing instance
+      for (Field syntheticField : nestedInstance.getClass().getDeclaredFields()) {
+        if (syntheticField.getName().startsWith("this$")
+            && syntheticField.getType().equals(enclosingClass)) {
+          syntheticField.setAccessible(true);
+          Object enclosingInstance = syntheticField.get(nestedInstance);
+
+          if (enclosingInstance != null) {
+            VCRModel annotation = field.getAnnotation(VCRModel.class);
+            VCRModelWrapper.wrapField(
+                enclosingInstance, field, testId, mode, annotation.modelName(), cassetteStore);
+          }
+          break;
+        }
+      }
+    } catch (IllegalAccessException e) {
+      LOG.warn("Failed to access enclosing instance: {}", e.getMessage());
     }
   }
 

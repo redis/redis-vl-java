@@ -41,10 +41,10 @@ class VCRAnnotationsTest {
   }
 
   @Test
-  void vcrTestShouldHaveDefaultModeOfPlayback() throws NoSuchMethodException {
+  void vcrTestShouldHaveDefaultModeOfPlaybackOrRecord() throws NoSuchMethodException {
     var method = VCRTest.class.getMethod("mode");
     VCRMode defaultValue = (VCRMode) method.getDefaultValue();
-    assertThat(defaultValue).isEqualTo(VCRMode.PLAYBACK);
+    assertThat(defaultValue).isEqualTo(VCRMode.PLAYBACK_OR_RECORD);
   }
 
   @Test
