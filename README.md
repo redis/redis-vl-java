@@ -383,23 +383,120 @@ RedisVL includes an experimental VCR (Video Cassette Recorder) test system for r
 - **Deterministic tests** - Replay recorded responses for consistent results
 - **Cost reduction** - Avoid repeated API calls during test runs
 - **Speed improvement** - Local Redis playback is faster than API calls
-- **Offline testing** - Run tests without network access
+- **Offline testing** - Run tests without network access or API keys
+
+### Quick Start with JUnit 5
+
+The simplest way to use VCR is with the declarative annotations:
 
 ```java
-import com.redis.vl.test.vcr.VCRTest;
 import com.redis.vl.test.vcr.VCRMode;
+import com.redis.vl.test.vcr.VCRModel;
+import com.redis.vl.test.vcr.VCRTest;
 
 @VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
-public class MyLLMTest {
+class MyLLMTest {
+
+    // Models are automatically wrapped by VCR
+    @VCRModel(modelName = "text-embedding-3-small")
+    private EmbeddingModel embeddingModel = createEmbeddingModel();
+
+    @VCRModel
+    private ChatLanguageModel chatModel = createChatModel();
 
     @Test
-    void testLLMResponse() {
+    void testEmbedding() {
         // First run: Records API response to Redis
         // Subsequent runs: Replays from Redis cassette
-        String response = myLLMService.generate("What is Redis?");
+        Response<Embedding> response = embeddingModel.embed("What is Redis?");
+        assertNotNull(response.content());
+    }
+
+    @Test
+    void testChat() {
+        String response = chatModel.generate("Explain Redis in one sentence.");
         assertNotNull(response);
     }
 }
+```
+
+### VCR Modes
+
+| Mode | Description | API Key Required |
+|------|-------------|------------------|
+| `PLAYBACK` | Only use recorded cassettes. Fails if missing. | No |
+| `PLAYBACK_OR_RECORD` | Use cassette if available, record if not. | Only for first run |
+| `RECORD` | Always call real API and record response. | Yes |
+| `OFF` | Bypass VCR, always call real API. | Yes |
+
+### Environment Variable Override
+
+Override the VCR mode at runtime without changing code:
+
+```bash
+# Record new cassettes
+VCR_MODE=RECORD OPENAI_API_KEY=your-key ./gradlew test
+
+# Playback only (CI/CD, no API key needed)
+VCR_MODE=PLAYBACK ./gradlew test
+```
+
+### LangChain4J Integration
+
+```java
+import com.redis.vl.test.vcr.VCREmbeddingModel;
+import com.redis.vl.test.vcr.VCRChatModel;
+import com.redis.vl.test.vcr.VCRMode;
+
+// Wrap any LangChain4J EmbeddingModel
+VCREmbeddingModel vcrEmbedding = new VCREmbeddingModel(openAiEmbeddingModel);
+vcrEmbedding.setMode(VCRMode.PLAYBACK_OR_RECORD);
+Response<Embedding> response = vcrEmbedding.embed("What is Redis?");
+
+// Wrap any LangChain4J ChatLanguageModel
+VCRChatModel vcrChat = new VCRChatModel(openAiChatModel);
+vcrChat.setMode(VCRMode.PLAYBACK_OR_RECORD);
+String response = vcrChat.generate("What is Redis?");
+```
+
+### Spring AI Integration
+
+```java
+import com.redis.vl.test.vcr.VCRSpringAIEmbeddingModel;
+import com.redis.vl.test.vcr.VCRSpringAIChatModel;
+import com.redis.vl.test.vcr.VCRMode;
+
+// Wrap any Spring AI EmbeddingModel
+VCRSpringAIEmbeddingModel vcrEmbedding = new VCRSpringAIEmbeddingModel(openAiEmbeddingModel);
+vcrEmbedding.setMode(VCRMode.PLAYBACK_OR_RECORD);
+EmbeddingResponse response = vcrEmbedding.embedForResponse(List.of("What is Redis?"));
+
+// Wrap any Spring AI ChatModel
+VCRSpringAIChatModel vcrChat = new VCRSpringAIChatModel(openAiChatModel);
+vcrChat.setMode(VCRMode.PLAYBACK_OR_RECORD);
+String response = vcrChat.call("What is Redis?");
+```
+
+### How It Works
+
+1. **Container Management**: VCR starts a Redis Stack container with persistence
+2. **Model Wrapping**: `@VCRModel` fields are wrapped with VCR proxies
+3. **Cassette Storage**: Responses stored as Redis JSON documents
+4. **Persistence**: Data saved to `src/test/resources/vcr-data/` via Redis AOF/RDB
+5. **Playback**: Subsequent runs load cassettes from persistent storage
+
+### Demo Projects
+
+Complete working examples are available:
+
+- **[LangChain4J VCR Demo](demos/langchain4j-vcr/)** - LangChain4J embedding and chat models
+- **[Spring AI VCR Demo](demos/spring-ai-vcr/)** - Spring AI embedding and chat models
+
+Run the demos without an API key (uses pre-recorded cassettes):
+
+```bash
+./gradlew :demos:langchain4j-vcr:test
+./gradlew :demos:spring-ai-vcr:test
 ```
 
 > Learn more about [VCR testing](https://redis.github.io/redis-vl-java/redisvl/current/vcr-testing.html).
