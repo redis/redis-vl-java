@@ -70,7 +70,8 @@ public class VCRExtension
   @Override
   public void beforeAll(ExtensionContext extensionContext) throws Exception {
     // Get VCR configuration from @VCRTest annotation
-    VCRTest config = extensionContext.getRequiredTestClass().getAnnotation(VCRTest.class);
+    // Walk up the class hierarchy to find the annotation (handles @Nested test classes)
+    VCRTest config = findVCRTestAnnotation(extensionContext.getRequiredTestClass());
 
     if (config == null) {
       // No @VCRTest annotation, use defaults
@@ -208,8 +209,11 @@ public class VCRExtension
       return;
     }
 
-    String testId = getTestId(extensionContext);
-    context.getRegistry().registerSuccess(testId, context.getCurrentCassetteKeys());
+    // Only update registry when recording, not in playback mode
+    if (context.getEffectiveMode().isRecordMode()) {
+      String testId = getTestId(extensionContext);
+      context.getRegistry().registerSuccess(testId, context.getCurrentCassetteKeys());
+    }
   }
 
   @Override
@@ -218,11 +222,12 @@ public class VCRExtension
       return;
     }
 
-    String testId = getTestId(extensionContext);
-    context.getRegistry().registerFailure(testId, cause.getMessage());
+    // Only update registry and delete cassettes when recording
+    if (context.getEffectiveMode().isRecordMode()) {
+      String testId = getTestId(extensionContext);
+      context.getRegistry().registerFailure(testId, cause.getMessage());
 
-    // Optionally delete cassettes for failed tests in RECORD mode
-    if (context.getEffectiveMode() == VCRMode.RECORD) {
+      // Delete cassettes for failed tests in RECORD mode
       context.deleteCassettes(context.getCurrentCassetteKeys());
     }
   }
@@ -249,6 +254,29 @@ public class VCRExtension
 
   private String getTestId(ExtensionContext ctx) {
     return ctx.getRequiredTestClass().getName() + ":" + ctx.getRequiredTestMethod().getName();
+  }
+
+  /**
+   * Finds the @VCRTest annotation on the given class or any of its enclosing classes. This is
+   * needed to properly handle @Nested test classes where the annotation is on the outer class.
+   *
+   * @param testClass the test class to search
+   * @return the VCRTest annotation if found, null otherwise
+   */
+  private VCRTest findVCRTestAnnotation(Class<?> testClass) {
+    Class<?> currentClass = testClass;
+
+    // Walk up the class hierarchy (enclosing classes for nested classes)
+    while (currentClass != null) {
+      VCRTest annotation = currentClass.getAnnotation(VCRTest.class);
+      if (annotation != null) {
+        return annotation;
+      }
+      // Check enclosing class for @Nested test classes
+      currentClass = currentClass.getEnclosingClass();
+    }
+
+    return null;
   }
 
   /** Default VCRTest annotation values for when no annotation is present. */
