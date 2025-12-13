@@ -1,8 +1,13 @@
 package com.redis.vl.test.vcr;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -132,10 +137,22 @@ public class VCRContext {
   private void startRedis() {
     String redisCommand = buildRedisCommand();
 
+    // In playback mode, copy data to temp directory to prevent modifications to source files
+    Path mountPath = dataDir;
+    if (!effectiveMode.isRecordMode()) {
+      try {
+        mountPath = copyDataToTemp();
+      } catch (Exception e) {
+        System.err.println(
+            "VCR: Failed to copy data to temp directory, using original: " + e.getMessage());
+        mountPath = dataDir;
+      }
+    }
+
     redisContainer =
         new GenericContainer<>(DockerImageName.parse(config.redisImage()))
             .withExposedPorts(6379)
-            .withFileSystemBind(dataDir.toAbsolutePath().toString(), "/data", BindMode.READ_WRITE)
+            .withFileSystemBind(mountPath.toAbsolutePath().toString(), "/data", BindMode.READ_WRITE)
             .withCommand(redisCommand);
 
     redisContainer.start();
@@ -150,20 +167,57 @@ public class VCRContext {
 
   private String buildRedisCommand() {
     StringBuilder cmd = new StringBuilder("redis-stack-server");
-    cmd.append(" --appendonly yes");
-    cmd.append(" --appendfsync everysec");
     cmd.append(" --dir /data");
     cmd.append(" --dbfilename dump.rdb");
 
     if (effectiveMode.isRecordMode()) {
-      // Enable periodic saves in record mode
+      // Enable AOF and periodic saves in record mode
+      cmd.append(" --appendonly yes");
+      cmd.append(" --appendfsync everysec");
       cmd.append(" --save 60 1 --save 300 10");
     } else {
-      // Disable saves in playback mode for speed
+      // Disable all persistence in playback mode (read-only)
+      cmd.append(" --appendonly no");
       cmd.append(" --save \"\"");
     }
 
     return cmd.toString();
+  }
+
+  /**
+   * Copies VCR data to a temporary directory to prevent modifications to source files. Used in
+   * playback mode to ensure cassette files are not modified.
+   *
+   * @return path to the temporary directory containing the copied data
+   * @throws IOException if copying fails
+   */
+  private Path copyDataToTemp() throws IOException {
+    Path tempDir = Files.createTempDirectory("vcr-playback-");
+    tempDir.toFile().deleteOnExit();
+
+    Files.walkFileTree(
+        dataDir,
+        new SimpleFileVisitor<>() {
+          @Override
+          public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+              throws IOException {
+            Path targetDir = tempDir.resolve(dataDir.relativize(dir));
+            Files.createDirectories(targetDir);
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            Path targetFile = tempDir.resolve(dataDir.relativize(file));
+            Files.copy(file, targetFile, StandardCopyOption.REPLACE_EXISTING);
+            return FileVisitResult.CONTINUE;
+          }
+        });
+
+    System.out.println(
+        "VCR: Using temporary copy at " + tempDir + " for playback (read-only protection)");
+    return tempDir;
   }
 
   private void waitForRedis() {
