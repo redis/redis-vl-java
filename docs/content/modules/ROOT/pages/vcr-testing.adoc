@@ -56,26 +56,62 @@ testImplementation 'org.testcontainers:junit-jupiter:1.19.7'
 
 === Basic Usage
 
-Annotate your test class with `@VCRTest` to enable VCR functionality:
+The recommended approach uses `@VCRTest` on the test class and `@VCRModel` on model fields for automatic wrapping:
 
 [source,java]
 ----
 import com.redis.vl.test.vcr.VCRTest;
 import com.redis.vl.test.vcr.VCRMode;
+import com.redis.vl.test.vcr.VCRModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.chat.ChatLanguageModel;
 import org.junit.jupiter.api.Test;
 
 @VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
 public class MyLLMTest {
 
+    // Models are automatically wrapped by VCR - initialize at field declaration
+    @VCRModel(modelName = "text-embedding-3-small")
+    private EmbeddingModel embeddingModel = createEmbeddingModel();
+
+    @VCRModel
+    private ChatLanguageModel chatModel = createChatModel();
+
     @Test
-    void testLLMResponse() {
+    void testEmbedding() {
         // First run: Records API response to Redis
         // Subsequent runs: Replays from Redis cassette
-        String response = myLLMService.generate("What is Redis?");
+        Response<Embedding> response = embeddingModel.embed("What is Redis?");
+        assertNotNull(response.content());
+    }
+
+    @Test
+    void testChat() {
+        String response = chatModel.generate("Explain Redis in one sentence.");
         assertNotNull(response);
+    }
+
+    private static EmbeddingModel createEmbeddingModel() {
+        String key = System.getenv("OPENAI_API_KEY");
+        if (key == null) key = "vcr-playback-mode";  // Dummy key for playback
+        return OpenAiEmbeddingModel.builder()
+            .apiKey(key)
+            .modelName("text-embedding-3-small")
+            .build();
+    }
+
+    private static ChatLanguageModel createChatModel() {
+        String key = System.getenv("OPENAI_API_KEY");
+        if (key == null) key = "vcr-playback-mode";
+        return OpenAiChatModel.builder()
+            .apiKey(key)
+            .modelName("gpt-4o-mini")
+            .build();
     }
 }
 ----
+
+IMPORTANT: Models must be initialized at field declaration time, not in `@BeforeEach`. The VCR extension wraps `@VCRModel` fields before `@BeforeEach` methods run.
 
 == VCR Modes
 
@@ -109,6 +145,24 @@ The VCR system supports six modes to control recording and playback behavior:
 * **Development**: Use `PLAYBACK_OR_RECORD` for convenience
 * **CI/CD**: Use `PLAYBACK` to ensure tests are deterministic
 * **Initial setup**: Use `RECORD` to capture all cassettes
+
+=== Environment Variable Override
+
+Override the VCR mode at runtime using the `VCR_MODE` environment variable. This takes precedence over the annotation mode:
+
+[source,bash]
+----
+# Force RECORD mode to capture new cassettes
+VCR_MODE=RECORD OPENAI_API_KEY=your-key ./gradlew test
+
+# Force PLAYBACK mode (no API key required)
+VCR_MODE=PLAYBACK ./gradlew test
+
+# Force OFF mode to bypass VCR
+VCR_MODE=OFF OPENAI_API_KEY=your-key ./gradlew test
+----
+
+Valid values: `PLAYBACK`, `PLAYBACK_OR_RECORD`, `RECORD`, `RECORD_NEW`, `RECORD_FAILED`, `OFF`
 
 == Configuration
 
@@ -215,7 +269,7 @@ The VCR system consists of several components:
 * **VCRExtension** - JUnit 5 extension that manages the VCR lifecycle
 * **VCRContext** - Manages Redis container, call counters, and statistics
 * **VCRRegistry** - Tracks recording status for each test
-* **VCRCassetteStore** - Stores/retrieves cassettes in Redis (coming soon)
+* **VCRCassetteStore** - Stores/retrieves cassettes in Redis using JSON format
 
 === Cassette Key Format
 
@@ -266,12 +320,12 @@ public class CITest {
 
 === Updating Cassettes
 
-When API responses change, re-record cassettes:
+When API responses change, re-record cassettes using the `VCR_MODE` environment variable:
 
 [source,bash]
 ----
 # Run tests in RECORD mode to update all cassettes
-./gradlew test -Dvcr.mode=RECORD
+VCR_MODE=RECORD ./gradlew test
 ----
 
 === Sensitive Data
