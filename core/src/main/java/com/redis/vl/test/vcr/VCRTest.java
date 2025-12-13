@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * <p>Configuration options:
  *
  * <ul>
- *   <li>{@link #mode()} - The VCR operating mode (default: PLAYBACK)
+ *   <li>{@link #mode()} - The VCR operating mode (default: PLAYBACK_OR_RECORD)
  *   <li>{@link #dataDir()} - Directory for storing cassettes (default: src/test/resources/vcr-data)
  *   <li>{@link #redisImage()} - Docker image for Redis container (default:
  *       redis/redis-stack:latest)
@@ -49,9 +49,9 @@ public @interface VCRTest {
   /**
    * The VCR operating mode for this test class.
    *
-   * @return the VCR mode to use (default: PLAYBACK)
+   * @return the VCR mode to use (default: PLAYBACK_OR_RECORD)
    */
-  VCRMode mode() default VCRMode.PLAYBACK;
+  VCRMode mode() default VCRMode.PLAYBACK_OR_RECORD;
 
   /**
    * The directory where VCR cassettes (recorded responses) are stored.

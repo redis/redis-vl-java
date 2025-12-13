@@ -35,6 +35,7 @@ public class VCRContext {
   private GenericContainer<?> redisContainer;
   private JedisPooled jedis;
   private VCRRegistry registry;
+  private VCRCassetteStore cassetteStore;
 
   private String currentTestId;
   private VCRMode effectiveMode;
@@ -46,15 +47,55 @@ public class VCRContext {
   private final AtomicLong cacheMisses = new AtomicLong();
   private final AtomicLong apiCalls = new AtomicLong();
 
+  /** Environment variable name for overriding VCR mode. */
+  public static final String VCR_MODE_ENV = "VCR_MODE";
+
   /**
    * Creates a new VCR context with the given configuration.
+   *
+   * <p>The VCR mode can be overridden via the {@code VCR_MODE} environment variable. Valid values
+   * are: PLAYBACK, PLAYBACK_OR_RECORD, RECORD, OFF. If the environment variable is set, it takes
+   * precedence over the annotation's mode setting.
    *
    * @param config the VCR test configuration
    */
   public VCRContext(VCRTest config) {
     this.config = config;
     this.dataDir = Path.of(config.dataDir());
-    this.effectiveMode = config.mode();
+    this.effectiveMode = resolveMode(config.mode());
+  }
+
+  /**
+   * Resolves the effective VCR mode, checking the environment variable first.
+   *
+   * @param annotationMode the mode specified in the annotation
+   * @return the effective mode (env var takes precedence)
+   */
+  private static VCRMode resolveMode(VCRMode annotationMode) {
+    String envMode = System.getenv(VCR_MODE_ENV);
+    if (envMode != null && !envMode.isEmpty()) {
+      try {
+        VCRMode mode = VCRMode.valueOf(envMode.toUpperCase());
+        System.out.println(
+            "VCR: Using mode from "
+                + VCR_MODE_ENV
+                + " environment variable: "
+                + mode
+                + " (annotation was: "
+                + annotationMode
+                + ")");
+        return mode;
+      } catch (IllegalArgumentException e) {
+        System.err.println(
+            "VCR: Invalid "
+                + VCR_MODE_ENV
+                + " value '"
+                + envMode
+                + "'. Valid values: PLAYBACK, PLAYBACK_OR_RECORD, RECORD, OFF. Using annotation value: "
+                + annotationMode);
+      }
+    }
+    return annotationMode;
   }
 
   /**
@@ -69,8 +110,21 @@ public class VCRContext {
     // Start Redis container with persistence
     startRedis();
 
-    // Initialize registry
+    // Initialize registry and cassette store
     registry = new VCRRegistry(jedis);
+    cassetteStore = new VCRCassetteStore(jedis);
+  }
+
+  /**
+   * Gets the cassette store for storing/retrieving cassettes.
+   *
+   * @return the cassette store
+   */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "Callers need direct access to shared cassette store")
+  public VCRCassetteStore getCassetteStore() {
+    return cassetteStore;
   }
 
   /** Starts the Redis container with appropriate persistence configuration. */
