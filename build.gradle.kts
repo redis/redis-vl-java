@@ -145,7 +145,7 @@ tasks.wrapper {
 // Task to copy jar to notebooks directory for Jupyter
 tasks.register<Copy>("copyJarToNotebooks") {
     dependsOn(":core:jar")
-    from("core/build/libs/redisvl-0.12.0.jar")
+    from("core/build/libs/redisvl-0.12.1.jar")
     into("notebooks")
 }
 
