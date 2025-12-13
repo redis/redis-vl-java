@@ -65,6 +65,16 @@ dependencies {
     // Cohere Java SDK for reranking
     compileOnly("com.cohere:cohere-java:1.8.1")
 
+    // VCR Test Utilities (optional - users include what they need for testing)
+    // JUnit 5 for extension development
+    compileOnly("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    // Testcontainers for Redis persistence
+    compileOnly("org.testcontainers:testcontainers:1.19.7")
+    compileOnly("org.testcontainers:junit-jupiter:1.19.7")
+    // ByteBuddy for method interception (future LLM interceptor)
+    compileOnly("net.bytebuddy:byte-buddy:1.14.12")
+    compileOnly("net.bytebuddy:byte-buddy-agent:1.14.12")
+
     // Test dependencies for LangChain4J (include in tests to verify integration)
     testImplementation("dev.langchain4j:langchain4j:0.36.2")
     testImplementation("dev.langchain4j:langchain4j-open-ai:0.36.2")
@@ -79,6 +89,12 @@ dependencies {
     // Additional test dependencies
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.mockito:mockito-core:5.11.0")
+
+    // VCR test dependencies (to test VCR functionality)
+    testImplementation("org.testcontainers:testcontainers:1.19.7")
+    testImplementation("org.testcontainers:junit-jupiter:1.19.7")
+    testImplementation("net.bytebuddy:byte-buddy:1.14.12")
+    testImplementation("net.bytebuddy:byte-buddy-agent:1.14.12")
 }
 
 // Configure test execution

@@ -1,0 +1,349 @@
+= VCR Test System
+:navtitle: VCR Testing
+:description: Record and replay LLM/embedding API calls for deterministic, fast, and cost-effective testing
+:page-toclevels: 3
+:experimental:
+
+CAUTION: This feature is experimental and the API may change in future releases.
+
+== Overview
+
+The VCR (Video Cassette Recorder) test system provides a way to record and replay LLM and embedding API calls during testing. This approach offers several benefits:
+
+* **Deterministic tests** - Replay recorded responses for consistent test results
+* **Cost reduction** - Avoid repeated API calls during test runs
+* **Speed improvement** - Playback from local Redis is much faster than API calls
+* **Offline testing** - Run tests without network access after initial recording
+
+The VCR system uses Redis for cassette storage with AOF/RDB persistence, allowing recorded data to be committed to version control and shared across team members.
+
+== Quick Start
+
+=== Add Dependencies
+
+To use the VCR test utilities, add the following test dependencies alongside RedisVL:
+
+[source,xml]
+----
+<!-- Maven -->
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter</artifactId>
+    <version>5.10.2</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.testcontainers</groupId>
+    <artifactId>testcontainers</artifactId>
+    <version>1.19.7</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.testcontainers</groupId>
+    <artifactId>junit-jupiter</artifactId>
+    <version>1.19.7</version>
+    <scope>test</scope>
+</dependency>
+----
+
+[source,groovy]
+----
+// Gradle
+testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+testImplementation 'org.testcontainers:testcontainers:1.19.7'
+testImplementation 'org.testcontainers:junit-jupiter:1.19.7'
+----
+
+=== Basic Usage
+
+Annotate your test class with `@VCRTest` to enable VCR functionality:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRTest;
+import com.redis.vl.test.vcr.VCRMode;
+import org.junit.jupiter.api.Test;
+
+@VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
+public class MyLLMTest {
+
+    @Test
+    void testLLMResponse() {
+        // First run: Records API response to Redis
+        // Subsequent runs: Replays from Redis cassette
+        String response = myLLMService.generate("What is Redis?");
+        assertNotNull(response);
+    }
+}
+----
+
+== VCR Modes
+
+The VCR system supports six modes to control recording and playback behavior:
+
+[cols="1,3"]
+|===
+|Mode |Description
+
+|`PLAYBACK`
+|Always replay from cassettes. Fails if cassette not found.
+
+|`RECORD`
+|Always record new cassettes, overwriting existing ones.
+
+|`RECORD_NEW`
+|Record only if cassette is missing; otherwise replay.
+
+|`RECORD_FAILED`
+|Re-record cassettes for previously failed tests; replay successful ones.
+
+|`PLAYBACK_OR_RECORD`
+|Replay if cassette exists; record if not. Best for general use.
+
+|`OFF`
+|Disable VCR entirely - all API calls go through normally.
+|===
+
+=== Recommended Modes
+
+* **Development**: Use `PLAYBACK_OR_RECORD` for convenience
+* **CI/CD**: Use `PLAYBACK` to ensure tests are deterministic
+* **Initial setup**: Use `RECORD` to capture all cassettes
+
+== Configuration
+
+=== Data Directory
+
+Configure where cassette data is stored:
+
+[source,java]
+----
+@VCRTest(
+    mode = VCRMode.PLAYBACK_OR_RECORD,
+    dataDir = "src/test/resources/vcr-data"  // default
+)
+public class MyTest {
+    // ...
+}
+----
+
+The data directory contains Redis persistence files (RDB/AOF) that can be committed to version control.
+
+=== Redis Image
+
+Specify a custom Redis image:
+
+[source,java]
+----
+@VCRTest(
+    mode = VCRMode.PLAYBACK,
+    redisImage = "redis/redis-stack:7.2.0-v6"  // default
+)
+public class MyTest {
+    // ...
+}
+----
+
+== Method-Level Overrides
+
+=== @VCRRecord
+
+Force recording for a specific test method:
+
+[source,java]
+----
+@VCRTest(mode = VCRMode.PLAYBACK)
+public class MyTest {
+
+    @Test
+    void normalTest() {
+        // Uses PLAYBACK mode from class annotation
+    }
+
+    @Test
+    @VCRRecord
+    void alwaysRecordThisTest() {
+        // Forces RECORD mode for this test only
+    }
+}
+----
+
+=== @VCRDisabled
+
+Disable VCR for a specific test:
+
+[source,java]
+----
+@VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
+public class MyTest {
+
+    @Test
+    @VCRDisabled
+    void testWithRealAPI() {
+        // VCR bypassed - makes real API calls
+    }
+}
+----
+
+== VCR Registry
+
+The VCR Registry tracks the recording status of each test:
+
+[cols="1,3"]
+|===
+|Status |Description
+
+|`RECORDED`
+|Test has a valid cassette recording
+
+|`FAILED`
+|Previous recording attempt failed
+
+|`MISSING`
+|No cassette exists for this test
+
+|`OUTDATED`
+|Cassette exists but may need re-recording
+|===
+
+Smart modes like `RECORD_NEW` and `RECORD_FAILED` use registry status to make intelligent decisions about when to record.
+
+== Architecture
+
+The VCR system consists of several components:
+
+* **VCRExtension** - JUnit 5 extension that manages the VCR lifecycle
+* **VCRContext** - Manages Redis container, call counters, and statistics
+* **VCRRegistry** - Tracks recording status for each test
+* **VCRCassetteStore** - Stores/retrieves cassettes in Redis (coming soon)
+
+=== Cassette Key Format
+
+Cassettes are stored in Redis with keys following this pattern:
+
+----
+vcr:{type}:{testId}:{callIndex}
+----
+
+For example:
+----
+vcr:llm:MyTest.testGeneration:0001
+vcr:embedding:MyTest.testEmbedding:0001
+----
+
+== Statistics
+
+The VCR system tracks statistics during test execution:
+
+* **Cache Hits** - Number of successful cassette replays
+* **Cache Misses** - Number of cassettes not found (triggering API calls in record mode)
+* **API Calls** - Number of actual API calls made
+
+== Best Practices
+
+=== Version Control
+
+Commit your `vcr-data/` directory to version control:
+
+[source]
+----
+src/test/resources/vcr-data/
+├── dump.rdb          # RDB snapshot
+└── appendonlydir/    # AOF segments
+----
+
+=== CI/CD Integration
+
+Use strict `PLAYBACK` mode in CI to ensure deterministic tests:
+
+[source,java]
+----
+@VCRTest(mode = VCRMode.PLAYBACK)
+public class CITest {
+    // Tests will fail if cassettes are missing
+}
+----
+
+=== Updating Cassettes
+
+When API responses change, re-record cassettes:
+
+[source,bash]
+----
+# Run tests in RECORD mode to update all cassettes
+./gradlew test -Dvcr.mode=RECORD
+----
+
+=== Sensitive Data
+
+Be mindful of what gets recorded:
+
+* API responses may contain sensitive information
+* Consider filtering or redacting sensitive data
+* Use `.gitignore` patterns if needed
+
+== Example: Testing with SemanticCache
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRTest;
+import com.redis.vl.test.vcr.VCRMode;
+import com.redis.vl.extensions.cache.llm.SemanticCache;
+import org.junit.jupiter.api.Test;
+
+@VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
+public class SemanticCacheVCRTest {
+
+    @Test
+    void testCacheWithRecordedEmbeddings() {
+        // Embeddings are recorded on first run
+        SemanticCache cache = new SemanticCache(config, jedis);
+
+        cache.store("What is Redis?", "Redis is an in-memory data store...");
+
+        CacheResult result = cache.check("Tell me about Redis");
+        assertTrue(result.isHit());
+    }
+}
+----
+
+== Troubleshooting
+
+=== Cassette Not Found
+
+If you see "cassette not found" errors in PLAYBACK mode:
+
+1. Ensure cassettes were recorded (run in RECORD mode first)
+2. Check the data directory path matches
+3. Verify Redis persistence files exist
+
+=== Inconsistent Results
+
+If test results vary between runs:
+
+1. Ensure you're using a fixed VCR mode
+2. Check for non-deterministic test logic
+3. Verify cassette data wasn't corrupted
+
+=== Container Issues
+
+If Redis container fails to start:
+
+1. Ensure Docker is running
+2. Check port availability
+3. Verify the Redis image exists
+
+== Future Enhancements
+
+The following features are planned for future releases:
+
+* **LLM Interceptor** - Automatic interception of LangChain4J LLM calls
+* **Embedding Interceptor** - Integration with EmbeddingsCache
+* **Cassette Management CLI** - Tools for managing recorded cassettes
+* **Selective Recording** - Fine-grained control over what gets recorded
+
+== See Also
+
+* xref:llmcache.adoc[LLM Cache]
+* xref:vectorizers.adoc[Vectorizers]
+* xref:getting-started.adoc[Getting Started]
