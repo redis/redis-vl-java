@@ -333,14 +333,278 @@ If Redis container fails to start:
 2. Check port availability
 3. Verify the Redis image exists
 
-== Future Enhancements
+== Framework Integration
 
-The following features are planned for future releases:
+The VCR system provides drop-in wrappers for popular AI frameworks. These wrappers work standalone without requiring any other RedisVL components.
 
-* **LLM Interceptor** - Automatic interception of LangChain4J LLM calls
-* **Embedding Interceptor** - Integration with EmbeddingsCache
-* **Cassette Management CLI** - Tools for managing recorded cassettes
-* **Selective Recording** - Fine-grained control over what gets recorded
+=== LangChain4J
+
+==== Embedding Model
+
+Use `VCREmbeddingModel` to wrap any LangChain4J `EmbeddingModel`:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCREmbeddingModel;
+import com.redis.vl.test.vcr.VCRMode;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.model.output.Response;
+
+// Create your LangChain4J embedding model
+EmbeddingModel openAiModel = OpenAiEmbeddingModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .modelName("text-embedding-3-small")
+    .build();
+
+// Wrap with VCR for recording/playback
+VCREmbeddingModel vcrModel = new VCREmbeddingModel(openAiModel);
+vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+vcrModel.setTestId("MyTest.testEmbedding");
+
+// Use exactly like the original model - VCR handles caching transparently
+Response<Embedding> response = vcrModel.embed("What is Redis?");
+float[] vector = response.content().vector();
+
+// Batch embeddings also supported
+List<TextSegment> segments = List.of(
+    TextSegment.from("Document chunk 1"),
+    TextSegment.from("Document chunk 2")
+);
+Response<List<Embedding>> batchResponse = vcrModel.embedAll(segments);
+----
+
+The `VCREmbeddingModel` implements the full `dev.langchain4j.model.embedding.EmbeddingModel` interface, so it can be used anywhere a LangChain4J embedding model is expected.
+
+==== Supported Methods
+
+* `embed(String text)` - Single text embedding
+* `embed(TextSegment segment)` - TextSegment embedding
+* `embedAll(List<TextSegment> segments)` - Batch embedding
+* `dimension()` - Returns embedding dimensions
+
+==== Chat Model
+
+Use `VCRChatModel` to wrap any LangChain4J `ChatLanguageModel`:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRChatModel;
+import com.redis.vl.test.vcr.VCRMode;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.output.Response;
+
+// Create your LangChain4J chat model
+ChatLanguageModel openAiModel = OpenAiChatModel.builder()
+    .apiKey(System.getenv("OPENAI_API_KEY"))
+    .modelName("gpt-4o-mini")
+    .build();
+
+// Wrap with VCR for recording/playback
+VCRChatModel vcrModel = new VCRChatModel(openAiModel);
+vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+vcrModel.setTestId("MyTest.testChat");
+
+// Use exactly like the original model - VCR handles caching transparently
+Response<AiMessage> response = vcrModel.generate(UserMessage.from("What is Redis?"));
+String answer = response.content().text();
+
+// Simple string convenience method
+String simpleAnswer = vcrModel.generate("Tell me about Redis Vector Library");
+
+// Multiple messages
+Response<AiMessage> chatResponse = vcrModel.generate(
+    UserMessage.from("What is Redis?"),
+    UserMessage.from("How does it handle vectors?")
+);
+----
+
+The `VCRChatModel` implements the full `dev.langchain4j.model.chat.ChatLanguageModel` interface, so it can be used anywhere a LangChain4J chat model is expected.
+
+==== Supported Chat Methods
+
+* `generate(ChatMessage... messages)` - Generate from varargs messages
+* `generate(List<ChatMessage> messages)` - Generate from list of messages
+* `generate(String text)` - Simple string convenience method
+
+=== Spring AI
+
+==== Embedding Model
+
+Use `VCRSpringAIEmbeddingModel` to wrap any Spring AI `EmbeddingModel`:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRSpringAIEmbeddingModel;
+import com.redis.vl.test.vcr.VCRMode;
+import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.ai.openai.OpenAiEmbeddingModel;
+import org.springframework.ai.document.Document;
+
+// Create your Spring AI embedding model
+EmbeddingModel openAiModel = new OpenAiEmbeddingModel(openAiApi);
+
+// Wrap with VCR for recording/playback
+VCRSpringAIEmbeddingModel vcrModel = new VCRSpringAIEmbeddingModel(openAiModel);
+vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+vcrModel.setTestId("MyTest.testSpringAIEmbedding");
+
+// Use exactly like the original model
+float[] vector = vcrModel.embed("What is Redis?");
+
+// Batch embeddings
+List<float[]> vectors = vcrModel.embed(List.of("text 1", "text 2"));
+
+// Document embedding
+Document doc = new Document("Document content here");
+float[] docVector = vcrModel.embed(doc);
+
+// Full EmbeddingResponse API
+EmbeddingResponse response = vcrModel.embedForResponse(List.of("query text"));
+----
+
+The `VCRSpringAIEmbeddingModel` implements the full `org.springframework.ai.embedding.EmbeddingModel` interface for seamless integration with Spring AI applications.
+
+==== Supported Methods
+
+* `embed(String text)` - Single text embedding returning `float[]`
+* `embed(Document document)` - Document embedding
+* `embed(List<String> texts)` - Batch embedding returning `List<float[]>`
+* `embedForResponse(List<String> texts)` - Full `EmbeddingResponse`
+* `call(EmbeddingRequest request)` - Standard Spring AI call pattern
+* `dimensions()` - Returns embedding dimensions
+
+==== Chat Model
+
+Use `VCRSpringAIChatModel` to wrap any Spring AI `ChatModel`:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRSpringAIChatModel;
+import com.redis.vl.test.vcr.VCRMode;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.openai.OpenAiChatModel;
+
+// Create your Spring AI chat model
+ChatModel openAiModel = new OpenAiChatModel(openAiApi);
+
+// Wrap with VCR for recording/playback
+VCRSpringAIChatModel vcrModel = new VCRSpringAIChatModel(openAiModel);
+vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+vcrModel.setTestId("MyTest.testChat");
+
+// Use exactly like the original model - VCR handles caching transparently
+String response = vcrModel.call("What is Redis?");
+
+// With Prompt object
+Prompt prompt = new Prompt(List.of(new UserMessage("Explain vector search")));
+ChatResponse chatResponse = vcrModel.call(prompt);
+String answer = chatResponse.getResult().getOutput().getText();
+
+// Multiple messages
+String multiResponse = vcrModel.call(
+    new UserMessage("What is Redis?"),
+    new UserMessage("How does it handle vectors?")
+);
+----
+
+The `VCRSpringAIChatModel` implements the full `org.springframework.ai.chat.model.ChatModel` interface for seamless integration with Spring AI applications.
+
+==== Supported Chat Methods
+
+* `call(String message)` - Simple string convenience method
+* `call(Message... messages)` - Generate from varargs messages
+* `call(Prompt prompt)` - Full Prompt/ChatResponse API
+
+=== Common VCR Operations
+
+Both wrappers share common VCR functionality:
+
+[source,java]
+----
+// Set VCR mode
+vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+
+// Set test identifier (for cassette key generation)
+vcrModel.setTestId("MyTestClass.testMethod");
+
+// Reset call counter between tests
+vcrModel.resetCallCounter();
+
+// Get statistics
+int hits = vcrModel.getCacheHits();
+int misses = vcrModel.getCacheMisses();
+int recorded = vcrModel.getRecordedCount();
+
+// Reset statistics
+vcrModel.resetStatistics();
+
+// Access underlying delegate
+EmbeddingModel delegate = vcrModel.getDelegate();
+----
+
+=== Using with JUnit 5
+
+Combine VCR wrappers with the `@VCRTest` annotation for a complete testing solution:
+
+[source,java]
+----
+import com.redis.vl.test.vcr.VCRTest;
+import com.redis.vl.test.vcr.VCRMode;
+import com.redis.vl.test.vcr.VCREmbeddingModel;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+@VCRTest(mode = VCRMode.PLAYBACK_OR_RECORD)
+public class EmbeddingServiceTest {
+
+    private VCREmbeddingModel vcrModel;
+
+    @BeforeEach
+    void setUp() {
+        EmbeddingModel realModel = OpenAiEmbeddingModel.builder()
+            .apiKey(System.getenv("OPENAI_API_KEY"))
+            .build();
+        vcrModel = new VCREmbeddingModel(realModel);
+        vcrModel.setMode(VCRMode.PLAYBACK_OR_RECORD);
+    }
+
+    @Test
+    void testSemanticSearch() {
+        vcrModel.setTestId("EmbeddingServiceTest.testSemanticSearch");
+
+        // First run: calls OpenAI API and records response
+        // Subsequent runs: replays from Redis cassette
+        Response<Embedding> response = vcrModel.embed("search query");
+
+        assertNotNull(response);
+        assertEquals(1536, response.content().vector().length);
+    }
+
+    @Test
+    void testBatchEmbedding() {
+        vcrModel.setTestId("EmbeddingServiceTest.testBatchEmbedding");
+
+        List<TextSegment> docs = List.of(
+            TextSegment.from("Document 1"),
+            TextSegment.from("Document 2"),
+            TextSegment.from("Document 3")
+        );
+
+        Response<List<Embedding>> response = vcrModel.embedAll(docs);
+
+        assertEquals(3, response.content().size());
+    }
+}
+----
 
 == See Also
 
