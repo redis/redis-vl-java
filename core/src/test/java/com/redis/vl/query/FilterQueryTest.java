@@ -539,4 +539,124 @@ class FilterQueryTest {
     Filter ltInstant = Filter.timestamp("last_updated").lt(instant);
     assertThat(ltInstant.build()).isEqualTo("@last_updated:[-inf (1742147139]");
   }
+
+  // ========== Tag wildcard (tagLike) filter tests ==========
+
+  @Test
+  @DisplayName("Should create tag wildcard filter with prefix pattern")
+  void shouldCreateTagWildcardFilterWithPrefixPattern() {
+    // When - basic prefix wildcard
+    Filter filter = Filter.tagLike("category", "tech*");
+
+    // Then - asterisk should NOT be escaped
+    assertThat(filter.build()).isEqualTo("@category:{tech*}");
+  }
+
+  @Test
+  @DisplayName("Should create tag wildcard filter with suffix pattern")
+  void shouldCreateTagWildcardFilterWithSuffixPattern() {
+    // When - suffix wildcard
+    Filter filter = Filter.tagLike("category", "*tech");
+
+    // Then
+    assertThat(filter.build()).isEqualTo("@category:{*tech}");
+  }
+
+  @Test
+  @DisplayName("Should create tag wildcard filter with contains pattern")
+  void shouldCreateTagWildcardFilterWithContainsPattern() {
+    // When - contains wildcard (asterisk on both sides)
+    Filter filter = Filter.tagLike("category", "*tech*");
+
+    // Then
+    assertThat(filter.build()).isEqualTo("@category:{*tech*}");
+  }
+
+  @Test
+  @DisplayName("Should create tag wildcard filter with multiple patterns")
+  void shouldCreateTagWildcardFilterWithMultiplePatterns() {
+    // When - multiple patterns
+    Filter filter = Filter.tagLike("category", "tech*", "*soft");
+
+    // Then
+    assertThat(filter.build()).isEqualTo("@category:{tech*|*soft}");
+  }
+
+  @Test
+  @DisplayName("Should escape special characters but preserve wildcards in tagLike")
+  void shouldEscapeSpecialCharsButPreserveWildcards() {
+    // When - pattern with special char (hyphen) AND wildcard
+    Filter filter = Filter.tagLike("category", "tech*-pro");
+
+    // Then - hyphen should be escaped, asterisk should NOT be escaped
+    assertThat(filter.build()).isEqualTo("@category:{tech*\\-pro}");
+
+    // When - pattern with space and wildcard
+    Filter filterWithSpace = Filter.tagLike("category", "hello w*");
+
+    // Then - space should be escaped, asterisk should NOT be escaped
+    assertThat(filterWithSpace.build()).isEqualTo("@category:{hello\\ w*}");
+
+    // When - pattern with special character ($) and wildcard
+    Filter filterWithDollar = Filter.tagLike("category", "cat$*");
+
+    // Then - $ should be escaped, asterisk should NOT be escaped
+    assertThat(filterWithDollar.build()).isEqualTo("@category:{cat\\$*}");
+  }
+
+  @Test
+  @DisplayName("Should return wildcard for empty tagLike patterns")
+  void shouldReturnWildcardForEmptyTagLikePatterns() {
+    // Test empty string array
+    Filter emptyFilter = Filter.tagLike("category");
+    assertThat(emptyFilter.build()).isEqualTo("*");
+
+    // Test null array
+    Filter nullFilter = Filter.tagLike("category", (String[]) null);
+    assertThat(nullFilter.build()).isEqualTo("*");
+  }
+
+  @Test
+  @DisplayName("Tag filter should escape asterisk while tagLike preserves it")
+  void tagFilterShouldEscapeAsteriskWhileTagLikePreservesIt() {
+    // When - using regular tag filter with asterisk
+    Filter tagFilter = Filter.tag("category", "tech*");
+
+    // Then - asterisk SHOULD be escaped in regular tag
+    assertThat(tagFilter.build()).isEqualTo("@category:{tech\\*}");
+
+    // When - using tagLike filter with asterisk
+    Filter tagLikeFilter = Filter.tagLike("category", "tech*");
+
+    // Then - asterisk should NOT be escaped in tagLike
+    assertThat(tagLikeFilter.build()).isEqualTo("@category:{tech*}");
+  }
+
+  @Test
+  @DisplayName("Should combine tagLike with exact tag filters")
+  void shouldCombineTagLikeWithExactTagFilters() {
+    // Create filters with different operators
+    Filter exactMatch = Filter.tag("brand", "nike");
+    Filter wildcardMatch = Filter.tagLike("category", "tech*");
+
+    // Verify individual filters work correctly
+    assertThat(exactMatch.build()).isEqualTo("@brand:{nike}");
+    assertThat(wildcardMatch.build()).isEqualTo("@category:{tech*}");
+
+    // Combine with AND - wildcard should be preserved, exact match should not have unescaped *
+    Filter combinedAnd = Filter.and(exactMatch, wildcardMatch);
+    assertThat(combinedAnd.build()).isEqualTo("(@brand:{nike} @category:{tech*})");
+
+    // Combine with OR
+    Filter combinedOr = Filter.or(exactMatch, wildcardMatch);
+    assertThat(combinedOr.build()).isEqualTo("(@brand:{nike} | @category:{tech*})");
+
+    // Mix of exact, wildcard, and exact with * in value
+    Filter exactWithAsterisk = Filter.tag("status", "active*"); // * should be escaped
+    Filter complexFilter = Filter.and(exactMatch, wildcardMatch, exactWithAsterisk);
+    String result = complexFilter.build();
+    assertThat(result).contains("@brand:{nike}");
+    assertThat(result).contains("@category:{tech*}"); // wildcard preserved
+    assertThat(result).contains("@status:{active\\*}"); // asterisk escaped
+  }
 }

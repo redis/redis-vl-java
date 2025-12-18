@@ -72,6 +72,44 @@ public class Filter {
   }
 
   /**
+   * Create a tag wildcard filter for pattern matching.
+   *
+   * <p>This enables wildcard pattern matching on tag fields using the {@code *} character. Unlike
+   * the {@link #tag(String, String...)} method, wildcards are not escaped, allowing patterns with
+   * wildcards in any position, such as prefix ({@code "tech*"}), suffix ({@code "*tech"}), or
+   * middle ({@code "*tech*"}) matches.
+   *
+   * <p>Examples:
+   *
+   * <pre>{@code
+   * Filter.tagLike("category", "tech*");           // Prefix match
+   * Filter.tagLike("category", "*tech");           // Suffix match
+   * Filter.tagLike("category", "*tech*");          // Contains match
+   * Filter.tagLike("category", "tech*", "*soft");  // Multiple patterns
+   * }</pre>
+   *
+   * @param field Field name
+   * @param patterns Tag patterns with wildcards (e.g., "tech*", "*tech", "*tech*")
+   * @return FilterQuery for wildcard matching
+   */
+  public static Filter tagLike(String field, String... patterns) {
+    validateField(field);
+    if (patterns == null || patterns.length == 0) {
+      // Return wildcard filter for empty case (graceful fallback)
+      return new Filter(FilterType.CUSTOM, field, "*", null);
+    }
+
+    // Escape special characters but preserve wildcards (*)
+    String[] escapedPatterns =
+        Arrays.stream(patterns).map(Filter::escapeTagValuePreserveWildcard).toArray(String[]::new);
+    String valueStr =
+        escapedPatterns.length == 1 ? escapedPatterns[0] : String.join("|", escapedPatterns);
+
+    String expr = String.format("@%s:{%s}", escapeFieldName(field), valueStr);
+    return new Filter(FilterType.TAG, field, expr, null);
+  }
+
+  /**
    * Create a numeric filter builder
    *
    * @param field Field name
@@ -321,6 +359,55 @@ public class Filter {
   private static String escapeTagValue(String value) {
     // For tag values, escape all special characters including spaces
     return escapeSpecialCharacters(value).replace(" ", "\\ ");
+  }
+
+  /**
+   * Escape special characters in tag values but preserve wildcards (*).
+   *
+   * <p>Used for wildcard/pattern matching on tag fields where * should not be escaped.
+   */
+  private static String escapeTagValuePreserveWildcard(String value) {
+    // For tag patterns, escape all special characters including spaces, but NOT *
+    return escapeSpecialCharactersPreserveWildcard(value).replace(" ", "\\ ");
+  }
+
+  /**
+   * Escape special characters in search queries but preserve wildcards (*).
+   *
+   * <p>Used for wildcard/pattern matching where * should remain unescaped.
+   */
+  private static String escapeSpecialCharactersPreserveWildcard(String value) {
+    // Escape Redis search special characters EXCEPT *
+    return value
+        .replace("\\", "\\\\")
+        .replace("-", "\\-")
+        .replace("@", "\\@")
+        .replace(":", "\\:")
+        // Note: NOT escaping * for wildcard support
+        .replace("[", "\\[")
+        .replace("]", "\\]")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+        .replace("+", "\\+")
+        .replace("~", "\\~")
+        .replace("\"", "\\\"")
+        .replace("'", "\\'")
+        .replace("/", "\\/")
+        .replace("%", "\\%")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
+        .replace("=", "\\=")
+        .replace("|", "\\|")
+        .replace("&", "\\&")
+        .replace("^", "\\^")
+        .replace("$", "\\$")
+        .replace(".", "\\.")
+        .replace(",", "\\,")
+        .replace("!", "\\!")
+        .replace("?", "\\?")
+        .replace(";", "\\;");
   }
 
   /**
