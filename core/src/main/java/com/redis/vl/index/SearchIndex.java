@@ -1212,15 +1212,24 @@ public final class SearchIndex {
     // Convert VectorQuery to search string
     String queryString = query.toQueryString();
     Map<String, Object> params = query.toParams();
+    int numResults = query.getNumResults();
 
     // Handle sorting or inOrder if specified
     if ((query.getSortBy() != null && !query.getSortBy().isEmpty()) || query.isInOrder()) {
       return searchWithSort(
-          queryString, params, query.getSortBy(), query.isSortDescending(), query.isInOrder());
+          queryString,
+          params,
+          query.getSortBy(),
+          query.isSortDescending(),
+          query.isInOrder(),
+          numResults);
     }
 
-    return search(queryString, params);
+    return search(queryString, params, numResults);
   }
+
+  /** Default number of results to return when limit is not specified. */
+  public static final int DEFAULT_NUM_RESULTS = 10;
 
   /**
    * Search the index using a query string
@@ -1229,7 +1238,7 @@ public final class SearchIndex {
    * @return Search results
    */
   public SearchResult search(String query) {
-    return search(query, new HashMap<>());
+    return search(query, new HashMap<>(), DEFAULT_NUM_RESULTS);
   }
 
   /**
@@ -1240,27 +1249,53 @@ public final class SearchIndex {
    * @return Search results
    */
   public SearchResult search(String query, Map<String, Object> params) {
+    return search(query, params, DEFAULT_NUM_RESULTS);
+  }
+
+  /**
+   * Search the index using a query string with parameters and limit
+   *
+   * @param query Query string
+   * @param params Query parameters
+   * @param limit Maximum number of results to return
+   * @return Search results
+   */
+  public SearchResult search(String query, Map<String, Object> params, int limit) {
+    return search(query, params, 0, limit);
+  }
+
+  /**
+   * Search the index using a query string with parameters, offset, and limit
+   *
+   * @param query Query string
+   * @param params Query parameters
+   * @param offset Number of results to skip (for pagination)
+   * @param limit Maximum number of results to return
+   * @return Search results
+   */
+  public SearchResult search(String query, Map<String, Object> params, int offset, int limit) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
     }
 
     UnifiedJedis jedis = getUnifiedJedis();
     try {
+      // Convert params to FTSearchParams
+      redis.clients.jedis.search.FTSearchParams searchParams =
+          new redis.clients.jedis.search.FTSearchParams();
+
+      // Set dialect to 2 for KNN queries
+      searchParams.dialect(2);
+
+      // Set limit for pagination
+      searchParams.limit(offset, limit);
+
+      // Add vector parameters if present
       if (params != null && !params.isEmpty()) {
-        // Convert params to FTSearchParams
-        redis.clients.jedis.search.FTSearchParams searchParams =
-            new redis.clients.jedis.search.FTSearchParams();
-
-        // Set dialect to 2 for KNN queries
-        searchParams.dialect(2);
-
-        // Add vector parameters
         addParamsToSearchParams(searchParams, params);
-
-        return jedis.ftSearch(schema.getName(), query, searchParams);
-      } else {
-        return jedis.ftSearch(schema.getName(), query);
       }
+
+      return jedis.ftSearch(schema.getName(), query, searchParams);
     } catch (Exception e) {
       throw new RuntimeException("Failed to search index: " + e.getMessage(), e);
     }
@@ -1274,6 +1309,7 @@ public final class SearchIndex {
    * @param sortBy Field to sort by (can be null)
    * @param descending Whether to sort in descending order
    * @param inOrder Whether to require terms in field to have same order as in query
+   * @param numResults Maximum number of results to return
    * @return Search results
    */
   private SearchResult searchWithSort(
@@ -1281,7 +1317,8 @@ public final class SearchIndex {
       Map<String, Object> params,
       String sortBy,
       boolean descending,
-      boolean inOrder) {
+      boolean inOrder,
+      int numResults) {
     if (!exists()) {
       throw new RedisVLException("Index " + getName() + " does not exist");
     }
@@ -1294,6 +1331,9 @@ public final class SearchIndex {
 
       // Set dialect to 2 for KNN queries
       searchParams.dialect(2);
+
+      // Set limit for pagination
+      searchParams.limit(0, numResults);
 
       // Add vector parameters if present
       if (params != null && !params.isEmpty()) {
