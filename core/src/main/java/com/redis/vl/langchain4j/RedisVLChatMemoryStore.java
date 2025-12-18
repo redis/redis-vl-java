@@ -22,7 +22,7 @@ import redis.clients.jedis.UnifiedJedis;
  *
  * <pre>{@code
  * // Create chat memory store
- * UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+ * UnifiedJedis jedis = RedisClient.create("localhost", 6379);
  * ChatMemoryStore memoryStore = new RedisVLChatMemoryStore(jedis);
  *
  * // Use with LangChain4J chat memory

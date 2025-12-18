@@ -464,7 +464,7 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
 
     // Verify Redis storage
     String key = index.getPrefix() + index.getKeySeparator() + "1";
-    String storedValue = jedis.hget(key, "test");
+    String storedValue = unifiedJedis.hget(key, "test");
     assertThat(storedValue).isEqualTo("foo");
 
     // Delete index and verify fetch returns null
@@ -498,7 +498,7 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
 
     // Verify Redis storage
     String key = index.getPrefix() + index.getKeySeparator() + "1";
-    String storedValue = jedis.hget(key, "test");
+    String storedValue = unifiedJedis.hget(key, "test");
     assertThat(storedValue).isEqualTo("bar");
 
     // Test bad preprocess function
@@ -695,12 +695,12 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
 
     // Set expiration on single key
     index.expireKeys(keys.get(0), 60);
-    long ttl = jedis.ttl(keys.get(0));
+    long ttl = unifiedJedis.ttl(keys.get(0));
     assertThat(ttl).isGreaterThan(0);
     assertThat(ttl).isLessThanOrEqualTo(60);
 
     // Test no expiration on the other key
-    ttl = jedis.ttl(keys.get(1));
+    ttl = unifiedJedis.ttl(keys.get(1));
     assertThat(ttl).isEqualTo(-1); // -1 means no expiration
 
     // Set expiration on multiple keys
@@ -710,7 +710,7 @@ class SearchIndexIntegrationTest extends BaseIntegrationTest {
 
     // Verify TTLs are set
     for (String key : keys) {
-      ttl = jedis.ttl(key);
+      ttl = unifiedJedis.ttl(key);
       assertThat(ttl).isGreaterThan(0);
       assertThat(ttl).isLessThanOrEqualTo(30);
     }

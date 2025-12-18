@@ -14,7 +14,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLEmbeddingStore - LangChain4J integration.
@@ -24,7 +25,7 @@ import redis.clients.jedis.JedisPooled;
 @Tag("integration")
 class RedisVLEmbeddingStoreTest {
 
-  private JedisPooled jedis;
+  private UnifiedJedis jedis;
   private SearchIndex searchIndex;
   private RedisVLEmbeddingStore embeddingStore;
   private static final String INDEX_NAME = "test_lc4j_embeddings";
@@ -32,7 +33,7 @@ class RedisVLEmbeddingStoreTest {
 
   @BeforeEach
   void setUp() {
-    jedis = new JedisPooled("localhost", 6379);
+    jedis = RedisClient.create("localhost", 6379);
 
     // Create schema for embeddings
     Map<String, Object> schema =

@@ -243,7 +243,7 @@ public class VCRContext {
     private final VCRTest config;
     private final Path dataDir;
     private RedisContainer redisContainer;
-    private JedisPooled jedis;
+    private RedisClient jedis;
     private VCRRegistry registry;
     private LLMInterceptor llmInterceptor;
     private EmbeddingInterceptor embeddingInterceptor;
@@ -276,7 +276,7 @@ public class VCRContext {
 
         redisContainer.start();
 
-        jedis = new JedisPooled(redisContainer.getHost(),
+        jedis = RedisClient.create(redisContainer.getHost(),
             redisContainer.getFirstMappedPort());
     }
 
@@ -497,7 +497,7 @@ package com.redis.vl.test.vcr;
  * Tracks which tests have been recorded and their status.
  */
 public class VCRRegistry {
-    private final JedisPooled jedis;
+    private final RedisClient jedis;
     private static final String REGISTRY_KEY = "vcr:registry";
     private static final String TESTS_KEY = "vcr:registry:tests";
 
@@ -579,7 +579,7 @@ package com.redis.vl.test.vcr;
  * Stores and retrieves cassette data from Redis.
  */
 public class VCRCassetteStore {
-    private final JedisPooled jedis;
+    private final RedisClient jedis;
     private final ObjectMapper objectMapper;
 
     public void store(String key, Object response) {

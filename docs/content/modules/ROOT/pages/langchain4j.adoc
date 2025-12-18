@@ -56,10 +56,10 @@ import com.redis.vl.langchain4j.RedisVLEmbeddingStore;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
 
 // Create Redis client
-UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+UnifiedJedis jedis = RedisClient.create("localhost", 6379);
 
 // Create search index with vector field
 Map<String, Object> schema = Map.of(
@@ -362,7 +362,7 @@ public class RedisVLRAGApplication {
 
     public static void main(String[] args) {
         // 1. Setup Redis
-        UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+        UnifiedJedis jedis = RedisClient.create("localhost", 6379);
 
         // 2. Create search index
         SearchIndex searchIndex = createSearchIndex(jedis);

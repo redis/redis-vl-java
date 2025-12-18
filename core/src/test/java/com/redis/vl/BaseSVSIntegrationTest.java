@@ -5,19 +5,17 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
-import redis.clients.jedis.*;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Base class for SVS-VAMANA integration tests requiring Redis ≥ 8.2.0
  *
  * <p>Uses redis-stack:edge image which includes Redis 8.2.0+ with SVS-VAMANA support.
+ *
+ * <p>Updated for Jedis 7.2+ API using RedisClient instead of deprecated JedisPool/JedisPooled.
  */
 public abstract class BaseSVSIntegrationTest {
-
-  @SuppressFBWarnings(
-      value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
-      justification = "Test infrastructure fields intentionally mutable for test lifecycle")
-  protected static Jedis jedis;
 
   @SuppressFBWarnings(
       value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
@@ -30,7 +28,7 @@ public abstract class BaseSVSIntegrationTest {
   protected static String redisUrl;
 
   private static GenericContainer<?> redisContainer;
-  private static JedisPool jedisPool;
+  private static RedisClient redisClient;
 
   @BeforeAll
   static void startContainer() {
@@ -39,36 +37,25 @@ public abstract class BaseSVSIntegrationTest {
         new GenericContainer<>(DockerImageName.parse("redis:8.2")).withExposedPorts(6379);
     redisContainer.start();
 
-    // Create Jedis connection pool
-    JedisPoolConfig poolConfig = new JedisPoolConfig();
-    poolConfig.setMaxTotal(10);
-    poolConfig.setMaxIdle(5);
-
     String host = redisContainer.getHost();
     int port = redisContainer.getMappedPort(6379);
 
     // Build Redis URL for testing URL-based constructors
     redisUrl = String.format("redis://%s:%d", host, port);
 
-    jedisPool = new JedisPool(poolConfig, host, port);
+    // Create RedisClient using new Jedis 7.2+ API
+    redisClient = RedisClient.create(host, port);
 
-    jedis = jedisPool.getResource();
-
-    // Create UnifiedJedis for RediSearch operations
-    HostAndPort hostAndPort = new HostAndPort(host, port);
-    unifiedJedis = new UnifiedJedis(hostAndPort);
+    // RedisClient extends UnifiedJedis, so we can use it for all operations
+    unifiedJedis = redisClient;
   }
 
   @AfterAll
   static void stopContainer() {
-    if (jedis != null) {
-      jedis.close();
-    }
-    if (unifiedJedis != null) {
-      unifiedJedis.close();
-    }
-    if (jedisPool != null) {
-      jedisPool.close();
+    if (redisClient != null) {
+      redisClient.close();
+      redisClient = null;
+      unifiedJedis = null;
     }
     if (redisContainer != null) {
       redisContainer.stop();

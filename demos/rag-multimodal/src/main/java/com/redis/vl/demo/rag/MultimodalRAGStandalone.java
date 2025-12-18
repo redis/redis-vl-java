@@ -25,7 +25,7 @@ import dev.langchain4j.rag.query.Query;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
 import java.io.File;
@@ -66,7 +66,7 @@ public class MultimodalRAGStandalone {
         System.out.println("Step 1: Creating Redis index with SVS-VAMANA and quantization");
         System.out.println("-".repeat(80));
 
-        UnifiedJedis jedis = new UnifiedJedis(new HostAndPort("localhost", 6379));
+        UnifiedJedis jedis = RedisClient.create("localhost", 6379);
 
         Map<String, Object> schemaMap = Map.of(
             "index", Map.of(

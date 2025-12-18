@@ -1,22 +1,28 @@
 package com.redis.vl.redis;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Closeable;
-import java.net.URI;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.JedisSentinelPool;
-import redis.clients.jedis.util.Pool;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.RedisSentinelClient;
+import redis.clients.jedis.UnifiedJedis;
 
-/** Manages Redis connections and provides connection pooling. */
+/**
+ * Manages Redis connections using the modern Jedis 7.2+ API.
+ *
+ * <p>This class uses {@link RedisClient} for standalone connections and {@link RedisSentinelClient}
+ * for Sentinel-managed high availability deployments.
+ */
 @Slf4j
 public class RedisConnectionManager implements Closeable {
 
-  private final Pool<Jedis> jedisPool;
+  private UnifiedJedis client;
 
   /**
    * Create a new connection manager with the given configuration.
@@ -24,8 +30,8 @@ public class RedisConnectionManager implements Closeable {
    * @param config The Redis connection configuration
    */
   public RedisConnectionManager(RedisConnectionConfig config) {
-    this.jedisPool = createJedisPool(config);
-    log.info("Redis connection manager initialized");
+    this.client = createClient(config);
+    log.info("Redis connection manager initialized with RedisClient");
   }
 
   /**
@@ -34,8 +40,8 @@ public class RedisConnectionManager implements Closeable {
    * @param config The Sentinel connection configuration
    */
   public RedisConnectionManager(SentinelConfig config) {
-    this.jedisPool = createJedisSentinelPool(config);
-    log.info("Redis Sentinel connection manager initialized");
+    this.client = createSentinelClient(config);
+    log.info("Redis Sentinel connection manager initialized with RedisSentinelClient");
   }
 
   /**
@@ -80,103 +86,91 @@ public class RedisConnectionManager implements Closeable {
     return new RedisConnectionManager(config);
   }
 
-  /** Create JedisPool from configuration */
-  private JedisPool createJedisPool(RedisConnectionConfig config) {
-    JedisPoolConfig poolConfig = config.toJedisPoolConfig();
-
+  /** Create RedisClient from configuration using the new Jedis 7.2+ API */
+  private UnifiedJedis createClient(RedisConnectionConfig config) {
     if (config.getUri() != null) {
-      URI uri = URI.create(config.getUri());
-      return new JedisPool(
-          poolConfig,
-          uri.getHost(),
-          uri.getPort() > 0 ? uri.getPort() : 6379,
-          config.getConnectionTimeout());
-    } else {
-      return new JedisPool(
-          poolConfig, config.getHost(), config.getPort(), config.getConnectionTimeout());
+      return RedisClient.create(config.getUri());
     }
+    return RedisClient.builder().hostAndPort(config.getHost(), config.getPort()).build();
   }
 
-  /** Create JedisSentinelPool from Sentinel configuration */
-  private JedisSentinelPool createJedisSentinelPool(SentinelConfig config) {
-    // Convert HostPort list to Set<String> in "host:port" format
-    Set<String> sentinelHosts =
+  /** Create RedisSentinelClient from Sentinel configuration using the new Jedis 7.2+ API */
+  private UnifiedJedis createSentinelClient(SentinelConfig config) {
+    // Convert HostPort list to Set<HostAndPort>
+    Set<HostAndPort> sentinelNodes =
         config.getSentinelHosts().stream()
-            .map(hp -> hp.getHost() + ":" + hp.getPort())
+            .map(hp -> new HostAndPort(hp.getHost(), hp.getPort()))
             .collect(Collectors.toSet());
 
-    // Create pool config with defaults
-    JedisPoolConfig poolConfig = new JedisPoolConfig();
-    poolConfig.setMaxTotal(10);
-    poolConfig.setMaxIdle(5);
-    poolConfig.setMinIdle(1);
-    poolConfig.setTestOnBorrow(true);
+    // Use RedisSentinelClient.builder() with the sentinels() method
+    var builder =
+        RedisSentinelClient.builder().masterName(config.getServiceName()).sentinels(sentinelNodes);
 
-    // Create Sentinel pool
-    return new JedisSentinelPool(
-        config.getServiceName(),
-        sentinelHosts,
-        poolConfig,
-        config.getConnectionTimeout(),
-        config.getSocketTimeout(),
-        config.getUsername(),
-        config.getPassword(),
-        config.getDatabase() != null ? config.getDatabase() : 0,
-        null); // clientName
+    // Add authentication if provided via clientConfig
+    if (config.getPassword() != null) {
+      builder.clientConfig(
+          DefaultJedisClientConfig.builder()
+              .user(config.getUsername())
+              .password(config.getPassword())
+              .build());
+    }
+
+    return builder.build();
   }
 
   /**
    * Check if the connection manager is connected.
    *
-   * @return True if connected and pool is not closed, false otherwise
+   * @return True if client is available, false otherwise
    */
   public boolean isConnected() {
-    return jedisPool != null && !jedisPool.isClosed();
+    return client != null;
   }
 
   /**
-   * Get a Jedis connection from the pool.
+   * Get the underlying UnifiedJedis client.
    *
-   * @return A Jedis connection from the pool
+   * <p>Since RedisClient extends UnifiedJedis, this provides full access to all Redis operations.
+   *
+   * @return The UnifiedJedis client
    * @throws IllegalStateException if the connection manager is not connected
    */
-  public Jedis getJedis() {
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "Callers need direct access to shared Redis client for operations")
+  public UnifiedJedis getClient() {
     if (!isConnected()) {
       throw new IllegalStateException("Connection manager is not connected");
     }
-    return jedisPool.getResource();
+    return client;
   }
 
   /**
-   * Execute a command with a Jedis connection. The connection is automatically returned to the pool
-   * after execution.
+   * Execute a command with the Redis client.
    *
    * @param <T> The return type of the command
-   * @param command The function to execute with the Jedis connection
+   * @param command The function to execute with the UnifiedJedis client
    * @return The result of the command execution
    */
-  public <T> T execute(Function<Jedis, T> command) {
-    try (Jedis jedis = getJedis()) {
-      return command.apply(jedis);
-    }
+  public <T> T execute(Function<UnifiedJedis, T> command) {
+    return command.apply(getClient());
   }
 
   /**
    * Execute a command without a return value.
    *
-   * @param command The consumer to execute with the Jedis connection
+   * @param command The consumer to execute with the UnifiedJedis client
    */
-  public void executeVoid(java.util.function.Consumer<Jedis> command) {
-    try (Jedis jedis = getJedis()) {
-      command.accept(jedis);
-    }
+  public void executeVoid(Consumer<UnifiedJedis> command) {
+    command.accept(getClient());
   }
 
   /** Close the connection manager and release resources */
   @Override
   public void close() {
-    if (jedisPool != null && !jedisPool.isClosed()) {
-      jedisPool.close();
+    if (client != null) {
+      client.close();
+      client = null;
       log.info("Redis connection manager closed");
     }
   }

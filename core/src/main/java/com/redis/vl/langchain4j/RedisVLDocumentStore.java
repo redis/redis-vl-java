@@ -22,7 +22,7 @@ import redis.clients.jedis.UnifiedJedis;
  *
  * <pre>{@code
  * // Create document store
- * UnifiedJedis jedis = new JedisPooled("localhost", 6379);
+ * UnifiedJedis jedis = RedisClient.create("localhost", 6379);
  * RedisVLDocumentStore store = new RedisVLDocumentStore(jedis, "docs:");
  *
  * // Store a document

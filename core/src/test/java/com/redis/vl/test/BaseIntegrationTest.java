@@ -8,12 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Base class for all integration tests that require Redis. Provides a shared Redis Stack container
  * with TestContainers.
+ *
+ * <p>Updated for Jedis 7.2+ API using RedisClient instead of deprecated JedisPool/JedisPooled.
  */
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class BaseIntegrationTest {
@@ -26,7 +28,7 @@ public abstract class BaseIntegrationTest {
       new RedisStackContainer(RedisStackContainer.DEFAULT_IMAGE_NAME.withTag("latest"))
           .withReuse(true);
 
-  static JedisPool jedisPool;
+  static RedisClient redisClient;
   static String redisUri;
 
   @BeforeAll
@@ -41,33 +43,26 @@ public abstract class BaseIntegrationTest {
 
     logger.info("Redis Stack container started at: {}", redisUri);
 
-    // Create Jedis pool
-    JedisPoolConfig poolConfig = new JedisPoolConfig();
-    poolConfig.setMaxTotal(50);
-    poolConfig.setMaxIdle(10);
-    poolConfig.setMinIdle(5);
-    poolConfig.setTestOnBorrow(true);
-    poolConfig.setTestOnReturn(true);
-    poolConfig.setTestWhileIdle(true);
+    // Create RedisClient using new Jedis 7.2+ API
+    redisClient = RedisClient.create(REDIS.getHost(), REDIS.getRedisPort());
 
-    jedisPool = new JedisPool(poolConfig, REDIS.getHost(), REDIS.getRedisPort());
-
-    logger.info("Jedis pool created successfully");
+    logger.info("RedisClient created successfully");
   }
 
   @AfterAll
   static void teardownRedis() {
-    if (jedisPool != null) {
-      jedisPool.close();
-      logger.info("Jedis pool closed");
+    if (redisClient != null) {
+      redisClient.close();
+      redisClient = null;
+      logger.info("RedisClient closed");
     }
   }
 
   @BeforeEach
   void cleanupBeforeTest() {
     // Flush all data before each test for isolation
-    try (var jedis = jedisPool.getResource()) {
-      jedis.flushAll();
+    if (redisClient != null) {
+      redisClient.flushAll();
       logger.debug("Flushed all Redis data before test");
     }
   }
@@ -77,8 +72,8 @@ public abstract class BaseIntegrationTest {
     return redisUri;
   }
 
-  /** Get a Jedis connection from the pool */
-  protected redis.clients.jedis.Jedis getJedis() {
-    return jedisPool.getResource();
+  /** Get the Redis client */
+  protected UnifiedJedis getRedisClient() {
+    return redisClient;
   }
 }

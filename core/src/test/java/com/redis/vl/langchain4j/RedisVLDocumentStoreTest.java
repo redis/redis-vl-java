@@ -10,7 +10,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLDocumentStore - stores raw binary content (images, PDFs) for multimodal RAG.
@@ -20,13 +21,13 @@ import redis.clients.jedis.JedisPooled;
 @Tag("integration")
 class RedisVLDocumentStoreTest {
 
-  private JedisPooled jedis;
+  private UnifiedJedis jedis;
   private RedisVLDocumentStore documentStore;
   private static final String KEY_PREFIX = "test_docs:";
 
   @BeforeEach
   void setUp() {
-    jedis = new JedisPooled("localhost", 6379);
+    jedis = RedisClient.create("localhost", 6379);
     documentStore = new RedisVLDocumentStore(jedis, KEY_PREFIX);
   }
 

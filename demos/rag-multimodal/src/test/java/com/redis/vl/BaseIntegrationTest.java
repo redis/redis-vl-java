@@ -4,17 +4,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
-import redis.clients.jedis.*;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /** Base class for integration tests with Redis Stack 8.0 container */
 public abstract class BaseIntegrationTest {
 
-  protected static Jedis jedis;
-  protected static UnifiedJedis unifiedJedis;
+  protected static UnifiedJedis jedis;
   protected static String redisUrl;
 
   private static GenericContainer<?> redisContainer;
-  private static JedisPool jedisPool;
 
   @BeforeAll
   static void startContainer() {
@@ -24,36 +23,20 @@ public abstract class BaseIntegrationTest {
             .withExposedPorts(6379);
     redisContainer.start();
 
-    // Create Jedis connection pool
-    JedisPoolConfig poolConfig = new JedisPoolConfig();
-    poolConfig.setMaxTotal(10);
-    poolConfig.setMaxIdle(5);
-
     String host = redisContainer.getHost();
     int port = redisContainer.getMappedPort(6379);
 
     // Build Redis URL for testing URL-based constructors
     redisUrl = String.format("redis://%s:%d", host, port);
 
-    jedisPool = new JedisPool(poolConfig, host, port);
-
-    jedis = jedisPool.getResource();
-
-    // Create UnifiedJedis for RediSearch operations
-    HostAndPort hostAndPort = new HostAndPort(host, port);
-    unifiedJedis = new UnifiedJedis(hostAndPort);
+    // Create Redis client using new Jedis 7.2 API
+    jedis = RedisClient.create(host, port);
   }
 
   @AfterAll
   static void stopContainer() {
     if (jedis != null) {
       jedis.close();
-    }
-    if (unifiedJedis != null) {
-      unifiedJedis.close();
-    }
-    if (jedisPool != null) {
-      jedisPool.close();
     }
     if (redisContainer != null) {
       redisContainer.stop();
