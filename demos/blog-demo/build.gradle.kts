@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.redis.vl.demos"
-version = "0.12.1"
+version = "0.12.2"
 
 repositories {
     mavenCentral()
