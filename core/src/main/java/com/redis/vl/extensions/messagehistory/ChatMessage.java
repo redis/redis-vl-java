@@ -5,6 +5,7 @@ import static com.redis.vl.extensions.Constants.*;
 import com.redis.vl.utils.Utils;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -51,8 +52,11 @@ public class ChatMessage {
     }
 
     // Generate entry_id if not set
+    // Add UUID suffix to prevent timestamp collisions when creating
+    // multiple messages rapidly (e.g., in addMessages or store)
     if (entryId == null) {
-      entryId = sessionTag + ":" + timestamp;
+      String uniqueSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+      entryId = sessionTag + ":" + timestamp + ":" + uniqueSuffix;
     }
 
     Map<String, Object> data = new HashMap<>();
