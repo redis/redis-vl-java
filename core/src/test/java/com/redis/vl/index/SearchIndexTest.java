@@ -12,27 +12,25 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.HostAndPort;
-import redis.clients.jedis.Jedis;
+import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
-/** Integration tests for SearchIndex */
+/**
+ * Integration tests for SearchIndex
+ *
+ * <p>Updated for Jedis 7.2+ API using RedisClient instead of deprecated JedisPool.
+ */
 @DisplayName("SearchIndex Integration Tests")
 class SearchIndexTest extends BaseIntegrationTest {
 
   private UnifiedJedis unifiedJedis;
   private SearchIndex searchIndex;
   private IndexSchema schema;
-  private Jedis jedis;
 
   @BeforeEach
   void setUp() {
-    // Create UnifiedJedis for RediSearch operations
-    HostAndPort hostAndPort = new HostAndPort(REDIS.getHost(), REDIS.getRedisPort());
-    unifiedJedis = new UnifiedJedis(hostAndPort);
-
-    // Get a regular Jedis for verification
-    jedis = getJedis();
+    // Create RedisClient using new Jedis 7.2+ API
+    unifiedJedis = RedisClient.create(REDIS.getHost(), REDIS.getRedisPort());
 
     // Create a test schema
     schema =
@@ -57,9 +55,6 @@ class SearchIndexTest extends BaseIntegrationTest {
     }
 
     // Close connections
-    if (jedis != null) {
-      jedis.close();
-    }
     if (unifiedJedis != null) {
       unifiedJedis.close();
     }
@@ -137,8 +132,8 @@ class SearchIndexTest extends BaseIntegrationTest {
     // Then
     assertThat(docId).isEqualTo("doc:1");
 
-    // Verify document exists
-    Map<String, String> doc = jedis.hgetAll("doc:1");
+    // Verify document exists - use unifiedJedis instead of deprecated jedis
+    Map<String, String> doc = unifiedJedis.hgetAll("doc:1");
     assertThat(doc).containsKey("title");
     assertThat(doc.get("title")).isEqualTo("Redis in Action");
   }
@@ -160,8 +155,8 @@ class SearchIndexTest extends BaseIntegrationTest {
     updatedDoc.put("price", 39.99);
     searchIndex.updateDocument("doc:1", updatedDoc);
 
-    // Then
-    Map<String, String> doc = jedis.hgetAll("doc:1");
+    // Then - use unifiedJedis instead of deprecated jedis
+    Map<String, String> doc = unifiedJedis.hgetAll("doc:1");
     assertThat(doc.get("title")).isEqualTo("Updated Title");
     assertThat(doc.get("price")).isEqualTo("39.99");
   }
@@ -182,8 +177,8 @@ class SearchIndexTest extends BaseIntegrationTest {
     // Then
     assertThat(deleted).isTrue();
 
-    // Verify document doesn't exist
-    Map<String, String> doc = jedis.hgetAll("doc:1");
+    // Verify document doesn't exist - use unifiedJedis instead of deprecated jedis
+    Map<String, String> doc = unifiedJedis.hgetAll("doc:1");
     assertThat(doc).isEmpty();
   }
 

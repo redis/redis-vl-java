@@ -86,7 +86,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
                         "algorithm", "flat",
                         "distance_metric", "cosine"))));
 
-    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), unifiedJedis);
+    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), jedis);
 
     try {
       searchIndex.create(true); // Overwrite if exists
@@ -96,7 +96,7 @@ class MultimodalRAGIntegrationTest extends BaseIntegrationTest {
 
     // Initialize stores
     embeddingStore = new RedisVLEmbeddingStore(searchIndex);
-    documentStore = new RedisVLDocumentStore(unifiedJedis, "test:docs:");
+    documentStore = new RedisVLDocumentStore(jedis, "test:docs:");
 
     // Initialize PDF ingestion service
     pdfIngestionService =

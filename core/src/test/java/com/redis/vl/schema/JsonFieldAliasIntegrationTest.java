@@ -10,7 +10,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.search.SearchResult;
 
 /**
@@ -21,17 +22,19 @@ import redis.clients.jedis.search.SearchResult;
  * Map.of("name", "$.category", "type", "tag", "attrs", Map.of("as", "category"))} the resulting
  * Redis index correctly supports querying by the alias name "category" instead of the full JSON
  * path "$.category".
+ *
+ * <p>Updated for Jedis 7.2+ API.
  */
 @Tag("integration")
 public class JsonFieldAliasIntegrationTest {
 
-  private JedisPooled jedis;
+  private UnifiedJedis jedis;
   private SearchIndex searchIndex;
   private static final String INDEX_NAME = "test_json_alias";
 
   @BeforeEach
   void setUp() {
-    jedis = new JedisPooled("localhost", 6379);
+    jedis = RedisClient.create("localhost", 6379);
 
     // Create schema with JSON storage and field aliases
     Map<String, Object> schema =

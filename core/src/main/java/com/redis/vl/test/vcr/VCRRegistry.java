@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Tracks which tests have been recorded and their status.
@@ -26,7 +26,7 @@ public class VCRRegistry {
   private static final String REGISTRY_KEY = "vcr:registry";
   private static final String TESTS_KEY = "vcr:registry:tests";
 
-  private final JedisPooled jedis;
+  private final UnifiedJedis jedis;
   private final Map<String, RecordingStatus> localCache = new ConcurrentHashMap<>();
 
   /** Recording status for a test. */
@@ -48,8 +48,8 @@ public class VCRRegistry {
    */
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP2",
-      justification = "JedisPooled is intentionally shared for connection pooling")
-  public VCRRegistry(JedisPooled jedis) {
+      justification = "UnifiedJedis is intentionally shared for connection pooling")
+  public VCRRegistry(UnifiedJedis jedis) {
     this.jedis = jedis;
   }
 

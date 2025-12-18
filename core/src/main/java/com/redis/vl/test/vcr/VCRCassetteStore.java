@@ -5,7 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Objects;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.json.Path2;
 
 /**
@@ -28,7 +28,7 @@ public class VCRCassetteStore {
   private static final String KEY_PREFIX = "vcr";
   private static final Gson GSON = new Gson();
 
-  private final JedisPooled jedis;
+  private final UnifiedJedis jedis;
 
   /**
    * Creates a new cassette store.
@@ -37,8 +37,8 @@ public class VCRCassetteStore {
    */
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP2",
-      justification = "JedisPooled is intentionally shared for connection pooling")
-  public VCRCassetteStore(JedisPooled jedis) {
+      justification = "UnifiedJedis is intentionally shared for connection pooling")
+  public VCRCassetteStore(UnifiedJedis jedis) {
     this.jedis = jedis;
   }
 

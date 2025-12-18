@@ -281,7 +281,7 @@ private float[] deserializeEmbedding(String serialized) {
 ```java
 public class EmbeddingsCache {
     // Constructor
-    public EmbeddingsCache(String name, JedisPooled client, long ttlSeconds);
+    public EmbeddingsCache(String name, RedisClient client, long ttlSeconds);
 
     // Full API (with metadata)
     public void set(String text, String modelName, float[] embedding,

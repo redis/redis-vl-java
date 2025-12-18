@@ -18,7 +18,7 @@ import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2Embedding
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import java.util.List;
 import java.util.Map;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
 /**
@@ -49,7 +49,7 @@ public class ServiceFactory {
    */
   public void initialize(String redisHost, int redisPort) throws Exception {
     // Initialize Redis connection
-    jedis = new JedisPooled(redisHost, redisPort);
+    jedis = RedisClient.create(redisHost, redisPort);
 
     // Initialize embedding model (local, no API key needed)
     embeddingModel = new AllMiniLmL6V2EmbeddingModel();

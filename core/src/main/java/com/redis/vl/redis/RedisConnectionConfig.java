@@ -2,9 +2,12 @@ package com.redis.vl.redis;
 
 import lombok.Builder;
 import lombok.Getter;
-import redis.clients.jedis.JedisPoolConfig;
 
-/** Configuration for Redis connections. */
+/**
+ * Configuration for Redis connections.
+ *
+ * <p>Used with {@link RedisConnectionManager} to configure connection parameters.
+ */
 @Getter
 @Builder
 public class RedisConnectionConfig {
@@ -88,21 +91,5 @@ public class RedisConnectionConfig {
    */
   public static RedisConnectionConfig fromHostPort(String host, int port) {
     return RedisConnectionConfig.builder().host(host).port(port).build();
-  }
-
-  /**
-   * Create a JedisPoolConfig from this configuration.
-   *
-   * @return JedisPoolConfig with settings from this configuration
-   */
-  public JedisPoolConfig toJedisPoolConfig() {
-    JedisPoolConfig config = new JedisPoolConfig();
-    config.setMaxTotal(maxTotal);
-    config.setMaxIdle(maxIdle);
-    config.setMinIdle(minIdle);
-    config.setTestOnBorrow(testOnBorrow);
-    config.setTestOnReturn(testOnReturn);
-    config.setTestWhileIdle(testWhileIdle);
-    return config;
   }
 }

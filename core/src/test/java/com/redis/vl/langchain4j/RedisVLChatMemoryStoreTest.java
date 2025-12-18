@@ -10,7 +10,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLChatMemoryStore - LangChain4J integration.
@@ -20,13 +21,13 @@ import redis.clients.jedis.JedisPooled;
 @Tag("integration")
 class RedisVLChatMemoryStoreTest {
 
-  private JedisPooled jedis;
+  private UnifiedJedis jedis;
   private RedisVLChatMemoryStore chatMemoryStore;
   private static final String SESSION_ID = "test-session-123";
 
   @BeforeEach
   void setUp() {
-    jedis = new JedisPooled("localhost", 6379);
+    jedis = RedisClient.create("localhost", 6379);
     chatMemoryStore = new RedisVLChatMemoryStore(jedis, "test_chat:");
   }
 

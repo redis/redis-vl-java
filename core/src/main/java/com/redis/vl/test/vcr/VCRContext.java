@@ -17,8 +17,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.Protocol.Command;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Manages VCR state and resources throughout a test session.
@@ -38,7 +39,7 @@ public class VCRContext {
   private final Path dataDir;
 
   private GenericContainer<?> redisContainer;
-  private JedisPooled jedis;
+  private UnifiedJedis jedis;
   private VCRRegistry registry;
   private VCRCassetteStore cassetteStore;
 
@@ -159,7 +160,7 @@ public class VCRContext {
 
     String host = redisContainer.getHost();
     Integer port = redisContainer.getFirstMappedPort();
-    jedis = new JedisPooled(host, port);
+    jedis = RedisClient.create(host, port);
 
     // Wait for Redis to be ready and load existing data
     waitForRedis();
@@ -319,14 +320,14 @@ public class VCRContext {
       return;
     }
 
-    // Use a separate Jedis connection for BGSAVE since JedisPooled doesn't expose it directly
-    String host = redisContainer.getHost();
-    Integer port = redisContainer.getFirstMappedPort();
-    try (Jedis directJedis = new Jedis(host, port)) {
-      directJedis.bgsave();
+    // Use raw Redis commands via sendCommand since these aren't directly exposed on UnifiedJedis
+    try {
+      jedis.sendCommand(Command.BGSAVE);
 
       // Wait for save to complete
-      long lastSave = directJedis.lastsave();
+      Object lastSaveObj = jedis.sendCommand(Command.LASTSAVE);
+      long lastSave = lastSaveObj instanceof Long ? (Long) lastSaveObj : 0L;
+
       for (int i = 0; i < 100; i++) {
         try {
           Thread.sleep(100);
@@ -334,12 +335,16 @@ public class VCRContext {
           Thread.currentThread().interrupt();
           return;
         }
-        if (directJedis.lastsave() != lastSave) {
+        Object currentSaveObj = jedis.sendCommand(Command.LASTSAVE);
+        long currentSave = currentSaveObj instanceof Long ? (Long) currentSaveObj : 0L;
+        if (currentSave != lastSave) {
           System.out.println("VCR: Persisted cassettes to disk");
           return;
         }
       }
       System.err.println("VCR: Warning - BGSAVE may not have completed");
+    } catch (Exception e) {
+      System.err.println("VCR: Warning - Failed to persist cassettes: " + e.getMessage());
     }
   }
 
@@ -382,12 +387,12 @@ public class VCRContext {
   /**
    * Gets the Redis client.
    *
-   * @return the Jedis client
+   * @return the Redis client
    */
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP",
       justification = "Callers need direct access to shared Redis connection pool")
-  public JedisPooled getJedis() {
+  public UnifiedJedis getJedis() {
     return jedis;
   }
 

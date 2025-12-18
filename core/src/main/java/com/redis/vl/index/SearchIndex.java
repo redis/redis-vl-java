@@ -20,7 +20,7 @@ import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import redis.clients.jedis.Jedis;
+import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.search.FTCreateParams;
 import redis.clients.jedis.search.FTSearchParams;
@@ -48,7 +48,6 @@ public final class SearchIndex {
   private final IndexSchema schema;
 
   private final BaseStorage storage;
-  private Jedis client;
   private UnifiedJedis unifiedClient;
   @Getter private boolean validateOnLoad = false;
 
@@ -91,40 +90,6 @@ public final class SearchIndex {
     }
     this.connectionManager = null;
     this.schema = schema;
-    this.client = null;
-    this.unifiedClient = null;
-    this.validateOnLoad = validateOnLoad;
-    this.storage = initializeStorage(schema);
-  }
-
-  /**
-   * Create a SearchIndex with schema and Jedis client
-   *
-   * @param schema Index schema definition
-   * @param client Jedis client for Redis operations
-   */
-  public SearchIndex(IndexSchema schema, Jedis client) {
-    this(schema, client, false);
-  }
-
-  /**
-   * Create a SearchIndex with schema, Jedis client, and validateOnLoad option
-   *
-   * @param schema Index schema definition
-   * @param client Jedis client for Redis operations
-   * @param validateOnLoad Whether to validate documents on load
-   */
-  public SearchIndex(IndexSchema schema, Jedis client, boolean validateOnLoad) {
-    if (schema == null) {
-      throw new IllegalArgumentException("Must provide a valid IndexSchema object");
-    }
-    if (client == null) {
-      throw new IllegalArgumentException("Jedis client cannot be null");
-    }
-    this.connectionManager = null;
-    this.schema = schema;
-    // Store the client - this is the expected usage pattern for this library
-    this.client = client;
     this.unifiedClient = null;
     this.validateOnLoad = validateOnLoad;
     this.storage = initializeStorage(schema);
@@ -156,10 +121,9 @@ public final class SearchIndex {
     }
     this.connectionManager = null;
     this.schema = schema;
-    this.client = null;
     this.validateOnLoad = validateOnLoad;
-    // Create UnifiedJedis from URL
-    this.unifiedClient = new UnifiedJedis(redisUrl);
+    // Create RedisClient (extends UnifiedJedis) from URL - Jedis 7.2+ API
+    this.unifiedClient = RedisClient.create(redisUrl);
     this.storage = initializeStorage(schema);
   }
 
@@ -189,7 +153,6 @@ public final class SearchIndex {
     }
     this.connectionManager = null;
     this.schema = schema;
-    this.client = null;
     this.validateOnLoad = validateOnLoad;
     // Store the client - this is the expected usage pattern for this library
     this.unifiedClient = unifiedClient;
@@ -439,24 +402,19 @@ public final class SearchIndex {
     return new SearchIndex(schema, client);
   }
 
-  /** Get Jedis connection from either connectionManager or direct client */
-  private Jedis getJedis() {
-    if (client != null) {
-      return client;
-    } else if (connectionManager != null) {
-      return connectionManager.getJedis();
-    } else {
-      throw new IllegalStateException("No Redis connection available for document operations");
-    }
-  }
-
-  /** Get UnifiedJedis for RediSearch operations */
+  /**
+   * Get UnifiedJedis for Redis operations.
+   *
+   * <p>Returns the client from either the direct unifiedClient field or from the connectionManager.
+   */
   private UnifiedJedis getUnifiedJedis() {
     if (unifiedClient != null) {
       return unifiedClient;
+    } else if (connectionManager != null) {
+      return connectionManager.getClient();
     } else {
       throw new IllegalStateException(
-          "RediSearch operations require UnifiedJedis client. Please use SearchIndex(schema, unifiedJedis) constructor.");
+          "No Redis connection available. Use SearchIndex(schema, unifiedJedis) or SearchIndex(connectionManager, schema) constructor.");
     }
   }
 
@@ -762,60 +720,8 @@ public final class SearchIndex {
     Map<String, Object> processedDocument = preprocessDocument(document);
     // Always validate document against schema when adding directly
     validateDocument(processedDocument);
-    // Use UnifiedJedis if available for consistency
-    if (unifiedClient != null) {
-      return addDocumentWithUnified(docId, processedDocument);
-    }
-
-    Jedis jedis = getJedis();
-    try {
-      if (getStorageType() == IndexSchema.StorageType.JSON) {
-        // For JSON storage, use RedisJSON commands
-
-        // Use JSON.SET command - Jedis doesn't have jsonSet, need UnifiedJedis
-        throw new IllegalStateException(
-            "JSON storage requires UnifiedJedis client. Use SearchIndex(schema, unifiedJedis) constructor.");
-      } else {
-        // For HASH storage - handle vectors specially
-        for (Map.Entry<String, Object> entry : processedDocument.entrySet()) {
-          String key = entry.getKey();
-          Object value = entry.getValue();
-
-          BaseField field = (schema != null) ? schema.getField(key) : null;
-          if (field instanceof VectorField && value != null) {
-            // Store vectors as binary data
-            byte[] vectorBytes = null;
-            if (value instanceof byte[]) {
-              // Already in byte array format
-              vectorBytes = (byte[]) value;
-            } else if (value instanceof float[]) {
-              vectorBytes = ArrayUtils.floatArrayToBytes((float[]) value);
-            } else if (value instanceof double[]) {
-              float[] floats = ArrayUtils.doubleArrayToFloats((double[]) value);
-              vectorBytes = ArrayUtils.floatArrayToBytes(floats);
-            }
-            if (vectorBytes != null) {
-              jedis.hset(
-                  docId.getBytes(StandardCharsets.UTF_8),
-                  key.getBytes(StandardCharsets.UTF_8),
-                  vectorBytes);
-            }
-          } else if (value != null) {
-            // Store other fields as strings
-            jedis.hset(docId, key, value.toString());
-          }
-        }
-      }
-
-      return docId;
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to add document: " + e.getMessage(), e);
-    } finally {
-      // Close connection if we don't have a persistent client
-      if (client == null && connectionManager != null) {
-        jedis.close();
-      }
-    }
+    // Use the unified method for all document operations
+    return addDocumentWithUnified(docId, processedDocument);
   }
 
   private String addDocumentWithUnified(String docId, Map<String, Object> document) {
@@ -838,8 +744,8 @@ public final class SearchIndex {
         // Use JSON.SET command to store the document as an object
         // Path2.ROOT_PATH is the root JSON path "$"
         String result =
-            unifiedClient.jsonSetWithEscape(
-                docId, redis.clients.jedis.json.Path2.ROOT_PATH, jsonDocument);
+            getUnifiedJedis()
+                .jsonSetWithEscape(docId, redis.clients.jedis.json.Path2.ROOT_PATH, jsonDocument);
         log.debug("Stored JSON document {}: {}", docId, result);
       } else {
         // For HASH storage - handle vectors specially
@@ -874,11 +780,11 @@ public final class SearchIndex {
 
         // Store binary fields
         if (!binaryFields.isEmpty()) {
-          unifiedClient.hset(docId.getBytes(StandardCharsets.UTF_8), binaryFields);
+          getUnifiedJedis().hset(docId.getBytes(StandardCharsets.UTF_8), binaryFields);
         }
         // Store string fields
         if (!stringFields.isEmpty()) {
-          unifiedClient.hset(docId, stringFields);
+          getUnifiedJedis().hset(docId, stringFields);
         }
       }
 
