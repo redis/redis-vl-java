@@ -172,6 +172,20 @@ public class SentenceTransformersVectorizer extends BaseVectorizer {
     return result;
   }
 
+  /**
+   * Embed multiple sentences for clustering/selection. Useful for extractive summarization where we
+   * need to compare sentence similarities.
+   *
+   * @param sentences List of sentences to embed
+   * @return List of embedding vectors (float arrays)
+   */
+  public List<float[]> embedSentences(List<String> sentences) {
+    if (sentences == null || sentences.isEmpty()) {
+      return List.of();
+    }
+    return generateEmbeddingsBatch(sentences, 32);
+  }
+
   private List<Float> floatArrayToList(float[] array) {
     List<Float> list = new ArrayList<>(array.length);
     for (float value : array) {

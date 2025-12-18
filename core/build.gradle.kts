@@ -25,6 +25,12 @@ dependencies {
     implementation("com.google.guava:guava:33.4.0-jre")
     implementation("com.github.f4b6a3:ulid-creator:5.2.3")
 
+    // For extractive summarization - sentence splitting
+    implementation("org.apache.opennlp:opennlp-tools:2.3.0")
+
+    // For k-means clustering in extractive summarization
+    implementation("org.apache.commons:commons-math3:3.6.1")
+
     // Lombok for reducing boilerplate
     compileOnly("org.projectlombok:lombok:1.18.36")
     annotationProcessor("org.projectlombok:lombok:1.18.36")
