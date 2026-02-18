@@ -22,10 +22,13 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
+import redis.clients.jedis.search.Document;
 import redis.clients.jedis.search.FTCreateParams;
 import redis.clients.jedis.search.FTSearchParams;
 import redis.clients.jedis.search.IndexDataType;
 import redis.clients.jedis.search.SearchResult;
+import redis.clients.jedis.search.hybrid.FTHybridParams;
+import redis.clients.jedis.search.hybrid.HybridResult;
 import redis.clients.jedis.search.schemafields.SchemaField;
 
 /**
@@ -1302,6 +1305,50 @@ public final class SearchIndex {
   }
 
   /**
+   * Execute a TextQuery with full support for return fields, scorer, sorting, and numResults.
+   *
+   * @param tq The TextQuery to execute
+   * @return Search results
+   */
+  private SearchResult searchTextQuery(TextQuery tq) {
+    if (!exists()) {
+      throw new RedisVLException("Index " + getName() + " does not exist");
+    }
+
+    UnifiedJedis jedis = getUnifiedJedis();
+    try {
+      redis.clients.jedis.search.FTSearchParams searchParams =
+          new redis.clients.jedis.search.FTSearchParams();
+
+      searchParams.dialect(2);
+      searchParams.limit(0, tq.getNumResults() != null ? tq.getNumResults() : DEFAULT_NUM_RESULTS);
+
+      // Set return fields if specified
+      if (tq.getReturnFields() != null && !tq.getReturnFields().isEmpty()) {
+        searchParams.returnFields(tq.getReturnFields().toArray(new String[0]));
+      }
+
+      // Set scorer if specified
+      if (tq.getScorer() != null && !tq.getScorer().isEmpty()) {
+        searchParams.scorer(tq.getScorer());
+      }
+
+      // Set sorting if specified
+      if (tq.getSortBy() != null && !tq.getSortBy().isEmpty()) {
+        redis.clients.jedis.args.SortingOrder order =
+            tq.isSortDescending()
+                ? redis.clients.jedis.args.SortingOrder.DESC
+                : redis.clients.jedis.args.SortingOrder.ASC;
+        searchParams.sortBy(tq.getSortBy(), order);
+      }
+
+      return jedis.ftSearch(schema.getName(), tq.toQueryString(), searchParams);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to execute text query: " + e.getMessage(), e);
+    }
+  }
+
+  /**
    * Search with sorting and/or inOrder support.
    *
    * @param query The query string
@@ -1502,7 +1549,7 @@ public final class SearchIndex {
       SearchResult result = search(fq.build());
       return processSearchResult(result);
     } else if (query instanceof TextQuery tq) {
-      SearchResult result = search(tq.toString());
+      SearchResult result = searchTextQuery(tq);
       return processSearchResult(result);
     } else if (query instanceof FilterQuery fq) {
       // FilterQuery: metadata-only query without vector search
@@ -1511,13 +1558,31 @@ public final class SearchIndex {
       UnifiedJedis jedis = getUnifiedJedis();
       SearchResult result = jedis.ftSearch(schema.getName(), redisQuery);
       return processSearchResult(result);
+    } else if (query instanceof HybridQuery hq) {
+      // HybridQuery: native FT.HYBRID command (Redis 8.4+)
+      // Falls back to AggregateHybridQuery (FT.AGGREGATE) if FT.HYBRID is not available
+      try {
+        FTHybridParams hybridParams = hq.buildFTHybridParams();
+        UnifiedJedis jedis = getUnifiedJedis();
+        HybridResult result = jedis.ftHybrid(schema.getName(), hybridParams);
+        return processHybridResult(result);
+      } catch (Exception e) {
+        // Fall back to AggregateHybridQuery (FT.AGGREGATE) when FT.HYBRID fails.
+        // This handles: unknown command (Redis < 8.4), unsupported parameters
+        // (e.g., YIELD_SCORE_AS on older versions), and other server-side errors.
+        log.warn(
+            "FT.HYBRID failed, falling back to AggregateHybridQuery (FT.AGGREGATE): {}",
+            e.getMessage());
+        AggregateHybridQuery fallback = hq.toAggregateHybridQuery();
+        return query(fallback);
+      }
     } else if (query instanceof AggregationQuery aq) {
-      // AggregationQuery: HybridQuery and other aggregation-based queries
-      // Python: HybridQuery (redisvl/query/aggregate.py:23)
+      // AggregationQuery: AggregateHybridQuery and other aggregation-based queries
+      // Python: AggregateHybridQuery (redisvl/query/aggregate.py:23)
       redis.clients.jedis.search.aggr.AggregationBuilder aggregation = aq.buildRedisAggregation();
       UnifiedJedis jedis = getUnifiedJedis();
 
-      // Add parameters if present (e.g., vector parameter for HybridQuery)
+      // Add parameters if present (e.g., vector parameter for AggregateHybridQuery)
       Map<String, Object> params = aq.getParams();
       if (params != null && !params.isEmpty()) {
         aggregation.params(params);
@@ -1605,6 +1670,57 @@ public final class SearchIndex {
         // Each row is already a Map<String, Object>
         // Just add it to the processed list
         processed.add(new HashMap<>(row));
+      }
+    }
+    return processed;
+  }
+
+  /**
+   * Process HybridResult from FT.HYBRID into List of Maps.
+   *
+   * <p>Converts Redis hybrid search results into a list of maps, where each map represents a
+   * document from the hybrid search result.
+   *
+   * @param result the HybridResult from Redis FT.HYBRID command
+   * @return list of maps containing hybrid search results
+   */
+  private List<Map<String, Object>> processHybridResult(HybridResult result) {
+    List<Map<String, Object>> processed = new ArrayList<>();
+    if (result != null && result.getDocuments() != null) {
+      for (Document doc : result.getDocuments()) {
+        Map<String, Object> docMap = new HashMap<>();
+        docMap.put("id", doc.getId());
+        if (doc.getScore() != null) {
+          docMap.put("score", doc.getScore());
+        }
+
+        if (getStorageType() == IndexSchema.StorageType.JSON) {
+          Object jsonField = doc.get("$");
+          if (jsonField instanceof String) {
+            try {
+              @SuppressWarnings("unchecked")
+              Map<String, Object> parsedDoc = jsonMapper.readValue((String) jsonField, Map.class);
+              for (Map.Entry<String, Object> entry : parsedDoc.entrySet()) {
+                docMap.put("$." + entry.getKey(), entry.getValue());
+              }
+            } catch (Exception e) {
+              log.warn("Failed to parse JSON document in hybrid result", e);
+              for (Map.Entry<String, Object> entry : doc.getProperties()) {
+                docMap.put(entry.getKey(), entry.getValue());
+              }
+            }
+          } else {
+            for (Map.Entry<String, Object> entry : doc.getProperties()) {
+              docMap.put(entry.getKey(), entry.getValue());
+            }
+          }
+        } else {
+          for (Map.Entry<String, Object> entry : doc.getProperties()) {
+            docMap.put(entry.getKey(), entry.getValue());
+          }
+        }
+
+        processed.add(docMap);
       }
     }
     return processed;

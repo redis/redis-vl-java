@@ -189,7 +189,7 @@ public abstract class BaseCache {
   protected void setWithTtl(byte[] key, byte[] value, Integer ttl) {
     if (ttl != null || this.ttl != null) {
       Integer effectiveTtl = ttl != null ? ttl : this.ttl;
-      redisClient.setex(key, effectiveTtl, value);
+      redisClient.set(key, value, new redis.clients.jedis.params.SetParams().ex(effectiveTtl));
     } else {
       redisClient.set(key, value);
     }

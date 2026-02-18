@@ -8,8 +8,8 @@ plugins {
 description = "RedisVL - Vector Library for Java"
 
 dependencies {
-    // Redis client - upgraded to 7.2.0 for new RedisClient/RedisSentinelClient API
-    api("redis.clients:jedis:7.2.0")
+    // Redis client - upgraded to 7.3.0 for native FT.HYBRID support
+    api("redis.clients:jedis:7.3.0")
 
     // JSON processing
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")

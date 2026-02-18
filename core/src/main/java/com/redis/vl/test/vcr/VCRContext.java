@@ -167,7 +167,7 @@ public class VCRContext {
   }
 
   private String buildRedisCommand() {
-    StringBuilder cmd = new StringBuilder("redis-stack-server");
+    StringBuilder cmd = new StringBuilder("redis-server");
     cmd.append(" --dir /data");
     cmd.append(" --dbfilename dump.rdb");
 
