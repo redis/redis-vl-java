@@ -166,9 +166,9 @@ class MultiVectorQueryIntegrationTest extends BaseIntegrationTest {
         .contains("@image_embedding:[VECTOR_RANGE 2.0 $vector_1]")
         .contains(" | ");
 
-    // Verify scoring
+    // Verify scoring (@ prefix is correct for FT.AGGREGATE APPLY expressions)
     String formula = query.getScoringFormula();
-    assertThat(formula).contains("0.70 * score_0").contains("0.30 * score_1");
+    assertThat(formula).contains("0.70 * @score_0").contains("0.30 * @score_1");
   }
 
   @Test
@@ -213,9 +213,9 @@ class MultiVectorQueryIntegrationTest extends BaseIntegrationTest {
     assertThat(calculations.get("score_0")).isEqualTo("(2 - distance_0)/2");
     assertThat(calculations.get("score_1")).isEqualTo("(2 - distance_1)/2");
 
-    // Verify combined scoring formula
+    // Verify combined scoring formula (@ prefix is correct for FT.AGGREGATE APPLY expressions)
     String formula = query.getScoringFormula();
-    assertThat(formula).isEqualTo("0.60 * score_0 + 0.40 * score_1");
+    assertThat(formula).isEqualTo("0.60 * @score_0 + 0.40 * @score_1");
   }
 
   @Test

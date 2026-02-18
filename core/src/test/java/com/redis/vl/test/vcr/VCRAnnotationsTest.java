@@ -70,7 +70,7 @@ class VCRAnnotationsTest {
   void vcrTestShouldHaveDefaultRedisImage() throws NoSuchMethodException {
     var method = VCRTest.class.getMethod("redisImage");
     String defaultValue = (String) method.getDefaultValue();
-    assertThat(defaultValue).isEqualTo("redis/redis-stack:latest");
+    assertThat(defaultValue).isEqualTo("redis:latest");
   }
 
   @Test

@@ -1,18 +1,21 @@
 package com.redis.vl;
 
+import com.redis.testcontainers.RedisStackContainer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
 /**
- * Base class for integration tests with Redis Stack container.
+ * Base class for integration tests with Redis container.
  *
- * <p>Updated for Jedis 7.2+ API using RedisClient instead of deprecated JedisPool/JedisPooled.
+ * <p>Updated for Jedis 7.2+ API using RedisClient instead of deprecated JedisPool/JedisPooled. Uses
+ * Redis Stack image which includes all required modules (RediSearch, RedisJSON, etc.).
  */
+@Testcontainers(disabledWithoutDocker = true)
 public abstract class BaseIntegrationTest {
 
   @SuppressFBWarnings(
@@ -25,23 +28,22 @@ public abstract class BaseIntegrationTest {
       justification = "Test infrastructure fields intentionally mutable for test lifecycle")
   protected static String redisUrl;
 
-  @SuppressFBWarnings(
-      value = {"MS_PKGPROTECT", "MS_CANNOT_BE_FINAL"},
-      justification = "Test infrastructure fields intentionally mutable for test lifecycle")
-  protected static GenericContainer<?> REDIS;
+  @Container
+  protected static final RedisStackContainer REDIS =
+      new RedisStackContainer(RedisStackContainer.DEFAULT_IMAGE_NAME.withTag("latest"))
+          .withReuse(true);
 
   private static RedisClient redisClient;
 
   @BeforeAll
   static void startContainer() {
-    // Start Redis Stack container
-    REDIS =
-        new GenericContainer<>(DockerImageName.parse("redis/redis-stack:latest"))
-            .withExposedPorts(6379);
-    REDIS.start();
+    // Start container if not already started
+    if (!REDIS.isRunning()) {
+      REDIS.start();
+    }
 
     String host = REDIS.getHost();
-    int port = REDIS.getMappedPort(6379);
+    int port = REDIS.getRedisPort();
 
     // Build Redis URL for testing URL-based constructors
     redisUrl = String.format("redis://%s:%d", host, port);
@@ -59,9 +61,6 @@ public abstract class BaseIntegrationTest {
       redisClient.close();
       redisClient = null;
       unifiedJedis = null;
-    }
-    if (REDIS != null) {
-      REDIS.stop();
     }
   }
 

@@ -3,6 +3,7 @@ package com.redis.vl.langchain4j;
 import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metadataKey;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
 import com.redis.vl.schema.IndexSchema;
 import dev.langchain4j.data.document.Metadata;
@@ -17,8 +18,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Integration tests for RedisVLEmbeddingStore with filter support.
@@ -27,9 +26,8 @@ import redis.clients.jedis.UnifiedJedis;
  * on tests from LangChain4J community PR #183.
  */
 @Tag("integration")
-class RedisVLEmbeddingStoreFilterTest {
+class RedisVLEmbeddingStoreFilterTest extends BaseIntegrationTest {
 
-  private UnifiedJedis jedis;
   private SearchIndex searchIndex;
   private RedisVLEmbeddingStore embeddingStore;
   private static final String INDEX_NAME = "test_lc4j_filters";
@@ -37,8 +35,6 @@ class RedisVLEmbeddingStoreFilterTest {
 
   @BeforeEach
   void setUp() {
-    jedis = RedisClient.create("localhost", 6379);
-
     // Create schema with indexed metadata fields for filtering
     Map<String, Object> schema =
         Map.of(
@@ -78,7 +74,7 @@ class RedisVLEmbeddingStoreFilterTest {
                     "attrs",
                     Map.of("as", "tags", "separator", "|"))));
 
-    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), jedis);
+    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), unifiedJedis);
     try {
       searchIndex.create(true);
     } catch (Exception e) {
@@ -104,10 +100,6 @@ class RedisVLEmbeddingStoreFilterTest {
       } catch (Exception e) {
         // Ignore
       }
-    }
-
-    if (jedis != null) {
-      jedis.close();
     }
   }
 
