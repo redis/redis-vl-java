@@ -6,6 +6,7 @@ import com.redis.vl.index.SearchIndex;
 import com.redis.vl.query.Filter;
 import com.redis.vl.query.FilterQuery;
 import com.redis.vl.schema.IndexSchema;
+import com.redis.vl.utils.Utils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -218,12 +219,18 @@ public class MessageHistory extends BaseMessageHistory {
     String effectiveSessionTag = (sessionTag != null) ? sessionTag : this.sessionTag;
     List<Map<String, Object>> chatMessages = new ArrayList<>();
 
-    for (Map<String, String> message : messages) {
+    // Use a base timestamp and increment by a small offset per message to guarantee
+    // insertion order is preserved when sorting by timestamp.
+    double baseTimestamp = Utils.currentTimestamp();
+
+    for (int i = 0; i < messages.size(); i++) {
+      Map<String, String> message = messages.get(i);
       ChatMessage.ChatMessageBuilder builder =
           ChatMessage.builder()
               .role(message.get(ROLE_FIELD_NAME))
               .content(message.get(CONTENT_FIELD_NAME))
-              .sessionTag(effectiveSessionTag);
+              .sessionTag(effectiveSessionTag)
+              .timestamp(baseTimestamp + (i * 0.000001)); // 1 microsecond offset per message
 
       if (message.containsKey(TOOL_FIELD_NAME)) {
         builder.toolCallId(message.get(TOOL_FIELD_NAME));
