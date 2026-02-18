@@ -33,8 +33,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * <ul>
  *   <li>{@link #mode()} - The VCR operating mode (default: PLAYBACK_OR_RECORD)
  *   <li>{@link #dataDir()} - Directory for storing cassettes (default: src/test/resources/vcr-data)
- *   <li>{@link #redisImage()} - Docker image for Redis container (default:
- *       redis/redis-stack:latest)
+ *   <li>{@link #redisImage()} - Docker image for Redis container (default: redis:latest)
  * </ul>
  *
  * @see VCRMode
@@ -72,10 +71,9 @@ public @interface VCRTest {
   /**
    * The Docker image to use for the Redis container.
    *
-   * <p>The image should be a Redis Stack image that includes RediSearch and RedisJSON modules for
-   * optimal functionality.
+   * <p>Redis 8.x+ includes search and JSON modules natively.
    *
-   * @return the Redis Docker image name (default: redis/redis-stack:latest)
+   * @return the Redis Docker image name (default: redis:latest)
    */
-  String redisImage() default "redis/redis-stack:latest";
+  String redisImage() default "redis:latest";
 }

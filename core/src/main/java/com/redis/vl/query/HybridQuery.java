@@ -1,39 +1,34 @@
 package com.redis.vl.query;
 
 import com.redis.vl.utils.ArrayUtils;
-import com.redis.vl.utils.TokenEscaper;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import com.redis.vl.utils.FullTextQueryHelper;
 import java.util.*;
-import java.util.stream.Collectors;
-import redis.clients.jedis.search.aggr.AggregationBuilder;
-import redis.clients.jedis.search.aggr.SortedField;
+import redis.clients.jedis.search.Combiner;
+import redis.clients.jedis.search.Combiners;
+import redis.clients.jedis.search.Limit;
+import redis.clients.jedis.search.Scorer;
+import redis.clients.jedis.search.Scorers;
+import redis.clients.jedis.search.hybrid.FTHybridParams;
+import redis.clients.jedis.search.hybrid.FTHybridPostProcessingParams;
+import redis.clients.jedis.search.hybrid.FTHybridSearchParams;
+import redis.clients.jedis.search.hybrid.FTHybridVectorParams;
 
 /**
- * HybridQuery combines text and vector search in Redis using aggregation.
+ * HybridQuery combines text and vector search using the native Redis FT.HYBRID command.
  *
- * <p>Ported from Python: redisvl/query/aggregate.py:57-329 (AggregateHybridQuery class)
+ * <p>Ported from Python: redisvl/query/hybrid.py (HybridQuery class)
  *
- * <p>It allows you to perform a hybrid search using both text and vector similarity. It scores
- * documents based on a weighted combination of text and vector similarity using the formula:
+ * <p>This query uses the native FT.HYBRID command available in Redis 8.4+ which provides built-in
+ * score fusion via RRF (Reciprocal Rank Fusion) or LINEAR combination methods. This is the
+ * recommended approach for hybrid search on Redis 8.4+.
  *
- * <pre>
- * hybrid_score = (1 - alpha) * text_score + alpha * vector_similarity
- * </pre>
+ * <p>For older Redis versions (7.4+) that use FT.AGGREGATE with manual score fusion, see {@link
+ * AggregateHybridQuery}.
  *
- * <p>Where {@code text_score} is the BM25 score from the text search and {@code vector_similarity}
- * is the normalized cosine similarity from the vector search.
- *
- * <p><strong>Redis Version Requirements:</strong> This query uses the ADDSCORES option in
- * FT.AGGREGATE to expose the internal text search score (@__score). This feature requires
- * <strong>Redis 7.4.0 or later</strong>. On older Redis versions, the query will fail.
- *
- * <p><strong>Note on Runtime Parameters:</strong> HybridQuery uses Redis FT.AGGREGATE for
- * aggregation-based hybrid search. As of Redis Stack 7.2+, runtime parameters (efRuntime, epsilon,
- * etc.) are NOT supported in FT.AGGREGATE queries. If you need runtime parameter support, use
- * {@link VectorQuery} or {@link VectorRangeQuery} instead. See Python PR #439 for details.
+ * <p><strong>Alpha Semantics:</strong> In this class, {@code linearAlpha} represents the text
+ * weight in the LINEAR combiner (matching the Python convention). This differs from {@link
+ * AggregateHybridQuery} where {@code alpha} represents the vector weight. The different parameter
+ * names prevent confusion.
  *
  * <p>Python equivalent:
  *
@@ -44,13 +39,8 @@ import redis.clients.jedis.search.aggr.SortedField;
  *     vector=[0.1, 0.2, 0.3],
  *     vector_field_name="vector_field",
  *     text_scorer="BM25STD",
- *     filter_expression=None,
- *     alpha=0.7,
- *     dtype="float32",
+ *     combination_method="RRF",
  *     num_results=10,
- *     return_fields=["field1", "field2"],
- *     stopwords="english",
- *     dialect=2,
  * )
  * results = index.query(query)
  * </pre>
@@ -64,13 +54,8 @@ import redis.clients.jedis.search.aggr.SortedField;
  *     .vector(new float[]{0.1f, 0.2f, 0.3f})
  *     .vectorFieldName("vector_field")
  *     .textScorer("BM25STD")
- *     .filterExpression(null)
- *     .alpha(0.7f)
- *     .dtype("float32")
+ *     .combinationMethod(CombinationMethod.RRF)
  *     .numResults(10)
- *     .returnFields(List.of("field1", "field2"))
- *     .stopwords(loadDefaultStopwords("english"))
- *     .dialect(2)
  *     .build();
  * List&lt;Map&lt;String, Object&gt;&gt; results = index.query(query);
  * </pre>
@@ -78,239 +63,350 @@ import redis.clients.jedis.search.aggr.SortedField;
  * <p>This class is final to prevent finalizer attacks, as it throws exceptions in constructors for
  * input validation (SEI CERT OBJ11-J).
  *
- * @since 0.1.0
+ * @since 0.2.0
  */
-public final class HybridQuery extends AggregationQuery {
+public final class HybridQuery {
 
-  private static final String DISTANCE_ID = "vector_distance";
-  private static final String VECTOR_PARAM = "vector";
+  /** Vector search method for FT.HYBRID VSIM clause. */
+  public enum VectorSearchMethod {
+    KNN,
+    RANGE
+  }
 
-  /** The text to search for. */
+  /** Score combination method for FT.HYBRID COMBINE clause. */
+  public enum CombinationMethod {
+    RRF,
+    LINEAR
+  }
+
+  private static final String DEFAULT_VECTOR_PARAM = "vector";
+
   private final String text;
-
-  /** The text field name to search in. */
   private final String textFieldName;
-
-  /** The vector to perform vector similarity search. */
   private final float[] vector;
-
-  /** The vector field name to search in. */
   private final String vectorFieldName;
-
-  /**
-   * The text scorer to use.
-   *
-   * <p>Options: TFIDF, TFIDF.DOCNORM, BM25, DISMAX, DOCSCORE, BM25STD
-   *
-   * <p>Defaults to "BM25STD".
-   */
+  private final String vectorParamName;
   private final String textScorer;
-
-  /**
-   * The filter expression to use.
-   *
-   * <p>Can be either a Filter object or a String containing a raw Redis filter expression.
-   *
-   * <p>Defaults to null (no filter).
-   */
+  private final String yieldTextScoreAs;
+  private final VectorSearchMethod vectorSearchMethod;
+  private final int knnEfRuntime;
+  private final Float rangeRadius;
+  private final float rangeEpsilon;
+  private final String yieldVsimScoreAs;
   private final Object filterExpression;
-
-  /**
-   * The weight of the vector similarity.
-   *
-   * <p>Documents will be scored as: hybrid_score = (alpha) * vector_score + (1-alpha) * text_score
-   *
-   * <p>Defaults to 0.7.
-   */
-  private final float alpha;
-
-  /**
-   * The data type of the vector.
-   *
-   * <p>Defaults to "float32".
-   */
+  private final CombinationMethod combinationMethod;
+  private final int rrfWindow;
+  private final int rrfConstant;
+  private final float linearAlpha;
+  private final String yieldCombinedScoreAs;
   private final String dtype;
-
-  /**
-   * The number of results to return.
-   *
-   * <p>Defaults to 10.
-   */
   private final int numResults;
-
-  /**
-   * The fields to return.
-   *
-   * <p>Defaults to empty list (return all).
-   */
   private final List<String> returnFields;
-
-  /**
-   * The stopwords to remove from the provided text prior to search.
-   *
-   * <p>If "english" "german" etc is provided then a default set of stopwords for that language will
-   * be used. If a set of strings is provided then those will be used as stopwords.
-   *
-   * <p>Defaults to English stopwords.
-   */
   private final Set<String> stopwords;
 
-  /**
-   * The Redis dialect version.
-   *
-   * <p>Defaults to 2.
-   */
-  private final int dialect;
-
-  // Private constructor for builder
   private HybridQuery(HybridQueryBuilder builder) {
     this.text = builder.text;
     this.textFieldName = builder.textFieldName;
-    // Defensive copy of vector array
     this.vector = builder.vector != null ? builder.vector.clone() : null;
     this.vectorFieldName = builder.vectorFieldName;
+    this.vectorParamName = builder.vectorParamName;
     this.textScorer = builder.textScorer;
+    this.yieldTextScoreAs = builder.yieldTextScoreAs;
+    this.vectorSearchMethod = builder.vectorSearchMethod;
+    this.knnEfRuntime = builder.knnEfRuntime;
+    this.rangeRadius = builder.rangeRadius;
+    this.rangeEpsilon = builder.rangeEpsilon;
+    this.yieldVsimScoreAs = builder.yieldVsimScoreAs;
     this.filterExpression = builder.filterExpression;
-    this.alpha = builder.alpha;
+    this.combinationMethod = builder.combinationMethod;
+    this.rrfWindow = builder.rrfWindow;
+    this.rrfConstant = builder.rrfConstant;
+    this.linearAlpha = builder.linearAlpha;
+    this.yieldCombinedScoreAs = builder.yieldCombinedScoreAs;
     this.dtype = builder.dtype;
     this.numResults = builder.numResults;
-    // Defensive copy to prevent external modification
     this.returnFields =
         builder.returnFields != null ? List.copyOf(builder.returnFields) : List.of();
     this.stopwords = builder.stopwords != null ? Set.copyOf(builder.stopwords) : Set.of();
-    this.dialect = builder.dialect;
 
-    // Validate text is not empty
     if (this.text == null || this.text.trim().isEmpty()) {
       throw new IllegalArgumentException("text string cannot be empty");
     }
 
-    // Validate tokenized text is not empty after stopwords removal
-    String tokenized = tokenizeAndEscapeQuery(this.text);
+    String tokenized = FullTextQueryHelper.tokenizeAndEscapeQuery(this.text, this.stopwords);
     if (tokenized.isEmpty()) {
       throw new IllegalArgumentException("text string cannot be empty after removing stopwords");
     }
+
+    if (this.vectorSearchMethod == VectorSearchMethod.RANGE && this.rangeRadius == null) {
+      throw new IllegalArgumentException(
+          "rangeRadius is required when vectorSearchMethod is RANGE");
+    }
   }
 
-  /**
-   * Create a new builder for HybridQuery.
-   *
-   * @return A new HybridQueryBuilder instance
-   */
   public static HybridQueryBuilder builder() {
     return new HybridQueryBuilder();
   }
 
-  // Getters with defensive copies for mutable fields
+  public static Set<String> loadDefaultStopwords(String language) {
+    return FullTextQueryHelper.loadDefaultStopwords(language);
+  }
 
-  /**
-   * Get the text query string.
-   *
-   * @return The text to search for
-   */
+  // Getters
+
   public String getText() {
     return text;
   }
 
-  /**
-   * Get the text field name.
-   *
-   * @return The field name containing text data
-   */
   public String getTextFieldName() {
     return textFieldName;
   }
 
-  /**
-   * Get a copy of the query vector.
-   *
-   * @return A defensive copy of the vector array
-   */
   public float[] getVector() {
     return vector != null ? vector.clone() : null;
   }
 
-  /**
-   * Get the vector field name.
-   *
-   * @return The field name containing vector data
-   */
   public String getVectorFieldName() {
     return vectorFieldName;
   }
 
-  /**
-   * Get the text scoring algorithm.
-   *
-   * @return The text scorer (e.g., "BM25", "TFIDF")
-   */
+  public String getVectorParamName() {
+    return vectorParamName;
+  }
+
   public String getTextScorer() {
     return textScorer;
   }
 
-  /**
-   * Get the filter expression.
-   *
-   * <p>Can be either a Filter object or a String containing a raw Redis filter expression.
-   *
-   * @return The filter to apply (Filter or String), or null if no filter
-   */
+  public String getYieldTextScoreAs() {
+    return yieldTextScoreAs;
+  }
+
+  public VectorSearchMethod getVectorSearchMethod() {
+    return vectorSearchMethod;
+  }
+
+  public int getKnnEfRuntime() {
+    return knnEfRuntime;
+  }
+
+  public Float getRangeRadius() {
+    return rangeRadius;
+  }
+
+  public float getRangeEpsilon() {
+    return rangeEpsilon;
+  }
+
+  public String getYieldVsimScoreAs() {
+    return yieldVsimScoreAs;
+  }
+
   public Object getFilterExpression() {
     return filterExpression;
   }
 
-  /**
-   * Get the alpha weighting factor.
-   *
-   * @return Weight between 0.0 (vector only) and 1.0 (text only)
-   */
-  public float getAlpha() {
-    return alpha;
+  public CombinationMethod getCombinationMethod() {
+    return combinationMethod;
   }
 
-  /**
-   * Get the data type for vector storage.
-   *
-   * @return The data type (e.g., "float32", "float64")
-   */
+  public int getRrfWindow() {
+    return rrfWindow;
+  }
+
+  public int getRrfConstant() {
+    return rrfConstant;
+  }
+
+  public float getLinearAlpha() {
+    return linearAlpha;
+  }
+
+  public String getYieldCombinedScoreAs() {
+    return yieldCombinedScoreAs;
+  }
+
   public String getDtype() {
     return dtype;
   }
 
-  /**
-   * Get the maximum number of results.
-   *
-   * @return The result limit
-   */
   public int getNumResults() {
     return numResults;
   }
 
-  /**
-   * Get an unmodifiable view of the return fields.
-   *
-   * @return Unmodifiable list of return fields
-   */
   public List<String> getReturnFields() {
     return Collections.unmodifiableList(returnFields);
   }
 
-  /**
-   * Get an unmodifiable view of the stopwords.
-   *
-   * @return Unmodifiable set of stopwords
-   */
   public Set<String> getStopwords() {
     return Collections.unmodifiableSet(stopwords);
   }
 
   /**
-   * Get the query dialect version.
+   * Build the query string for the SEARCH clause.
    *
-   * @return The dialect version (default 2)
+   * <p>Tokenizes the text, removes stopwords, escapes special characters, and adds optional filter
+   * expression.
+   *
+   * @return the query string for FT.HYBRID SEARCH clause
    */
-  public int getDialect() {
-    return dialect;
+  public String buildQueryString() {
+    String tokenized = FullTextQueryHelper.tokenizeAndEscapeQuery(text, stopwords);
+    String textQuery = String.format("@%s:(%s)", textFieldName, tokenized);
+
+    String filterStr = resolveFilterString();
+    if (filterStr != null && !filterStr.equals("*")) {
+      return String.format("(%s %s)", textQuery, filterStr);
+    }
+
+    return textQuery;
+  }
+
+  /**
+   * Build the {@link FTHybridParams} for the native FT.HYBRID command.
+   *
+   * @return the configured FTHybridParams
+   */
+  public FTHybridParams buildFTHybridParams() {
+    // Build SEARCH clause
+    FTHybridSearchParams.Builder searchBuilder =
+        FTHybridSearchParams.builder().query(buildQueryString()).scorer(resolveScorer(textScorer));
+    if (yieldTextScoreAs != null) {
+      searchBuilder.scoreAlias(yieldTextScoreAs);
+    }
+
+    // Build VSIM clause
+    FTHybridVectorParams.Builder vsimBuilder =
+        FTHybridVectorParams.builder()
+            .field("@" + vectorFieldName)
+            .vector("$" + vectorParamName)
+            .method(buildVectorMethod());
+
+    String filterStr = resolveFilterString();
+    if (filterStr != null && !filterStr.equals("*")) {
+      vsimBuilder.filter(filterStr);
+    }
+    if (yieldVsimScoreAs != null) {
+      vsimBuilder.scoreAlias(yieldVsimScoreAs);
+    }
+
+    // Build COMBINE clause
+    Combiner combiner = buildCombiner();
+
+    // Build POST-PROCESSING clause
+    FTHybridPostProcessingParams.Builder postBuilder = FTHybridPostProcessingParams.builder();
+    if (!returnFields.isEmpty()) {
+      postBuilder.load(returnFields.toArray(new String[0]));
+    }
+    postBuilder.limit(Limit.of(0, numResults));
+
+    // Assemble FTHybridParams
+    FTHybridParams.Builder paramsBuilder =
+        FTHybridParams.builder()
+            .search(searchBuilder.build())
+            .vectorSearch(vsimBuilder.build())
+            .combine(combiner)
+            .postProcessing(postBuilder.build())
+            .param(vectorParamName, ArrayUtils.floatArrayToBytes(vector));
+
+    return paramsBuilder.build();
+  }
+
+  /**
+   * Convert this HybridQuery to an AggregateHybridQuery for fallback when FT.HYBRID is not
+   * available.
+   *
+   * <p>Maps the LINEAR alpha semantics: HybridQuery's linearAlpha (text weight) maps to
+   * AggregateHybridQuery's alpha as (1 - linearAlpha) since AggregateHybridQuery's alpha is the
+   * vector weight.
+   *
+   * @return an AggregateHybridQuery with equivalent parameters
+   */
+  public AggregateHybridQuery toAggregateHybridQuery() {
+    // Map linearAlpha (text weight in FT.HYBRID) to alpha (vector weight in FT.AGGREGATE)
+    float aggregateAlpha =
+        (combinationMethod == CombinationMethod.LINEAR) ? (1.0f - linearAlpha) : 0.7f;
+
+    AggregateHybridQuery.AggregateHybridQueryBuilder builder =
+        AggregateHybridQuery.builder()
+            .text(text)
+            .textFieldName(textFieldName)
+            .vector(vector)
+            .vectorFieldName(vectorFieldName)
+            .textScorer(textScorer)
+            .alpha(aggregateAlpha)
+            .dtype(dtype)
+            .numResults(numResults)
+            .returnFields(returnFields)
+            .stopwords(stopwords);
+
+    if (filterExpression instanceof Filter f) {
+      builder.filterExpression(f);
+    } else if (filterExpression instanceof String s) {
+      builder.filterExpression(s);
+    }
+
+    return builder.build();
+  }
+
+  /**
+   * Get the parameters map for the query (vector parameter).
+   *
+   * @return parameter map with vector bytes
+   */
+  public Map<String, Object> getParams() {
+    byte[] vectorBytes = ArrayUtils.floatArrayToBytes(vector);
+    Map<String, Object> params = new HashMap<>();
+    params.put(vectorParamName, vectorBytes);
+    return params;
+  }
+
+  private String resolveFilterString() {
+    if (filterExpression instanceof Filter) {
+      return ((Filter) filterExpression).build();
+    } else if (filterExpression instanceof String) {
+      return (String) filterExpression;
+    }
+    return null;
+  }
+
+  private FTHybridVectorParams.VectorMethod buildVectorMethod() {
+    if (vectorSearchMethod == VectorSearchMethod.RANGE) {
+      FTHybridVectorParams.Range range =
+          FTHybridVectorParams.Range.of(rangeRadius).epsilon(rangeEpsilon);
+      return range;
+    }
+    // Default: KNN
+    return FTHybridVectorParams.Knn.of(numResults).efRuntime(knnEfRuntime);
+  }
+
+  private Combiner buildCombiner() {
+    if (combinationMethod == CombinationMethod.LINEAR) {
+      Combiners.Linear linear = Combiners.linear().alpha(linearAlpha).beta(1.0 - linearAlpha);
+      if (yieldCombinedScoreAs != null) {
+        return linear.as(yieldCombinedScoreAs);
+      }
+      return linear;
+    }
+    // Default: RRF
+    Combiners.RRF rrf = Combiners.rrf().window(rrfWindow).constant(rrfConstant);
+    if (yieldCombinedScoreAs != null) {
+      return rrf.as(yieldCombinedScoreAs);
+    }
+    return rrf;
+  }
+
+  private static Scorer resolveScorer(String textScorer) {
+    return switch (textScorer.toUpperCase()) {
+      case "BM25STD" -> Scorers.bm25std();
+      case "BM25STD.NORM" -> Scorers.bm25stdNorm();
+      case "TFIDF" -> Scorers.tfidf();
+      case "TFIDF.DOCNORM" -> Scorers.tfidfDocnorm();
+      case "DISMAX" -> Scorers.dismax();
+      case "DOCSCORE" -> Scorers.docscore();
+      case "HAMMING" -> Scorers.hamming();
+      default -> throw new IllegalArgumentException("Unknown scorer: " + textScorer);
+    };
   }
 
   /** Builder for creating HybridQuery instances with fluent API. */
@@ -319,341 +415,144 @@ public final class HybridQuery extends AggregationQuery {
     private String textFieldName;
     private float[] vector;
     private String vectorFieldName;
+    private String vectorParamName = DEFAULT_VECTOR_PARAM;
     private String textScorer = "BM25STD";
+    private String yieldTextScoreAs;
+    private VectorSearchMethod vectorSearchMethod = VectorSearchMethod.KNN;
+    private int knnEfRuntime = 10;
+    private Float rangeRadius;
+    private float rangeEpsilon = 0.01f;
+    private String yieldVsimScoreAs;
     private Object filterExpression;
-    private float alpha = 0.7f;
+    private CombinationMethod combinationMethod = CombinationMethod.RRF;
+    private int rrfWindow = 20;
+    private int rrfConstant = 60;
+    private float linearAlpha = 0.3f;
+    private String yieldCombinedScoreAs;
     private String dtype = "float32";
     private int numResults = 10;
     private List<String> returnFields = List.of();
-    private Set<String> stopwords = loadDefaultStopwords("english");
-    private int dialect = 2;
+    private Set<String> stopwords = FullTextQueryHelper.loadDefaultStopwords("english");
 
-    /** Package-private constructor used by builder() method. */
     HybridQueryBuilder() {}
 
-    /**
-     * Set the text query string.
-     *
-     * @param text The text to search for
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder text(String text) {
       this.text = text;
       return this;
     }
 
-    /**
-     * Set the name of the text field to search.
-     *
-     * @param textFieldName The field name containing text data
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder textFieldName(String textFieldName) {
       this.textFieldName = textFieldName;
       return this;
     }
 
-    /**
-     * Set the query vector for similarity search. Makes a defensive copy.
-     *
-     * @param vector The embedding vector to search with
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder vector(float[] vector) {
       this.vector = vector != null ? vector.clone() : null;
       return this;
     }
 
-    /**
-     * Set the name of the vector field to search.
-     *
-     * @param vectorFieldName The field name containing vector data
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder vectorFieldName(String vectorFieldName) {
       this.vectorFieldName = vectorFieldName;
       return this;
     }
 
-    /**
-     * Set the scoring algorithm for text search.
-     *
-     * @param textScorer The text scorer (e.g., "BM25", "TFIDF")
-     * @return This builder for chaining
-     */
+    public HybridQueryBuilder vectorParamName(String vectorParamName) {
+      this.vectorParamName = vectorParamName;
+      return this;
+    }
+
     public HybridQueryBuilder textScorer(String textScorer) {
       this.textScorer = textScorer;
       return this;
     }
 
-    /**
-     * Set an additional filter expression for the query using a Filter object.
-     *
-     * @param filterExpression The filter to apply
-     * @return This builder for chaining
-     */
+    public HybridQueryBuilder yieldTextScoreAs(String yieldTextScoreAs) {
+      this.yieldTextScoreAs = yieldTextScoreAs;
+      return this;
+    }
+
+    public HybridQueryBuilder vectorSearchMethod(VectorSearchMethod vectorSearchMethod) {
+      this.vectorSearchMethod = vectorSearchMethod;
+      return this;
+    }
+
+    public HybridQueryBuilder knnEfRuntime(int knnEfRuntime) {
+      this.knnEfRuntime = knnEfRuntime;
+      return this;
+    }
+
+    public HybridQueryBuilder rangeRadius(float rangeRadius) {
+      this.rangeRadius = rangeRadius;
+      return this;
+    }
+
+    public HybridQueryBuilder rangeEpsilon(float rangeEpsilon) {
+      this.rangeEpsilon = rangeEpsilon;
+      return this;
+    }
+
+    public HybridQueryBuilder yieldVsimScoreAs(String yieldVsimScoreAs) {
+      this.yieldVsimScoreAs = yieldVsimScoreAs;
+      return this;
+    }
+
     public HybridQueryBuilder filterExpression(Filter filterExpression) {
       this.filterExpression = filterExpression;
       return this;
     }
 
-    /**
-     * Set an additional filter expression for the query using a raw Redis query string.
-     *
-     * <p>This allows passing custom Redis filter syntax directly, such as:
-     * "@category:{tech|science|engineering}"
-     *
-     * <p>Ported from Python PR #375 to support string filter expressions.
-     *
-     * @param filterExpression The raw Redis filter string
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder filterExpression(String filterExpression) {
       this.filterExpression = filterExpression;
       return this;
     }
 
-    /**
-     * Set the weight for combining text and vector scores.
-     *
-     * @param alpha Weight between 0.0 (vector only) and 1.0 (text only), default 0.7
-     * @return This builder for chaining
-     */
-    public HybridQueryBuilder alpha(float alpha) {
-      this.alpha = alpha;
+    public HybridQueryBuilder combinationMethod(CombinationMethod combinationMethod) {
+      this.combinationMethod = combinationMethod;
       return this;
     }
 
-    /**
-     * Set the data type for vector storage.
-     *
-     * @param dtype The data type (e.g., "float32", "float64")
-     * @return This builder for chaining
-     */
+    public HybridQueryBuilder rrfWindow(int rrfWindow) {
+      this.rrfWindow = rrfWindow;
+      return this;
+    }
+
+    public HybridQueryBuilder rrfConstant(int rrfConstant) {
+      this.rrfConstant = rrfConstant;
+      return this;
+    }
+
+    public HybridQueryBuilder linearAlpha(float linearAlpha) {
+      this.linearAlpha = linearAlpha;
+      return this;
+    }
+
+    public HybridQueryBuilder yieldCombinedScoreAs(String yieldCombinedScoreAs) {
+      this.yieldCombinedScoreAs = yieldCombinedScoreAs;
+      return this;
+    }
+
     public HybridQueryBuilder dtype(String dtype) {
       this.dtype = dtype;
       return this;
     }
 
-    /**
-     * Set the maximum number of results to return.
-     *
-     * @param numResults The result limit
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder numResults(int numResults) {
       this.numResults = numResults;
       return this;
     }
 
-    /**
-     * Set the fields to return in results. Makes a defensive copy.
-     *
-     * @param returnFields List of field names to return
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder returnFields(List<String> returnFields) {
       this.returnFields = returnFields != null ? List.copyOf(returnFields) : List.of();
       return this;
     }
 
-    /**
-     * Set custom stopwords for text search. Makes a defensive copy.
-     *
-     * @param stopwords Set of words to exclude from text search
-     * @return This builder for chaining
-     */
     public HybridQueryBuilder stopwords(Set<String> stopwords) {
       this.stopwords = stopwords != null ? Set.copyOf(stopwords) : Set.of();
       return this;
     }
 
-    /**
-     * Set the query dialect version.
-     *
-     * @param dialect The dialect version (default 2)
-     * @return This builder for chaining
-     */
-    public HybridQueryBuilder dialect(int dialect) {
-      this.dialect = dialect;
-      return this;
-    }
-
-    /**
-     * Build the HybridQuery instance.
-     *
-     * @return The configured HybridQuery
-     * @throws IllegalArgumentException if required fields are missing or invalid
-     */
     public HybridQuery build() {
       return new HybridQuery(this);
     }
-  }
-
-  /**
-   * Load default stopwords for a given language.
-   *
-   * <p>Python uses nltk, we'll use a simple file-based approach.
-   *
-   * @param language the language (e.g., "english", "german")
-   * @return set of stopwords
-   */
-  public static Set<String> loadDefaultStopwords(String language) {
-    if (language == null || language.isEmpty()) {
-      return Set.of();
-    }
-
-    // Try to load stopwords from resources
-    String resourcePath = "/stopwords/" + language + ".txt";
-    java.io.InputStream inputStream = HybridQuery.class.getResourceAsStream(resourcePath);
-
-    if (inputStream == null) {
-      // Fallback: common English stopwords
-      if ("english".equalsIgnoreCase(language)) {
-        return Set.of(
-            "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if", "in", "into", "is",
-            "it", "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there",
-            "these", "they", "this", "to", "was", "will", "with");
-      }
-      return Set.of();
-    }
-
-    try (BufferedReader reader =
-        new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-      return reader
-          .lines()
-          .map(String::trim)
-          .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-          .collect(Collectors.toSet());
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to load stopwords for language: " + language, e);
-    }
-  }
-
-  /**
-   * Tokenize and escape the user query.
-   *
-   * <p>Ported from Python: _tokenize_and_escape_query (line 185-209)
-   *
-   * @param userQuery the user query to tokenize
-   * @return tokenized and escaped query string joined by OR
-   */
-  public String tokenizeAndEscapeQuery(String userQuery) {
-    TokenEscaper escaper = new TokenEscaper();
-
-    // Tokenize: split on whitespace, clean up punctuation
-    List<String> tokens =
-        Arrays.stream(userQuery.split("\\s+"))
-            .map(
-                token ->
-                    escaper.escape(
-                        token
-                            .strip()
-                            .replaceAll("^,+|,+$", "")
-                            .replace("\u201c", "")
-                            .replace("\u201d", "")
-                            .toLowerCase()))
-            .filter(token -> !token.isEmpty() && !stopwords.contains(token))
-            .collect(Collectors.toList());
-
-    // Join with OR (pipe)
-    return String.join(" | ", tokens);
-  }
-
-  /**
-   * Build the full query string for text search with optional filtering.
-   *
-   * <p>Ported from Python: _build_query_string (line 211-225)
-   *
-   * @return the query string
-   */
-  @Override
-  public String buildQueryString() {
-    // Handle both Filter objects and String filter expressions (Python port: PR #375)
-    String filterStr = null;
-    if (filterExpression instanceof Filter) {
-      filterStr = ((Filter) filterExpression).build();
-    } else if (filterExpression instanceof String) {
-      filterStr = (String) filterExpression;
-    }
-
-    // Base KNN query
-    String knnQuery =
-        String.format(
-            "KNN %d @%s $%s AS %s", numResults, vectorFieldName, VECTOR_PARAM, DISTANCE_ID);
-
-    // Text query with fuzzy matching (~)
-    String textQuery = String.format("(~@%s:(%s)", textFieldName, tokenizeAndEscapeQuery(text));
-
-    // Add filter if present and not wildcard
-    if (filterStr != null && !filterStr.equals("*")) {
-      textQuery += " AND " + filterStr;
-    }
-
-    // Combine: (~@text_field:(tokens) [AND filter])=>[KNN ...]
-    return String.format("%s)=>[%s]", textQuery, knnQuery);
-  }
-
-  /**
-   * Build the Redis AggregationBuilder for this hybrid query.
-   *
-   * <p>Ported from Python __init__ method (line 103-129)
-   *
-   * @return the AggregationBuilder
-   */
-  @Override
-  public AggregationBuilder buildRedisAggregation() {
-    String queryString = buildQueryString();
-    AggregationBuilder aggregation = new AggregationBuilder(queryString);
-
-    // Set dialect
-    aggregation.dialect(dialect);
-
-    // Enable ADDSCORES to expose @__score field containing the text search score
-    // (Python: self.add_scores() - line 169)
-    // Note: Requires Redis 7.4.0+. Uses default BM25 scorer.
-    aggregation.addScores();
-
-    // Apply vector similarity calculation (Python: line 170-172)
-    // vector_similarity = (2 - @vector_distance) / 2
-    // Normalizes cosine distance [0,2] to similarity [0,1]
-    aggregation.apply("(2 - @" + DISTANCE_ID + ")/2", "vector_similarity");
-
-    // Apply text score from @__score (the BM25/text search score exposed by ADDSCORES)
-    // (Python: text_score="@__score" - line 171)
-    aggregation.apply("@__score", "text_score");
-
-    // Apply hybrid score calculation (Python: line 173)
-    // hybrid_score = (1-alpha) * text_score + alpha * vector_similarity
-    String hybridScoreFormula =
-        String.format("%f*@text_score + %f*@vector_similarity", (1 - alpha), alpha);
-    aggregation.apply(hybridScoreFormula, "hybrid_score");
-
-    // Sort by hybrid score descending (Python: line 174)
-    aggregation.sortBy(numResults, SortedField.desc("@hybrid_score"));
-
-    // Load return fields (Python: line 176-177)
-    if (!returnFields.isEmpty()) {
-      aggregation.load(returnFields.toArray(String[]::new));
-    }
-
-    return aggregation;
-  }
-
-  /**
-   * Get the parameters for the aggregation query.
-   *
-   * <p>Ported from Python: params property (line 132-145)
-   *
-   * @return parameter map with vector
-   */
-  @Override
-  public Map<String, Object> getParams() {
-    // Convert vector to bytes (Python: array_to_buffer(self._vector, dtype=self._dtype))
-    byte[] vectorBytes = ArrayUtils.floatArrayToBytes(vector);
-
-    Map<String, Object> params = new HashMap<>();
-    params.put(VECTOR_PARAM, vectorBytes);
-    return params;
   }
 }

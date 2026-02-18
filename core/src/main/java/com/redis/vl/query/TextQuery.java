@@ -55,6 +55,9 @@ public class TextQuery {
   /** Fields that should not be decoded from binary format */
   private final List<String> skipDecodeFields;
 
+  /** Fields to return in the search results */
+  private final List<String> returnFields;
+
   private TextQuery(Builder builder) {
     this.text = builder.text;
     this.scorer = builder.scorer;
@@ -65,6 +68,8 @@ public class TextQuery {
     this.sortDescending = builder.sortDescending;
     this.skipDecodeFields =
         builder.skipDecodeFields != null ? List.copyOf(builder.skipDecodeFields) : List.of();
+    this.returnFields =
+        builder.returnFields != null ? List.copyOf(builder.returnFields) : List.of();
   }
 
   /**
@@ -189,6 +194,7 @@ public class TextQuery {
     private String sortBy;
     private boolean sortDescending = false;
     private List<String> skipDecodeFields = List.of();
+    private List<String> returnFields = List.of();
 
     /**
      * Set the text to search for.
@@ -382,6 +388,28 @@ public class TextQuery {
         }
       }
       this.skipDecodeFields = List.of(fields);
+      return this;
+    }
+
+    /**
+     * Set the fields to return in search results.
+     *
+     * @param returnFields List of field names to return
+     * @return This builder
+     */
+    public Builder returnFields(List<String> returnFields) {
+      this.returnFields = returnFields != null ? List.copyOf(returnFields) : List.of();
+      return this;
+    }
+
+    /**
+     * Set the fields to return in search results (varargs).
+     *
+     * @param fields Field names to return
+     * @return This builder
+     */
+    public Builder returnFields(String... fields) {
+      this.returnFields = fields != null ? List.of(fields) : List.of();
       return this;
     }
 

@@ -167,7 +167,7 @@ public class EmbeddingsCache extends BaseCache {
         byte[] valueBytes = ArrayUtils.floatArrayToBytes(entry.getValue());
 
         if (ttl != null && ttl > 0) {
-          pipeline.setex(keyBytes, ttl, valueBytes);
+          pipeline.set(keyBytes, valueBytes, new redis.clients.jedis.params.SetParams().ex(ttl));
         } else {
           pipeline.set(keyBytes, valueBytes);
         }
