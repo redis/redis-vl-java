@@ -1,6 +1,7 @@
 package com.redis.vl.utils.rerank;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.*;
 import org.junit.jupiter.api.BeforeAll;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Based on Python notebook: docs/user_guide/06_rerankers.ipynb
  *
- * <p>Requires COHERE_API_KEY environment variable to be set.
+ * <p>Requires COHERE_API_KEY environment variable to be set. Tests are skipped when not available.
  */
 @Tag("integration")
 class CohereRerankerIntegrationTest {
@@ -32,8 +33,9 @@ class CohereRerankerIntegrationTest {
   @BeforeAll
   static void setUp() {
     apiKey = System.getenv("COHERE_API_KEY");
-    assertNotNull(apiKey, "COHERE_API_KEY environment variable must be set");
-    assertFalse(apiKey.isEmpty(), "COHERE_API_KEY must not be empty");
+    assumeTrue(
+        apiKey != null && !apiKey.isEmpty(),
+        "COHERE_API_KEY environment variable not set, skipping");
   }
 
   @Test

@@ -3,133 +3,52 @@ package com.redis.vl.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.redis.vl.query.HybridQuery.CombinationMethod;
+import com.redis.vl.query.HybridQuery.VectorSearchMethod;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import redis.clients.jedis.search.hybrid.FTHybridParams;
 
 /**
- * Unit tests for HybridQuery - ported from Python test_aggregation_types.py
+ * Unit tests for HybridQuery - the native FT.HYBRID implementation.
  *
- * <p>Python reference: /redis-vl-python/tests/unit/test_aggregation_types.py
- *
- * <p>Tests the ability to pass string filter expressions directly to HybridQuery, in addition to
- * Filter objects. This is a port of the test added in PR #375.
+ * <p>Tests the builder defaults, parameter validation, vector search methods, combination methods,
+ * filter expressions, and FTHybridParams construction.
  */
-@DisplayName("HybridQuery Unit Tests")
+@DisplayName("HybridQuery Unit Tests (FT.HYBRID)")
 class HybridQueryTest {
 
   private static final float[] SAMPLE_VECTOR = new float[] {0.1f, 0.2f, 0.3f};
 
-  /**
-   * Port of Python test_hybrid_query_with_string_filter (test_aggregation_types.py:118-191)
-   *
-   * <p>This test ensures that when a string filter expression is passed to HybridQuery, it's
-   * properly included in the generated query string and not set to empty. Regression test for bug
-   * where string filters were being ignored in Python.
-   *
-   * <p>In Java, this test verifies we support BOTH Filter objects and raw string filters for
-   * feature parity with Python.
-   */
   @Test
-  @DisplayName("Should support string filter expressions")
-  void testHybridQueryWithStringFilter() {
-    String text = "search for document 12345";
-    String textFieldName = "description";
-    String vectorFieldName = "embedding";
-
-    // Test with string filter expression - should include filter in query string
-    String stringFilter = "@category:{tech|science|engineering}";
-    HybridQuery hybridQuery =
+  @DisplayName("Should use correct builder defaults")
+  void testBuilderDefaults() {
+    HybridQuery query =
         HybridQuery.builder()
-            .text(text)
-            .textFieldName(textFieldName)
+            .text("test query")
+            .textFieldName("description")
             .vector(SAMPLE_VECTOR)
-            .vectorFieldName(vectorFieldName)
-            .filterExpression(stringFilter)
+            .vectorFieldName("embedding")
             .build();
 
-    // Check that filter is stored correctly
-    assertThat(hybridQuery.getFilterExpression()).isEqualTo(stringFilter);
-
-    // Check that the generated query string includes both text search and filter
-    String queryString = hybridQuery.buildQueryString();
-    assertThat(queryString).contains("@" + textFieldName + ":(search | document | 12345)");
-    assertThat(queryString).contains("AND " + stringFilter);
+    assertThat(query.getTextScorer()).isEqualTo("BM25STD");
+    assertThat(query.getNumResults()).isEqualTo(10);
+    assertThat(query.getLinearAlpha()).isEqualTo(0.3f);
+    assertThat(query.getRrfWindow()).isEqualTo(20);
+    assertThat(query.getRrfConstant()).isEqualTo(60);
+    assertThat(query.getVectorSearchMethod()).isEqualTo(VectorSearchMethod.KNN);
+    assertThat(query.getCombinationMethod()).isEqualTo(CombinationMethod.RRF);
+    assertThat(query.getDtype()).isEqualTo("float32");
+    assertThat(query.getKnnEfRuntime()).isEqualTo(10);
+    assertThat(query.getRangeEpsilon()).isEqualTo(0.01f);
+    assertThat(query.getVectorParamName()).isEqualTo("vector");
+    assertThat(query.getYieldTextScoreAs()).isNull();
+    assertThat(query.getYieldVsimScoreAs()).isNull();
+    assertThat(query.getYieldCombinedScoreAs()).isNull();
+    assertThat(query.getFilterExpression()).isNull();
+    assertThat(query.getReturnFields()).isEmpty();
   }
 
-  /** Port of Python test - verify Filter objects still work */
-  @Test
-  @DisplayName("Should support Filter objects")
-  void testHybridQueryWithFilterObject() {
-    String text = "search for document 12345";
-    String textFieldName = "description";
-    String vectorFieldName = "embedding";
-
-    // Test with FilterExpression - should also work (existing functionality)
-    Filter filterExpression = Filter.tag("category", "tech");
-    HybridQuery hybridQuery =
-        HybridQuery.builder()
-            .text(text)
-            .textFieldName(textFieldName)
-            .vector(SAMPLE_VECTOR)
-            .vectorFieldName(vectorFieldName)
-            .filterExpression(filterExpression)
-            .build();
-
-    // Check that filter is stored correctly
-    assertThat(hybridQuery.getFilterExpression()).isEqualTo(filterExpression);
-
-    // Check that the generated query string includes both text search and filter
-    String queryString = hybridQuery.buildQueryString();
-    assertThat(queryString).contains("@" + textFieldName + ":(search | document | 12345)");
-    assertThat(queryString).contains("AND @category:{tech}");
-  }
-
-  /** Port of Python test - verify no filter works */
-  @Test
-  @DisplayName("Should work without filter")
-  void testHybridQueryNoFilter() {
-    String text = "search for document 12345";
-    String textFieldName = "description";
-    String vectorFieldName = "embedding";
-
-    // Test with no filter - should only have text search
-    HybridQuery hybridQuery =
-        HybridQuery.builder()
-            .text(text)
-            .textFieldName(textFieldName)
-            .vector(SAMPLE_VECTOR)
-            .vectorFieldName(vectorFieldName)
-            .build();
-
-    String queryString = hybridQuery.buildQueryString();
-    assertThat(queryString).contains("@" + textFieldName + ":(search | document | 12345)");
-    assertThat(queryString).doesNotContain("AND");
-  }
-
-  /** Port of Python test - verify wildcard filter works */
-  @Test
-  @DisplayName("Should handle wildcard filter")
-  void testHybridQueryWildcardFilter() {
-    String text = "search for document 12345";
-    String textFieldName = "description";
-    String vectorFieldName = "embedding";
-
-    // Test with wildcard filter - should only have text search (no AND clause)
-    HybridQuery hybridQuery =
-        HybridQuery.builder()
-            .text(text)
-            .textFieldName(textFieldName)
-            .vector(SAMPLE_VECTOR)
-            .vectorFieldName(vectorFieldName)
-            .filterExpression("*")
-            .build();
-
-    String queryString = hybridQuery.buildQueryString();
-    assertThat(queryString).contains("@" + textFieldName + ":(search | document | 12345)");
-    assertThat(queryString).doesNotContain("AND");
-  }
-
-  /** Test that empty text throws exception */
   @Test
   @DisplayName("Should reject empty text")
   void testRejectsEmptyText() {
@@ -145,11 +64,9 @@ class HybridQueryTest {
         .hasMessageContaining("text string cannot be empty");
   }
 
-  /** Test that text becomes empty after stopwords are removed */
   @Test
   @DisplayName("Should reject text that becomes empty after stopwords removal")
   void testRejectsTextThatBecomesEmptyAfterStopwords() {
-    // "with a for but and" will all be removed as default English stopwords
     assertThatThrownBy(
             () ->
                 HybridQuery.builder()
@@ -162,10 +79,139 @@ class HybridQueryTest {
         .hasMessageContaining("text string cannot be empty after removing stopwords");
   }
 
-  /** Test query string building */
   @Test
-  @DisplayName("Should build correct query string format")
-  void testQueryStringFormat() {
+  @DisplayName("Should configure KNN vector search method parameters")
+  void testKnnVectorSearchMethod() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .vectorSearchMethod(VectorSearchMethod.KNN)
+            .knnEfRuntime(50)
+            .numResults(20)
+            .build();
+
+    assertThat(query.getVectorSearchMethod()).isEqualTo(VectorSearchMethod.KNN);
+    assertThat(query.getKnnEfRuntime()).isEqualTo(50);
+    assertThat(query.getNumResults()).isEqualTo(20);
+  }
+
+  @Test
+  @DisplayName("Should configure RANGE vector search method parameters")
+  void testRangeVectorSearchMethod() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .vectorSearchMethod(VectorSearchMethod.RANGE)
+            .rangeRadius(0.5f)
+            .rangeEpsilon(0.05f)
+            .build();
+
+    assertThat(query.getVectorSearchMethod()).isEqualTo(VectorSearchMethod.RANGE);
+    assertThat(query.getRangeRadius()).isEqualTo(0.5f);
+    assertThat(query.getRangeEpsilon()).isEqualTo(0.05f);
+  }
+
+  @Test
+  @DisplayName("Should require radius for RANGE vector search method")
+  void testRangeRequiresRadius() {
+    assertThatThrownBy(
+            () ->
+                HybridQuery.builder()
+                    .text("test query")
+                    .textFieldName("description")
+                    .vector(SAMPLE_VECTOR)
+                    .vectorFieldName("embedding")
+                    .vectorSearchMethod(VectorSearchMethod.RANGE)
+                    .build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("rangeRadius is required when vectorSearchMethod is RANGE");
+  }
+
+  @Test
+  @DisplayName("Should configure RRF combination method parameters")
+  void testRrfCombinationMethod() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .combinationMethod(CombinationMethod.RRF)
+            .rrfWindow(30)
+            .rrfConstant(100)
+            .build();
+
+    assertThat(query.getCombinationMethod()).isEqualTo(CombinationMethod.RRF);
+    assertThat(query.getRrfWindow()).isEqualTo(30);
+    assertThat(query.getRrfConstant()).isEqualTo(100);
+  }
+
+  @Test
+  @DisplayName("Should configure LINEAR combination method parameters")
+  void testLinearCombinationMethod() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .combinationMethod(CombinationMethod.LINEAR)
+            .linearAlpha(0.7f)
+            .build();
+
+    assertThat(query.getCombinationMethod()).isEqualTo(CombinationMethod.LINEAR);
+    assertThat(query.getLinearAlpha()).isEqualTo(0.7f);
+  }
+
+  @Test
+  @DisplayName("Should support string filter expressions")
+  void testStringFilterExpression() {
+    String stringFilter = "@category:{tech|science|engineering}";
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("search for document 12345")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .filterExpression(stringFilter)
+            .build();
+
+    assertThat(query.getFilterExpression()).isEqualTo(stringFilter);
+
+    String queryString = query.buildQueryString();
+    assertThat(queryString).contains("@description:(search | document | 12345)");
+    assertThat(queryString).contains(stringFilter);
+  }
+
+  @Test
+  @DisplayName("Should support Filter objects")
+  void testFilterObjectExpression() {
+    Filter filterExpression = Filter.tag("category", "tech");
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("search for document 12345")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .filterExpression(filterExpression)
+            .build();
+
+    assertThat(query.getFilterExpression()).isEqualTo(filterExpression);
+
+    String queryString = query.buildQueryString();
+    assertThat(queryString).contains("@description:(search | document | 12345)");
+    assertThat(queryString).contains("@category:{tech}");
+  }
+
+  @Test
+  @DisplayName("Should build FTHybridParams successfully")
+  void testBuildFTHybridParams() {
     HybridQuery query =
         HybridQuery.builder()
             .text("medical professional")
@@ -173,45 +219,188 @@ class HybridQueryTest {
             .vector(SAMPLE_VECTOR)
             .vectorFieldName("user_embedding")
             .numResults(5)
+            .combinationMethod(CombinationMethod.RRF)
+            .rrfWindow(15)
+            .rrfConstant(60)
+            .build();
+
+    FTHybridParams params = query.buildFTHybridParams();
+    assertThat(params).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Should build FTHybridParams with LINEAR combination")
+  void testBuildFTHybridParamsLinear() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("medical professional")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("user_embedding")
+            .combinationMethod(CombinationMethod.LINEAR)
+            .linearAlpha(0.6f)
+            .numResults(10)
+            .build();
+
+    FTHybridParams params = query.buildFTHybridParams();
+    assertThat(params).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Should build FTHybridParams with RANGE vector method")
+  void testBuildFTHybridParamsRange() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("medical professional")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("user_embedding")
+            .vectorSearchMethod(VectorSearchMethod.RANGE)
+            .rangeRadius(0.5f)
+            .rangeEpsilon(0.02f)
+            .build();
+
+    FTHybridParams params = query.buildFTHybridParams();
+    assertThat(params).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Should yield score alias fields")
+  void testYieldScoreAliases() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .yieldTextScoreAs("text_score")
+            .yieldVsimScoreAs("vector_score")
+            .yieldCombinedScoreAs("combined_score")
+            .build();
+
+    assertThat(query.getYieldTextScoreAs()).isEqualTo("text_score");
+    assertThat(query.getYieldVsimScoreAs()).isEqualTo("vector_score");
+    assertThat(query.getYieldCombinedScoreAs()).isEqualTo("combined_score");
+
+    FTHybridParams params = query.buildFTHybridParams();
+    assertThat(params).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Should produce correct query string without filter")
+  void testQueryStringNoFilter() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("medical professional")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
             .build();
 
     String queryString = query.buildQueryString();
-
-    // Verify format: (~@text_field:(tokens))=>[KNN num @vector_field $vector AS vector_distance]
-    assertThat(queryString).matches(".*\\(~@description:\\(.*\\)\\)=>\\[KNN.*\\]");
-    assertThat(queryString).contains("KNN 5 @user_embedding");
-    assertThat(queryString).contains("AS vector_distance");
+    assertThat(queryString).isEqualTo("@description:(medical | professional)");
   }
 
-  /** Test alpha parameter */
   @Test
-  @DisplayName("Should store alpha parameter correctly")
-  void testAlphaParameter() {
+  @DisplayName("Should produce correct query string with filter")
+  void testQueryStringWithFilter() {
     HybridQuery query =
         HybridQuery.builder()
-            .text("test")
+            .text("medical professional")
             .textFieldName("description")
             .vector(SAMPLE_VECTOR)
             .vectorFieldName("embedding")
-            .alpha(0.3f)
+            .filterExpression("@age:[30 +inf]")
             .build();
 
-    assertThat(query.getAlpha()).isEqualTo(0.3f);
+    String queryString = query.buildQueryString();
+    assertThat(queryString).contains("@description:(medical | professional)");
+    assertThat(queryString).contains("@age:[30 +inf]");
   }
 
-  /** Test numResults parameter */
   @Test
-  @DisplayName("Should store numResults parameter correctly")
-  void testNumResultsParameter() {
+  @DisplayName("Should handle wildcard filter without adding it to query")
+  void testWildcardFilter() {
     HybridQuery query =
         HybridQuery.builder()
-            .text("test")
+            .text("medical professional")
             .textFieldName("description")
             .vector(SAMPLE_VECTOR)
             .vectorFieldName("embedding")
-            .numResults(20)
+            .filterExpression("*")
             .build();
 
-    assertThat(query.getNumResults()).isEqualTo(20);
+    String queryString = query.buildQueryString();
+    assertThat(queryString).isEqualTo("@description:(medical | professional)");
+    assertThat(queryString).doesNotContain("*");
+  }
+
+  @Test
+  @DisplayName("Should configure return fields")
+  void testReturnFields() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .returnFields(java.util.List.of("field1", "field2", "field3"))
+            .build();
+
+    assertThat(query.getReturnFields()).containsExactly("field1", "field2", "field3");
+
+    FTHybridParams params = query.buildFTHybridParams();
+    assertThat(params).isNotNull();
+  }
+
+  @Test
+  @DisplayName("Should throw for unknown scorer")
+  void testUnknownScorer() {
+    assertThatThrownBy(
+            () ->
+                HybridQuery.builder()
+                    .text("test query")
+                    .textFieldName("description")
+                    .vector(SAMPLE_VECTOR)
+                    .vectorFieldName("embedding")
+                    .textScorer("UNKNOWN_SCORER")
+                    .build()
+                    .buildFTHybridParams())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Unknown scorer");
+  }
+
+  @Test
+  @DisplayName("Should produce vector params in getParams()")
+  void testGetParams() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .build();
+
+    java.util.Map<String, Object> params = query.getParams();
+    assertThat(params).containsKey("vector");
+    assertThat(params.get("vector")).isInstanceOf(byte[].class);
+  }
+
+  @Test
+  @DisplayName("Should support custom vector param name")
+  void testCustomVectorParamName() {
+    HybridQuery query =
+        HybridQuery.builder()
+            .text("test query")
+            .textFieldName("description")
+            .vector(SAMPLE_VECTOR)
+            .vectorFieldName("embedding")
+            .vectorParamName("my_vec")
+            .build();
+
+    assertThat(query.getVectorParamName()).isEqualTo("my_vec");
+
+    java.util.Map<String, Object> params = query.getParams();
+    assertThat(params).containsKey("my_vec");
   }
 }

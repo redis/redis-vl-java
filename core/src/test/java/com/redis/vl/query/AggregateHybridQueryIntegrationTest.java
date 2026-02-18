@@ -1,11 +1,10 @@
 package com.redis.vl.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
-import com.redis.vl.query.HybridQuery.CombinationMethod;
-import com.redis.vl.query.HybridQuery.VectorSearchMethod;
 import com.redis.vl.schema.IndexSchema;
 import java.util.List;
 import java.util.Map;
@@ -16,16 +15,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for HybridQuery - the native FT.HYBRID implementation.
+ * Integration tests for AggregateHybridQuery - the FT.AGGREGATE-based hybrid search.
  *
- * <p>Requires Redis 8.4+ with native FT.HYBRID command support.
+ * <p>Ported from Python test_aggregation.py
  *
- * <p>HybridQuery combines text and vector search using the native FT.HYBRID command with built-in
- * score fusion (RRF or LINEAR).
+ * <p>AggregateHybridQuery combines text and vector search using Redis aggregation to score
+ * documents based on a weighted combination of text and vector similarity.
  */
 @Tag("integration")
-@DisplayName("HybridQuery Integration Tests (FT.HYBRID)")
-class HybridQueryIntegrationTest extends BaseIntegrationTest {
+@DisplayName("AggregateHybridQuery Integration Tests")
+class AggregateHybridQueryIntegrationTest extends BaseIntegrationTest {
 
   private SearchIndex index;
 
@@ -35,8 +34,8 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
         """
             version: '0.1.0'
             index:
-              name: user-index-hybrid
-              prefix: user-hybrid
+              name: user-index-agg-hybrid
+              prefix: user-agg-hybrid
               storage_type: hash
             fields:
               - name: user
@@ -185,8 +184,7 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
   }
 
   @Test
-  @DisplayName("Basic hybrid query with text and vector search")
-  void testBasicHybridQuery() {
+  void testBasicAggregateHybridQuery() {
     String text = "a medical professional with expertise in lung cancer";
     String textField = "description";
     float[] vector = new float[] {0.1f, 0.1f, 0.5f};
@@ -194,8 +192,8 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
     List<String> returnFields =
         List.of("user", "credit_score", "age", "job", "location", "description");
 
-    HybridQuery query =
-        HybridQuery.builder()
+    AggregateHybridQuery query =
+        AggregateHybridQuery.builder()
             .text(text)
             .textFieldName(textField)
             .vector(vector)
@@ -205,128 +203,86 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
 
     List<Map<String, Object>> results = index.query(query);
 
-    assertThat(results).isNotEmpty();
-    assertThat(results).hasSizeLessThanOrEqualTo(10);
-  }
+    assertThat(results).hasSize(7);
+    for (Map<String, Object> doc : results) {
+      assertThat(doc.get("user")).isIn("john", "derrick", "nancy", "tyler", "tim", "taimur", "joe");
+      assertThat(doc).containsKeys("age", "job", "credit_score");
+    }
 
-  @Test
-  @DisplayName("Hybrid query with RRF combination method")
-  void testHybridQueryWithRRF() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .combinationMethod(CombinationMethod.RRF)
-            .rrfWindow(20)
-            .rrfConstant(60)
-            .returnFields(List.of("user", "description"))
-            .build();
-
-    List<Map<String, Object>> results = index.query(query);
-
-    assertThat(results).isNotEmpty();
-  }
-
-  @Test
-  @DisplayName("Hybrid query with LINEAR combination method and alpha")
-  void testHybridQueryWithLinear() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .combinationMethod(CombinationMethod.LINEAR)
-            .linearAlpha(0.5f)
-            .returnFields(List.of("user", "description"))
-            .build();
-
-    List<Map<String, Object>> results = index.query(query);
-
-    assertThat(results).isNotEmpty();
-  }
-
-  @Test
-  @DisplayName("Hybrid query with KNN vector search")
-  void testHybridQueryWithKnn() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("engineer software")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .vectorSearchMethod(VectorSearchMethod.KNN)
+    // Test with limited results
+    AggregateHybridQuery limitedQuery =
+        AggregateHybridQuery.builder()
+            .text(text)
+            .textFieldName(textField)
+            .vector(vector)
+            .vectorFieldName(vectorField)
             .numResults(3)
-            .returnFields(List.of("user", "job"))
             .build();
 
-    List<Map<String, Object>> results = index.query(query);
+    List<Map<String, Object>> limitedResults = index.query(limitedQuery);
+    assertThat(limitedResults).hasSize(3);
 
-    assertThat(results).isNotEmpty();
-    assertThat(results).hasSizeLessThanOrEqualTo(3);
+    double firstScore = getDoubleValue(limitedResults.get(0), "hybrid_score");
+    double secondScore = getDoubleValue(limitedResults.get(1), "hybrid_score");
+    double thirdScore = getDoubleValue(limitedResults.get(2), "hybrid_score");
+
+    assertThat(firstScore).isGreaterThanOrEqualTo(secondScore);
+    assertThat(secondScore).isGreaterThanOrEqualTo(thirdScore);
   }
 
   @Test
-  @DisplayName("Hybrid query with tag filter expression")
-  void testHybridQueryWithTagFilter() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .filterExpression(Filter.tag("credit_score", "high"))
-            .returnFields(List.of("user", "credit_score", "description"))
-            .build();
+  void testAggregateHybridQueryEmptyTextValidation() {
+    String textField = "description";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
 
-    List<Map<String, Object>> results = index.query(query);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            AggregateHybridQuery.builder()
+                .text("")
+                .textFieldName(textField)
+                .vector(vector)
+                .vectorFieldName(vectorField)
+                .build());
 
-    assertThat(results).isNotEmpty();
-    for (Map<String, Object> result : results) {
-      assertThat(result.get("credit_score")).isEqualTo("high");
-    }
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            AggregateHybridQuery.builder()
+                .text("with a for but and")
+                .textFieldName(textField)
+                .vector(vector)
+                .vectorFieldName(vectorField)
+                .build());
   }
 
   @Test
-  @DisplayName("Hybrid query with numeric filter expression")
-  void testHybridQueryWithNumericFilter() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .filterExpression(Filter.numeric("age").gt(30))
-            .returnFields(List.of("user", "age", "description"))
+  void testAggregateHybridQueryWithTagAndNumericFilter() {
+    String text = "a medical professional with expertise in lung cancer";
+    String textField = "description";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
+    List<String> returnFields =
+        List.of("user", "credit_score", "age", "job", "location", "description");
+
+    Filter filterExpression =
+        Filter.and(Filter.tag("credit_score", "high"), Filter.numeric("age").gt(30));
+
+    AggregateHybridQuery query =
+        AggregateHybridQuery.builder()
+            .text(text)
+            .textFieldName(textField)
+            .vector(vector)
+            .vectorFieldName(vectorField)
+            .filterExpression(filterExpression)
+            .returnFields(returnFields)
             .build();
 
     List<Map<String, Object>> results = index.query(query);
 
-    assertThat(results).isNotEmpty();
-    for (Map<String, Object> result : results) {
-      int age = getIntValue(result, "age");
-      assertThat(age).isGreaterThan(30);
-    }
-  }
+    assertThat(results).hasSize(2);
 
-  @Test
-  @DisplayName("Hybrid query with string filter expression")
-  void testHybridQueryWithStringFilter() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .filterExpression("(@credit_score:{high} @age:[31 +inf])")
-            .returnFields(List.of("user", "credit_score", "age"))
-            .build();
-
-    List<Map<String, Object>> results = index.query(query);
-
-    assertThat(results).isNotEmpty();
     for (Map<String, Object> result : results) {
       assertThat(result.get("credit_score")).isEqualTo("high");
       int age = getIntValue(result, "age");
@@ -335,59 +291,72 @@ class HybridQueryIntegrationTest extends BaseIntegrationTest {
   }
 
   @Test
-  @DisplayName("Hybrid query with return fields")
-  void testHybridQueryWithReturnFields() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("engineer")
-            .textFieldName("job")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .returnFields(List.of("user", "job"))
-            .numResults(5)
-            .build();
+  void testAggregateHybridQueryAlphaParameter() {
+    String text = "a medical professional with expertise in lung cancer";
+    String textField = "description";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
 
-    List<Map<String, Object>> results = index.query(query);
+    for (float alpha : new float[] {0.1f, 0.5f, 0.9f}) {
+      AggregateHybridQuery query =
+          AggregateHybridQuery.builder()
+              .text(text)
+              .textFieldName(textField)
+              .vector(vector)
+              .vectorFieldName(vectorField)
+              .alpha(alpha)
+              .build();
 
-    assertThat(results).isNotEmpty();
+      List<Map<String, Object>> results = index.query(query);
+      assertThat(results).hasSize(7);
+
+      for (Map<String, Object> result : results) {
+        double vectorSimilarity = getDoubleValue(result, "vector_similarity");
+        double textScore = getDoubleValue(result, "text_score");
+        double hybridScore = getDoubleValue(result, "hybrid_score");
+
+        double expectedScore = alpha * vectorSimilarity + (1 - alpha) * textScore;
+        assertThat(Math.abs(hybridScore - expectedScore)).isLessThan(0.0001);
+      }
+    }
   }
 
   @Test
-  @DisplayName("Hybrid query result count verification")
-  void testHybridQueryResultCount() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .numResults(3)
-            .returnFields(List.of("user"))
+  void testAggregateHybridQueryWithStringFilterExpression() {
+    String text = "a medical professional with expertise in lung cancer";
+    String textField = "description";
+    float[] vector = new float[] {0.1f, 0.1f, 0.5f};
+    String vectorField = "user_embedding";
+
+    String stringFilter = "(@credit_score:{high} @age:[31 +inf])";
+
+    AggregateHybridQuery query =
+        AggregateHybridQuery.builder()
+            .text(text)
+            .textFieldName(textField)
+            .vector(vector)
+            .vectorFieldName(vectorField)
+            .filterExpression(stringFilter)
+            .returnFields(List.of("user", "credit_score", "age", "job"))
             .build();
 
     List<Map<String, Object>> results = index.query(query);
 
-    assertThat(results).hasSizeLessThanOrEqualTo(3);
+    assertThat(results).hasSize(2);
+
+    for (Map<String, Object> result : results) {
+      assertThat(result.get("credit_score")).isEqualTo("high");
+      int age = getIntValue(result, "age");
+      assertThat(age).isGreaterThan(30);
+    }
   }
 
-  @Test
-  @DisplayName("Hybrid query with score aliases")
-  void testHybridQueryWithScoreAliases() {
-    HybridQuery query =
-        HybridQuery.builder()
-            .text("medical professional cancer")
-            .textFieldName("description")
-            .vector(new float[] {0.1f, 0.1f, 0.5f})
-            .vectorFieldName("user_embedding")
-            .yieldTextScoreAs("text_score")
-            .yieldVsimScoreAs("vector_score")
-            .yieldCombinedScoreAs("combined_score")
-            .returnFields(List.of("user", "description"))
-            .build();
-
-    List<Map<String, Object>> results = index.query(query);
-
-    assertThat(results).isNotEmpty();
+  private double getDoubleValue(Map<String, Object> map, String key) {
+    Object value = map.get(key);
+    if (value instanceof Number) {
+      return ((Number) value).doubleValue();
+    }
+    return Double.parseDouble(value.toString());
   }
 
   private int getIntValue(Map<String, Object> map, String key) {

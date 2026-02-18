@@ -2,6 +2,7 @@ package com.redis.vl.schema;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
 import com.redis.vl.query.Filter;
 import java.util.List;
@@ -10,8 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.search.SearchResult;
 
 /**
@@ -26,16 +25,13 @@ import redis.clients.jedis.search.SearchResult;
  * <p>Updated for Jedis 7.2+ API.
  */
 @Tag("integration")
-public class JsonFieldAliasIntegrationTest {
+public class JsonFieldAliasIntegrationTest extends BaseIntegrationTest {
 
-  private UnifiedJedis jedis;
   private SearchIndex searchIndex;
   private static final String INDEX_NAME = "test_json_alias";
 
   @BeforeEach
   void setUp() {
-    jedis = RedisClient.create("localhost", 6379);
-
     // Create schema with JSON storage and field aliases
     Map<String, Object> schema =
         Map.of(
@@ -65,7 +61,7 @@ public class JsonFieldAliasIntegrationTest {
                         "as",
                         "embedding"))));
 
-    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), jedis);
+    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), unifiedJedis);
     searchIndex.create(true); // Overwrite if exists
   }
 
@@ -78,9 +74,6 @@ public class JsonFieldAliasIntegrationTest {
       } catch (Exception e) {
         // Ignore cleanup errors
       }
-    }
-    if (jedis != null) {
-      jedis.close();
     }
   }
 

@@ -119,6 +119,7 @@ public class MessageHistoryNotebookIntegrationTest extends BaseIntegrationTest {
     }
 
     assertThat(context).hasSize(6);
+    // The last two messages are the stored prompt/response pair in order.
     assertThat(context.get(4)).containsEntry("role", "user").containsEntry("content", prompt);
     assertThat(context.get(5)).containsEntry("role", "llm").containsEntry("content", response);
   }
@@ -202,7 +203,7 @@ public class MessageHistoryNotebookIntegrationTest extends BaseIntegrationTest {
         "what is the smallest country in Europe?",
         "Monaco is the smallest country in Europe at 0.78 square miles.");
 
-    // Get the key of the incorrect message
+    // Get the key of the incorrect message (the most recent one is the llm response)
     List<Map<String, Object>> rawContext = chatHistory.getRecent(1, false, true, null);
     assertThat(rawContext).hasSize(1);
     String badKey = (String) rawContext.get(0).get("entry_id");

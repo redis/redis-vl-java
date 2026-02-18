@@ -2,6 +2,7 @@ package com.redis.vl.langchain4j;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.redis.vl.BaseIntegrationTest;
 import com.redis.vl.index.SearchIndex;
 import com.redis.vl.schema.IndexSchema;
 import dev.langchain4j.data.document.Metadata;
@@ -14,8 +15,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLEmbeddingStore - LangChain4J integration.
@@ -23,9 +22,8 @@ import redis.clients.jedis.UnifiedJedis;
  * <p>Tests the EmbeddingStore implementation using RedisVL as backend.
  */
 @Tag("integration")
-class RedisVLEmbeddingStoreTest {
+class RedisVLEmbeddingStoreTest extends BaseIntegrationTest {
 
-  private UnifiedJedis jedis;
   private SearchIndex searchIndex;
   private RedisVLEmbeddingStore embeddingStore;
   private static final String INDEX_NAME = "test_lc4j_embeddings";
@@ -33,8 +31,6 @@ class RedisVLEmbeddingStoreTest {
 
   @BeforeEach
   void setUp() {
-    jedis = RedisClient.create("localhost", 6379);
-
     // Create schema for embeddings
     Map<String, Object> schema =
         Map.of(
@@ -53,7 +49,7 @@ class RedisVLEmbeddingStoreTest {
                     Map.of("dims", VECTOR_DIM, "algorithm", "flat", "distance_metric", "cosine"))));
 
     // Create search index
-    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), jedis);
+    searchIndex = new SearchIndex(IndexSchema.fromDict(schema), unifiedJedis);
     try {
       searchIndex.create(true); // Overwrite if exists
     } catch (Exception e) {
@@ -82,10 +78,6 @@ class RedisVLEmbeddingStoreTest {
       } catch (Exception e) {
         // Ignore cleanup errors
       }
-    }
-
-    if (jedis != null) {
-      jedis.close();
     }
   }
 

@@ -30,10 +30,10 @@ class BatchOperationsIntegrationTest extends BaseIntegrationTest {
 
     List<Map<String, Object>> fields =
         Arrays.asList(
-            Map.of("name", "$.category", "type", "tag"),
-            Map.of("name", "$.price", "type", "numeric"),
-            Map.of("name", "$.description", "type", "text"),
-            Map.of("name", "$.rating", "type", "numeric"));
+            Map.of("name", "$.category", "type", "tag", "alias", "category"),
+            Map.of("name", "$.price", "type", "numeric", "alias", "price"),
+            Map.of("name", "$.description", "type", "text", "alias", "description"),
+            Map.of("name", "$.rating", "type", "numeric", "alias", "rating"));
     schemaDict.put("fields", fields);
 
     IndexSchema schema = IndexSchema.fromDict(schemaDict);
@@ -86,15 +86,15 @@ class BatchOperationsIntegrationTest extends BaseIntegrationTest {
   @Order(1)
   @DisplayName("Test batch search with multiple batches")
   void testBatchSearchWithMultipleBatches() {
-    // Create multiple search queries (using JSONPath notation for JSON storage)
+    // Create multiple search queries (using alias names from schema)
     List<String> queries =
         Arrays.asList(
-            "@\\$\\.category:{electronics}",
-            "@\\$\\.price:[10 50]",
-            "@\\$\\.description:(excellent)",
-            "@\\$\\.rating:[4 5]",
-            "@\\$\\.category:{books}",
-            "@\\$\\.price:[100 200]");
+            "@category:{electronics}",
+            "@price:[10 50]",
+            "@description:(excellent)",
+            "@rating:[4 5]",
+            "@category:{books}",
+            "@price:[100 200]");
 
     int batchSize = 2; // Process 2 queries at a time
 
@@ -118,15 +118,15 @@ class BatchOperationsIntegrationTest extends BaseIntegrationTest {
   @Order(2)
   @DisplayName("Test batch query with multiple batches")
   void testBatchQueryWithMultipleBatches() {
-    // Create multiple filter queries (using JSONPath for JSON storage)
+    // Create multiple filter queries (using alias names from schema)
     List<Filter> queries =
         Arrays.asList(
-            Filter.tag("$.category", "electronics"),
-            Filter.numeric("$.price").between(10, 50),
-            Filter.text("$.description", "excellent"),
-            Filter.numeric("$.rating").gt(3),
-            Filter.tag("$.category", "books", "food"),
-            Filter.numeric("$.price").lt(30));
+            Filter.tag("category", "electronics"),
+            Filter.numeric("price").between(10, 50),
+            Filter.text("description", "excellent"),
+            Filter.numeric("rating").gt(3),
+            Filter.tag("category", "books", "food"),
+            Filter.numeric("price").lt(30));
 
     int batchSize = 3; // Process 3 queries at a time
 

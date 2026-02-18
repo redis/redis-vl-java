@@ -2,6 +2,7 @@ package com.redis.vl.langchain4j;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.redis.vl.BaseIntegrationTest;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -10,8 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLDocumentStore - stores raw binary content (images, PDFs) for multimodal RAG.
@@ -19,27 +18,22 @@ import redis.clients.jedis.UnifiedJedis;
  * <p>Tests storing and retrieving documents with metadata for use with vision LLMs.
  */
 @Tag("integration")
-class RedisVLDocumentStoreTest {
+class RedisVLDocumentStoreTest extends BaseIntegrationTest {
 
-  private UnifiedJedis jedis;
   private RedisVLDocumentStore documentStore;
   private static final String KEY_PREFIX = "test_docs:";
 
   @BeforeEach
   void setUp() {
-    jedis = RedisClient.create("localhost", 6379);
-    documentStore = new RedisVLDocumentStore(jedis, KEY_PREFIX);
+    documentStore = new RedisVLDocumentStore(unifiedJedis, KEY_PREFIX);
   }
 
   @AfterEach
   void tearDown() {
     // Clean up test data
-    if (documentStore != null && jedis != null) {
+    if (documentStore != null && unifiedJedis != null) {
       // Delete all test keys
-      jedis.keys(KEY_PREFIX + "*").forEach(jedis::del);
-    }
-    if (jedis != null) {
-      jedis.close();
+      unifiedJedis.keys(KEY_PREFIX + "*").forEach(unifiedJedis::del);
     }
   }
 
@@ -203,7 +197,7 @@ class RedisVLDocumentStoreTest {
   void testBuilderPattern() {
     // Given
     RedisVLDocumentStore built =
-        RedisVLDocumentStore.builder().jedis(jedis).keyPrefix("custom_prefix:").build();
+        RedisVLDocumentStore.builder().jedis(unifiedJedis).keyPrefix("custom_prefix:").build();
 
     // When
     built.store("test", "content".getBytes(StandardCharsets.UTF_8), Map.of());

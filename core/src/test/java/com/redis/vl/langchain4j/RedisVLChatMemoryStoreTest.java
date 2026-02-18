@@ -2,6 +2,7 @@ package com.redis.vl.langchain4j;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.redis.vl.BaseIntegrationTest;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -10,8 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Test for RedisVLChatMemoryStore - LangChain4J integration.
@@ -19,26 +18,21 @@ import redis.clients.jedis.UnifiedJedis;
  * <p>Tests the ChatMemoryStore implementation using Redis for conversation persistence.
  */
 @Tag("integration")
-class RedisVLChatMemoryStoreTest {
+class RedisVLChatMemoryStoreTest extends BaseIntegrationTest {
 
-  private UnifiedJedis jedis;
   private RedisVLChatMemoryStore chatMemoryStore;
   private static final String SESSION_ID = "test-session-123";
 
   @BeforeEach
   void setUp() {
-    jedis = RedisClient.create("localhost", 6379);
-    chatMemoryStore = new RedisVLChatMemoryStore(jedis, "test_chat:");
+    chatMemoryStore = new RedisVLChatMemoryStore(unifiedJedis, "test_chat:");
   }
 
   @AfterEach
   void tearDown() {
     // Clean up test data
-    if (chatMemoryStore != null && jedis != null) {
+    if (chatMemoryStore != null && unifiedJedis != null) {
       chatMemoryStore.deleteMessages(SESSION_ID);
-    }
-    if (jedis != null) {
-      jedis.close();
     }
   }
 
