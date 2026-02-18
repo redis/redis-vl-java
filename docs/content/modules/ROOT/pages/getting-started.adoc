@@ -16,7 +16,7 @@ RedisVL is a versatile Java library designed to enhance AI applications using Re
 
 * Java 17 or higher
 * Maven or Gradle
-* Redis Stack 7.2+ or Redis with RediSearch module
+* Redis 8.0+ (includes built-in search and vector capabilities)
 
 == Installation
 
@@ -45,16 +45,16 @@ implementation 'com.redis:redisvl:{redisvl-version}'
 
 == Set Up Redis
 
-The easiest way to get started is with Redis Stack using Docker:
+The easiest way to get started is with Redis using Docker:
 
 [source,bash]
 ----
-docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+docker run -d --name redis -p 6379:6379 -p 8001:8001 redis:latest
 ----
 
 This command:
 
-* Starts Redis Stack in a Docker container
+* Starts Redis in a Docker container
 * Exposes Redis on port 6379
 * Exposes Redis Insight GUI on port 8001 (access at http://localhost:8001)
 

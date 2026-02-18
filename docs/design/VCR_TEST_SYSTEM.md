@@ -269,7 +269,7 @@ public class VCRContext {
         Files.createDirectories(dataDir);
 
         // Start Redis with volume mount
-        redisContainer = new RedisContainer(DockerImageName.parse("redis/redis-stack:latest"))
+        redisContainer = new RedisContainer(DockerImageName.parse("redis:latest"))
             .withFileSystemBind(dataDir.toAbsolutePath().toString(), "/data",
                 BindMode.READ_WRITE)
             .withCommand(buildRedisCommand());
@@ -281,7 +281,7 @@ public class VCRContext {
     }
 
     private String buildRedisCommand() {
-        StringBuilder cmd = new StringBuilder("redis-stack-server");
+        StringBuilder cmd = new StringBuilder("redis-server");
         cmd.append(" --appendonly yes");
         cmd.append(" --appendfsync everysec");
         cmd.append(" --dir /data");
@@ -699,7 +699,7 @@ class AdvancedTest {
     static VCRExtension vcr = VCRExtension.builder()
         .mode(VCRMode.PLAYBACK_OR_RECORD)
         .dataDir("src/test/resources/custom-vcr-data")
-        .redisImage("redis/redis-stack:7.4")
+        .redisImage("redis:latest")
         .enableInteractionLogging(true)
         .build();
 

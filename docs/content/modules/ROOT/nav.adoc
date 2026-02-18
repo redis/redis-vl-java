@@ -23,5 +23,5 @@
 .Resources
 * https://github.com/redis/redis-vl-java[GitHub^]
 * https://github.com/redis/redis-vl-python[Python Version^]
-* {url-redis-stack}[Redis Stack^]
+* {url-redis}[Redis^]
 * https://discord.gg/redis[Discord^]

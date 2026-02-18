@@ -15,9 +15,9 @@ services:
       - ./resources:/home/jovyan/resources
       - ../core/build/libs:/home/jovyan/libs
     depends_on:
-      - redis-stack
-  redis-stack:
-      image: redis/redis-stack:latest
+      - redis
+  redis:
+      image: redis:latest
       ports:
         - "6379:6379"  # Redis database port
         - "8001:8001"  # RedisInsight port

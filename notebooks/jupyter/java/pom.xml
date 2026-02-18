@@ -26,7 +26,7 @@
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>5.2.0</version>
+            <version>7.3.0</version>
         </dependency>
 
       <!-- SLF4J Logging - Using NOP (no-operation) to suppress warnings -->

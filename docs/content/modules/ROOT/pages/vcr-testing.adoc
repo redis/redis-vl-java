@@ -191,7 +191,7 @@ Specify a custom Redis image:
 ----
 @VCRTest(
     mode = VCRMode.PLAYBACK,
-    redisImage = "redis/redis-stack:7.2.0-v6"  // default
+    redisImage = "redis:latest"  // default
 )
 public class MyTest {
     // ...

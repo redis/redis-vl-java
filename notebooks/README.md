@@ -25,7 +25,7 @@
 This project uses Docker Compose to set up a complete environment for running Java-based AI applications with RedisVL. The environment includes:
 
 - A Jupyter Notebook server with Java kernel support
-- Redis Stack (includes Redis and RedisInsight)
+- Redis (includes built-in search, vector, and JSON capabilities)
 - RedisVL library built from source
 - Pre-installed dependencies for AI/ML workloads
 
@@ -67,7 +67,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 4. Access RedisInsight (optional):
    - Open your browser and navigate to [http://localhost:8001](http://localhost:8001)
    - Connect to Redis using the following details:
-     - Host: redis-stack
+     - Host: redis
      - Port: 6379
      - No password (unless configured)
 
@@ -84,6 +84,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 | [01_getting_started.ipynb](./01_getting_started.ipynb) | Introduction to RedisVL basic concepts and usage | ✅ |
 | [02_hybrid_queries.ipynb](./02_hybrid_queries.ipynb) | Demonstrates hybrid search capabilities combining vector and text queries | ✅ |
 | [05_hash_vs_json.ipynb](./05_hash_vs_json.ipynb) | Comparison of Redis Hash vs JSON storage types for vector data | ✅ |
+| [11_advanced_queries.ipynb](./11_advanced_queries.ipynb) | TextQuery, HybridQuery, AggregateHybridQuery, and MultiVectorQuery | ✅ |
 
 ## Project Structure
 
@@ -135,7 +136,7 @@ The Docker setup includes:
    - Includes Python environment for utilities
 
 2. **Redis Container**:
-   - Uses Redis Stack image with Vector Search capabilities
+   - Uses Redis image with built-in search and vector capabilities
    - Persists data using Docker volumes
    - Exposes Redis on port 6379 and RedisInsight on port 8001
 
