@@ -7,10 +7,13 @@ import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ConditionEvaluationResult;
+import org.junit.jupiter.api.extension.ExecutionCondition;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestWatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.DockerClientFactory;
 
 /**
  * JUnit 5 extension that provides VCR (Video Cassette Recorder) functionality for recording and
@@ -58,7 +61,8 @@ public class VCRExtension
         AfterAllCallback,
         BeforeEachCallback,
         AfterEachCallback,
-        TestWatcher {
+        TestWatcher,
+        ExecutionCondition {
 
   private static final Logger LOG = LoggerFactory.getLogger(VCRExtension.class);
 
@@ -66,6 +70,18 @@ public class VCRExtension
       ExtensionContext.Namespace.create(VCRExtension.class);
 
   private VCRContext context;
+
+  @Override
+  public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext context) {
+    try {
+      if (DockerClientFactory.instance().isDockerAvailable()) {
+        return ConditionEvaluationResult.enabled("Docker is available");
+      }
+    } catch (Exception e) {
+      // DockerClientFactory may throw if Docker is completely absent
+    }
+    return ConditionEvaluationResult.disabled("Docker is not available, skipping VCR tests");
+  }
 
   @Override
   public void beforeAll(ExtensionContext extensionContext) throws Exception {
