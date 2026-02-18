@@ -100,7 +100,7 @@ OPENAI_API_KEY=your-key VCR_MODE=RECORD ./gradlew :demos:spring-ai-vcr:test
 ## How It Works
 
 1. **Test Setup**: `@VCRTest` annotation triggers the VCR JUnit 5 extension
-2. **Container Start**: A Redis Stack container is started with persistence enabled
+2. **Container Start**: A Redis container is started with persistence enabled
 3. **Model Wrapping**: Fields annotated with `@VCRModel` are wrapped with VCR proxies
 4. **Recording**: When a model is called, VCR checks for existing cassette:
    - **Cache hit**: Returns recorded response
@@ -140,7 +140,7 @@ demos/spring-ai-vcr/
 |-----------|---------|-------------|
 | `mode` | `PLAYBACK_OR_RECORD` | VCR operating mode |
 | `dataDir` | `src/test/resources/vcr-data` | Cassette storage directory |
-| `redisImage` | `redis/redis-stack:latest` | Redis Docker image |
+| `redisImage` | `redis:latest` | Redis Docker image |
 
 ### @VCRModel Annotation
 

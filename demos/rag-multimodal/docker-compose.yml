@@ -1,6 +1,6 @@
 services:
   redis:
-    image: redis/redis-stack:latest
+    image: redis:latest
     container_name: redis-rag-demo
     ports:
       - "6399:6379"  # Map host port 6399 to container port 6379 (avoids conflicts)

@@ -67,7 +67,7 @@ Choose from multiple Redis deployment options:
 2. [Redis on Docker](https://hub.docker.com/_/redis): Docker image for development
 
     ```bash
-    docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
+    docker run -d --name redis -p 6379:6379 -p 8001:8001 redis:latest
     ```
 
 3. [Redis Enterprise](https://redis.io/enterprise/): Commercial, self-hosted database
@@ -201,25 +201,43 @@ Define queries and perform advanced searches over your indices, including the co
     List<Map<String, Object>> results = index.query(filteredQuery);
     ```
 
-- **HybridQuery** - Combines text and vector search with weighted scoring:
+- **HybridQuery** - Native hybrid search combining text and vector similarity using Redis 8.4+ `FT.HYBRID` command with built-in score fusion:
 
     ```java
     import com.redis.vl.query.HybridQuery;
     import com.redis.vl.query.Filter;
 
-    // Hybrid search: text + vector with alpha weighting
+    // Native hybrid search with LINEAR combination (Redis 8.4+)
     HybridQuery hybridQuery = HybridQuery.builder()
         .text("machine learning algorithms")
         .textFieldName("description")
         .vector(queryVector)
         .vectorFieldName("embedding")
         .filterExpression(Filter.tag("category", "AI"))
-        .alpha(0.7f)  // 70% vector, 30% text
+        .combinationMethod(HybridQuery.CombinationMethod.LINEAR)
+        .linearAlpha(0.3f)  // 30% text, 70% vector
         .numResults(10)
         .build();
 
     List<Map<String, Object>> results = index.query(hybridQuery);
-    // Results scored by: alpha * vector_similarity + (1-alpha) * text_score
+    // Automatically falls back to AggregateHybridQuery on older Redis versions
+    ```
+
+- **AggregateHybridQuery** - Backward-compatible hybrid search using `FT.AGGREGATE` for Redis versions before 8.4:
+
+    ```java
+    import com.redis.vl.query.AggregateHybridQuery;
+
+    AggregateHybridQuery aggQuery = AggregateHybridQuery.builder()
+        .text("machine learning algorithms")
+        .textFieldName("description")
+        .vector(queryVector)
+        .vectorFieldName("embedding")
+        .alpha(0.7f)  // 70% vector, 30% text
+        .numResults(10)
+        .build();
+
+    List<Map<String, Object>> results = index.query(aggQuery);
     ```
 
 - **VectorRangeQuery** - Vector search within a defined range paired with customizable filters
@@ -479,7 +497,7 @@ String response = vcrChat.call("What is Redis?");
 
 ### How It Works
 
-1. **Container Management**: VCR starts a Redis Stack container with persistence
+1. **Container Management**: VCR starts a Redis container with persistence
 2. **Model Wrapping**: `@VCRModel` fields are wrapped with VCR proxies
 3. **Cassette Storage**: Responses stored as Redis JSON documents
 4. **Persistence**: Data saved to `src/test/resources/vcr-data/` via Redis AOF/RDB
@@ -515,6 +533,7 @@ Check out the [notebooks](notebooks/) directory for interactive Jupyter notebook
 
 - [Getting Started](notebooks/01_getting_started.ipynb) - Introduction to RedisVL basics
 - [Hybrid Queries](notebooks/02_hybrid_queries.ipynb) - Combining vector and metadata search
+- [Advanced Queries](notebooks/11_advanced_queries.ipynb) - TextQuery, HybridQuery, and MultiVectorQuery
 - [LLM Cache](notebooks/03_llmcache.ipynb) - Semantic caching for LLMs
 - [Hash vs JSON Storage](notebooks/05_hash_vs_json.ipynb) - Storage type comparison
 - [Vectorizers](notebooks/06_vectorizers.ipynb) - Working with embedding models
@@ -559,7 +578,8 @@ Please help us by contributing PRs, opening GitHub issues for bugs or new featur
 ## Requirements
 
 - Java 17+
-- Redis Stack 7.2+ or Redis with RediSearch module
+- Redis 8.0+ (includes built-in search and vector capabilities)
+- For native `FT.HYBRID` support: Redis 8.4+
 
 ## License
 

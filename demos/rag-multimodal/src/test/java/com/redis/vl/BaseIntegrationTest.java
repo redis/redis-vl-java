@@ -7,7 +7,7 @@ import org.testcontainers.utility.DockerImageName;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
-/** Base class for integration tests with Redis Stack 8.0 container */
+/** Base class for integration tests with Redis 8.x+ container */
 public abstract class BaseIntegrationTest {
 
   protected static UnifiedJedis jedis;
@@ -17,9 +17,9 @@ public abstract class BaseIntegrationTest {
 
   @BeforeAll
   static void startContainer() {
-    // Start Redis Stack container
+    // Start Redis container (8.x+ includes search modules natively)
     redisContainer =
-        new GenericContainer<>(DockerImageName.parse("redis/redis-stack:latest"))
+        new GenericContainer<>(DockerImageName.parse("redis:latest"))
             .withExposedPorts(6379);
     redisContainer.start();
 

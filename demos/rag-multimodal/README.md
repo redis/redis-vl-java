@@ -20,16 +20,13 @@ A JavaFX application demonstrating multimodal Retrieval-Augmented Generation (RA
 
 ## Prerequisites
 
-### 1. Redis Stack
+### 1. Redis
 
-You need Redis Stack running for vector search capabilities:
+You need Redis 8.0+ running for vector search capabilities:
 
 ```bash
 # Using Docker (recommended) - Note: Using port 6399 to avoid conflicts
-docker run -d --name redis-rag-demo -p 6399:6379 redis/redis-stack:latest
-
-# Or using Homebrew on macOS (configure to use port 6399)
-brew install redis-stack
+docker run -d --name redis-rag-demo -p 6399:6379 redis:latest
 
 # Or download from https://redis.io/download
 ```
@@ -48,7 +45,7 @@ java -version
 
 ```bash
 # Start Redis Stack on port 6399 (avoids conflicts with default port)
-docker run -d --name redis-rag-demo -p 6399:6379 redis/redis-stack:latest
+docker run -d --name redis-rag-demo -p 6399:6379 redis:latest
 ```
 
 ### 2. Build the Application
@@ -177,7 +174,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 docker ps | grep redis-rag-demo
 
 # If not running, start it
-docker run -d --name redis-rag-demo -p 6399:6379 redis/redis-stack:latest
+docker run -d --name redis-rag-demo -p 6399:6379 redis:latest
 
 # Or restart existing container
 docker start redis-rag-demo
@@ -229,7 +226,7 @@ docker start redis-rag-demo
 - **LangChain4J**: LLM orchestration
 - **Apache PDFBox**: PDF processing
 - **JTokkit**: Token counting
-- **Redis Stack**: Vector database backend
+- **Redis**: Vector database backend
 
 ## Development
 
