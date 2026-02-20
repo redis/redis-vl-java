@@ -39,7 +39,7 @@ class HybridQueryTest {
     assertThat(query.getVectorSearchMethod()).isEqualTo(VectorSearchMethod.KNN);
     assertThat(query.getCombinationMethod()).isEqualTo(CombinationMethod.RRF);
     assertThat(query.getDtype()).isEqualTo("float32");
-    assertThat(query.getKnnEfRuntime()).isEqualTo(10);
+    assertThat(query.getKnnEfRuntime()).isEqualTo(0);
     assertThat(query.getRangeEpsilon()).isEqualTo(0.01f);
     assertThat(query.getVectorParamName()).isEqualTo("vector");
     assertThat(query.getYieldTextScoreAs()).isNull();

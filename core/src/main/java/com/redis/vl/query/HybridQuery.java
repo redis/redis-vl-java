@@ -80,6 +80,7 @@ public final class HybridQuery {
   }
 
   private static final String DEFAULT_VECTOR_PARAM = "vector";
+  private static final int DEFAULT_KNN_EF_RUNTIME = 0;
 
   private final String text;
   private final String textFieldName;
@@ -376,8 +377,13 @@ public final class HybridQuery {
           FTHybridVectorParams.Range.of(rangeRadius).epsilon(rangeEpsilon);
       return range;
     }
-    // Default: KNN
-    return FTHybridVectorParams.Knn.of(numResults).efRuntime(knnEfRuntime);
+    // Default: KNN — only set EF_RUNTIME if explicitly configured (non-default value)
+    // EF_RUNTIME is only valid for HNSW indexes and causes errors with FLAT indexes
+    FTHybridVectorParams.Knn knn = FTHybridVectorParams.Knn.of(numResults);
+    if (knnEfRuntime != DEFAULT_KNN_EF_RUNTIME) {
+      knn = knn.efRuntime(knnEfRuntime);
+    }
+    return knn;
   }
 
   private Combiner buildCombiner() {
@@ -419,7 +425,7 @@ public final class HybridQuery {
     private String textScorer = "BM25STD";
     private String yieldTextScoreAs;
     private VectorSearchMethod vectorSearchMethod = VectorSearchMethod.KNN;
-    private int knnEfRuntime = 10;
+    private int knnEfRuntime = DEFAULT_KNN_EF_RUNTIME;
     private Float rangeRadius;
     private float rangeEpsilon = 0.01f;
     private String yieldVsimScoreAs;
