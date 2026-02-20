@@ -294,10 +294,12 @@ public final class HybridQuery {
     // Build COMBINE clause
     Combiner combiner = buildCombiner();
 
-    // Build POST-PROCESSING clause
+    // Build POST-PROCESSING clause — LOAD fields so document content is returned in the response
     FTHybridPostProcessingParams.Builder postBuilder = FTHybridPostProcessingParams.builder();
     if (!returnFields.isEmpty()) {
       postBuilder.load(returnFields.toArray(new String[0]));
+    } else {
+      postBuilder.loadAll();
     }
     postBuilder.limit(Limit.of(0, numResults));
 
