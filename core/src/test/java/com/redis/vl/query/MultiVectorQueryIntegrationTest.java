@@ -164,7 +164,7 @@ class MultiVectorQueryIntegrationTest extends BaseIntegrationTest {
     assertThat(queryString)
         .contains("@text_embedding:[VECTOR_RANGE 2.0 $vector_0]")
         .contains("@image_embedding:[VECTOR_RANGE 2.0 $vector_1]")
-        .contains(" | ");
+        .contains(" AND ");
 
     // Verify scoring (@ prefix is correct for FT.AGGREGATE APPLY expressions)
     String formula = query.getScoringFormula();
