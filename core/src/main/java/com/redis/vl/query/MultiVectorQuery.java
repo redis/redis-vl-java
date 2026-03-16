@@ -133,7 +133,7 @@ public final class MultiVectorQuery extends AggregationQuery {
       Vector v = vectors.get(i);
       String rangeQuery =
           String.format(
-              "@%s:[VECTOR_RANGE %.1f $vector_%d]=>{$YIELD_DISTANCE_AS: distance_%d}",
+              "@%s:[VECTOR_RANGE %s $vector_%d]=>{$YIELD_DISTANCE_AS: distance_%d}",
               v.getFieldName(), v.getMaxDistance(), i, i);
       rangeQueries.add(rangeQuery);
     }
