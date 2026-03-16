@@ -18,7 +18,9 @@ MessageHistory chatHistory = new MessageHistory("student tutor", jedis);
 ----
 
 To align with common LLM APIs, Redis stores messages with `role` and `content` fields.
-The supported roles are "system", "user" and "llm".
+The supported roles are defined by the `ChatRole` enum: `user`, `assistant`, `system`, and `tool`.
+
+NOTE: The role `llm` is accepted for backward compatibility but is deprecated. Use `assistant` instead.
 
 You can store messages one at a time or all at once.
 
@@ -80,6 +82,19 @@ Output:
 {role=llm, content=As of 2023 the population of Great Britain is approximately 67 million people.}
 {role=user, content=what is the size of England compared to Portugal?}
 {role=llm, content=England is larger in land area than Portugal by about 15000 square miles.}
+----
+
+== Counting messages
+
+You can count the number of messages stored for the current session, or for a specific session tag:
+
+[source,java]
+----
+// Count messages in the default session
+long messageCount = chatHistory.count();
+
+// Count messages in a specific session
+long sessionCount = chatHistory.count("student two");
 ----
 
 == Managing multiple users and conversations
