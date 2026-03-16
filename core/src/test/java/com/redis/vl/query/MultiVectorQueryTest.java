@@ -257,7 +257,7 @@ class MultiVectorQueryTest {
         .contains("{$YIELD_DISTANCE_AS: distance_0}")
         .contains(String.format("@%s:[VECTOR_RANGE 2.0 $vector_1]", field2))
         .contains("{$YIELD_DISTANCE_AS: distance_1}")
-        .contains(" | ");
+        .contains(" AND ");
   }
 
   @Test
