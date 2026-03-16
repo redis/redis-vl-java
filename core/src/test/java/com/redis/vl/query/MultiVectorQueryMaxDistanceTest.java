@@ -141,4 +141,22 @@ class MultiVectorQueryMaxDistanceTest {
     assertThat(queryString).contains("@field_1:[VECTOR_RANGE 2.0 $vector_0]");
     assertThat(queryString).contains("@field_2:[VECTOR_RANGE 0.3 $vector_1]");
   }
+
+  @Test
+  @DisplayName("MultiVectorQuery: Should preserve full precision in query string")
+  void testQueryStringPreservesFullPrecision() {
+    Vector vector1 =
+        Vector.builder().vector(SAMPLE_VECTOR).fieldName("field_1").maxDistance(0.01).build();
+
+    Vector vector2 =
+        Vector.builder().vector(SAMPLE_VECTOR_2).fieldName("field_2").maxDistance(0.05).build();
+
+    MultiVectorQuery query = MultiVectorQuery.builder().vectors(vector1, vector2).build();
+
+    String queryString = query.toQueryString();
+
+    // These would have been truncated to 0.0 and 0.1 with %.1f format
+    assertThat(queryString).contains("VECTOR_RANGE 0.01");
+    assertThat(queryString).contains("VECTOR_RANGE 0.05");
+  }
 }
