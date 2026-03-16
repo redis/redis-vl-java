@@ -148,6 +148,11 @@ public class SemanticRouter {
     }
   }
 
+  @Override
+  public String toString() {
+    return String.format("SemanticRouter(name='%s', routes=%d)", name, routes.size());
+  }
+
   /**
    * Get the list of route names. Ported from Python: route_names property (line 187)
    *

@@ -1726,6 +1726,13 @@ public final class SearchIndex {
     return processed;
   }
 
+  @Override
+  public String toString() {
+    return String.format(
+        "SearchIndex(name='%s', prefix='%s', storage_type='%s')",
+        getName(), getPrefix(), getStorageType());
+  }
+
   /**
    * Execute multiple search queries in batch
    *
