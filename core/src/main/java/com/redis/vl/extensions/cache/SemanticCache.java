@@ -489,6 +489,12 @@ public class SemanticCache extends BaseCache {
     missCount.set(0);
   }
 
+  @Override
+  public String toString() {
+    return String.format(
+        "SemanticCache(name='%s', distance_threshold=%s, ttl=%s)", name, distanceThreshold, ttl);
+  }
+
   /** Builder for SemanticCache. */
   public static class Builder {
     private String name;

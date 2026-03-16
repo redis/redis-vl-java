@@ -596,6 +596,11 @@ public class LangCacheSemanticCache {
             + "Delete and re-create the entry instead.");
   }
 
+  @Override
+  public String toString() {
+    return String.format("LangCacheSemanticCache(name='%s', ttl=%s)", name, ttl);
+  }
+
   /** Builder for LangCacheSemanticCache. */
   public static class Builder {
     private String name = "langcache";
