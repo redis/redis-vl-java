@@ -3,7 +3,6 @@ package com.redis.vl.extensions.messagehistory;
 import static com.redis.vl.extensions.Constants.*;
 
 import com.redis.vl.index.SearchIndex;
-import com.redis.vl.query.CountQuery;
 import com.redis.vl.query.Filter;
 import com.redis.vl.query.FilterQuery;
 import com.redis.vl.schema.IndexSchema;
@@ -66,16 +65,13 @@ public class MessageHistory extends BaseMessageHistory {
   }
 
   @Override
-  public long count() {
-    return count(null);
+  protected SearchIndex getSearchIndex() {
+    return index;
   }
 
   @Override
-  public long count(String sessionTag) {
-    Filter sessionFilter =
-        (sessionTag != null) ? Filter.tag(SESSION_FIELD_NAME, sessionTag) : defaultSessionFilter;
-    CountQuery query = new CountQuery(sessionFilter);
-    return index.count(query);
+  protected Filter getDefaultSessionFilter() {
+    return defaultSessionFilter;
   }
 
   @Override
