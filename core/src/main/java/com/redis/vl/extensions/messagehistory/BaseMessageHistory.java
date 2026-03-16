@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  * Base class for message history implementations.
@@ -16,8 +16,7 @@ import java.util.Set;
  */
 public abstract class BaseMessageHistory {
 
-  /** Valid role values for message filtering. */
-  private static final Set<String> VALID_ROLES = Set.of("system", "user", "llm", "tool");
+  private static final Logger logger = Logger.getLogger(BaseMessageHistory.class.getName());
 
   protected final String name;
   protected final String sessionTag;
@@ -33,6 +32,25 @@ public abstract class BaseMessageHistory {
     this.name = name;
     this.sessionTag = (sessionTag != null) ? sessionTag : UlidCreator.getUlid().toString();
   }
+
+  /**
+   * Count the number of messages in the conversation history.
+   *
+   * <p>Matches Python count() from base_history.py
+   *
+   * @return The number of messages for the default session
+   */
+  public abstract long count();
+
+  /**
+   * Count the number of messages in the conversation history for a specific session.
+   *
+   * <p>Matches Python count(session_tag=...) from base_history.py
+   *
+   * @param sessionTag The session tag to count messages for (null uses default session)
+   * @return The number of messages
+   */
+  public abstract long count(String sessionTag);
 
   /** Clears the chat message history. */
   public abstract void clear();
@@ -143,10 +161,7 @@ public abstract class BaseMessageHistory {
     // Handle single role string
     if (role instanceof String) {
       String roleStr = (String) role;
-      if (!VALID_ROLES.contains(roleStr)) {
-        throw new IllegalArgumentException(
-            String.format("Invalid role '%s'. Valid roles are: %s", roleStr, VALID_ROLES));
-      }
+      validateSingleRole(roleStr);
       return List.of(roleStr);
     }
 
@@ -166,10 +181,7 @@ public abstract class BaseMessageHistory {
               "role list must contain only strings, found: " + r.getClass().getSimpleName());
         }
         String roleStr = (String) r;
-        if (!VALID_ROLES.contains(roleStr)) {
-          throw new IllegalArgumentException(
-              String.format("Invalid role '%s'. Valid roles are: %s", roleStr, VALID_ROLES));
-        }
+        validateSingleRole(roleStr);
         validatedRoles.add(roleStr);
       }
 
@@ -177,6 +189,28 @@ public abstract class BaseMessageHistory {
     }
 
     throw new IllegalArgumentException("role must be a String, List<String>, or null");
+  }
+
+  /**
+   * Validate a single role string using ChatRole enum.
+   *
+   * @param roleStr The role string to validate
+   * @throws IllegalArgumentException if the role is not valid
+   */
+  private void validateSingleRole(String roleStr) {
+    if (ChatRole.isDeprecatedRole(roleStr)) {
+      logger.warning(
+          String.format(
+              "Role '%s' is a deprecated value. Update to valid roles: %s.",
+              roleStr, java.util.Arrays.toString(ChatRole.values())));
+      return;
+    }
+    if (!ChatRole.isValidRole(roleStr)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Invalid role '%s'. Valid roles are: %s",
+              roleStr, java.util.Arrays.toString(ChatRole.values())));
+    }
   }
 
   public String getName() {

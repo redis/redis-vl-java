@@ -62,6 +62,16 @@ class RoleFilteringTest {
 
     @Override
     public void addMessage(java.util.Map<String, String> message, String sessionTag) {}
+
+    @Override
+    public long count() {
+      return 0;
+    }
+
+    @Override
+    public long count(String sessionTag) {
+      return 0;
+    }
   }
 
   @Test
@@ -124,7 +134,7 @@ class RoleFilteringTest {
         .hasMessageContaining("Invalid role 'invalid_role'")
         .hasMessageContaining("system")
         .hasMessageContaining("user")
-        .hasMessageContaining("llm")
+        .hasMessageContaining("assistant")
         .hasMessageContaining("tool");
   }
 
