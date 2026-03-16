@@ -3,6 +3,9 @@ package com.redis.vl.extensions.messagehistory;
 import static com.redis.vl.extensions.Constants.*;
 
 import com.github.f4b6a3.ulid.UlidCreator;
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.query.CountQuery;
+import com.redis.vl.query.Filter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,13 +37,29 @@ public abstract class BaseMessageHistory {
   }
 
   /**
+   * Get the underlying search index.
+   *
+   * @return The search index used by this message history
+   */
+  protected abstract SearchIndex getSearchIndex();
+
+  /**
+   * Get the default session filter.
+   *
+   * @return The filter for the default session tag
+   */
+  protected abstract Filter getDefaultSessionFilter();
+
+  /**
    * Count the number of messages in the conversation history.
    *
    * <p>Matches Python count() from base_history.py
    *
    * @return The number of messages for the default session
    */
-  public abstract long count();
+  public long count() {
+    return count(null);
+  }
 
   /**
    * Count the number of messages in the conversation history for a specific session.
@@ -50,7 +69,14 @@ public abstract class BaseMessageHistory {
    * @param sessionTag The session tag to count messages for (null uses default session)
    * @return The number of messages
    */
-  public abstract long count(String sessionTag);
+  public long count(String sessionTag) {
+    Filter sessionFilter =
+        (sessionTag != null)
+            ? Filter.tag(SESSION_FIELD_NAME, sessionTag)
+            : getDefaultSessionFilter();
+    CountQuery query = new CountQuery(sessionFilter);
+    return getSearchIndex().count(query);
+  }
 
   /** Clears the chat message history. */
   public abstract void clear();

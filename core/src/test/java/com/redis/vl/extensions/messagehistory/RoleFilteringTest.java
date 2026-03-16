@@ -2,6 +2,8 @@ package com.redis.vl.extensions.messagehistory;
 
 import static org.assertj.core.api.Assertions.*;
 
+import com.redis.vl.index.SearchIndex;
+import com.redis.vl.query.Filter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -64,13 +66,13 @@ class RoleFilteringTest {
     public void addMessage(java.util.Map<String, String> message, String sessionTag) {}
 
     @Override
-    public long count() {
-      return 0;
+    protected SearchIndex getSearchIndex() {
+      return null;
     }
 
     @Override
-    public long count(String sessionTag) {
-      return 0;
+    protected Filter getDefaultSessionFilter() {
+      return null;
     }
   }
 
