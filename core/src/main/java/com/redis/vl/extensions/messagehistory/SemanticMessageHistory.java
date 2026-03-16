@@ -3,6 +3,7 @@ package com.redis.vl.extensions.messagehistory;
 import static com.redis.vl.extensions.Constants.*;
 
 import com.redis.vl.index.SearchIndex;
+import com.redis.vl.query.CountQuery;
 import com.redis.vl.query.Filter;
 import com.redis.vl.query.FilterQuery;
 import com.redis.vl.query.VectorQuery;
@@ -150,6 +151,19 @@ public final class SemanticMessageHistory extends BaseMessageHistory {
    */
   public SearchIndex getIndex() {
     return index;
+  }
+
+  @Override
+  public long count() {
+    return count(null);
+  }
+
+  @Override
+  public long count(String sessionTag) {
+    Filter sessionFilter =
+        (sessionTag != null) ? Filter.tag(SESSION_FIELD_NAME, sessionTag) : defaultSessionFilter;
+    CountQuery query = new CountQuery(sessionFilter);
+    return index.count(query);
   }
 
   @Override
@@ -488,6 +502,13 @@ public final class SemanticMessageHistory extends BaseMessageHistory {
       }
       return Filter.and(sessionFilter, roleFilter);
     }
+  }
+
+  @Override
+  public String toString() {
+    return String.format(
+        "SemanticMessageHistory(name='%s', session_tag='%s', distance_threshold=%s)",
+        name, sessionTag, distanceThreshold);
   }
 
   /**
