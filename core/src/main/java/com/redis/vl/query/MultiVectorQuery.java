@@ -69,9 +69,6 @@ import redis.clients.jedis.search.aggr.SortedField;
 @Getter
 public final class MultiVectorQuery extends AggregationQuery {
 
-  /** Distance threshold for VECTOR_RANGE (hardcoded at 2.0 to include all eligible documents) */
-  private static final double DISTANCE_THRESHOLD = 2.0;
-
   private final List<Vector> vectors;
   private final Filter filterExpression;
   private final List<String> returnFields;
@@ -111,8 +108,8 @@ public final class MultiVectorQuery extends AggregationQuery {
   /**
    * Build the Redis query string for multi-vector search.
    *
-   * <p>Format: {@code @field1:[VECTOR_RANGE 2.0 $vector_0]=>{$YIELD_DISTANCE_AS: distance_0} |
-   * @field2:[VECTOR_RANGE 2.0 $vector_1]=>{$YIELD_DISTANCE_AS: distance_1}}
+   * <p>Format: {@code @field1:[VECTOR_RANGE max_dist $vector_0]=>{$YIELD_DISTANCE_AS: distance_0} AND
+   * @field2:[VECTOR_RANGE max_dist $vector_1]=>{$YIELD_DISTANCE_AS: distance_1}}
    *
    * @return Query string
    */
@@ -123,8 +120,8 @@ public final class MultiVectorQuery extends AggregationQuery {
   /**
    * Build the Redis query string for multi-vector search.
    *
-   * <p>Format: {@code @field1:[VECTOR_RANGE 2.0 $vector_0]=>{$YIELD_DISTANCE_AS: distance_0} |
-   * @field2:[VECTOR_RANGE 2.0 $vector_1]=>{$YIELD_DISTANCE_AS: distance_1}}
+   * <p>Format: {@code @field1:[VECTOR_RANGE max_dist $vector_0]=>{$YIELD_DISTANCE_AS: distance_0} AND
+   * @field2:[VECTOR_RANGE max_dist $vector_1]=>{$YIELD_DISTANCE_AS: distance_1}}
    *
    * @return Query string
    */
@@ -137,11 +134,11 @@ public final class MultiVectorQuery extends AggregationQuery {
       String rangeQuery =
           String.format(
               "@%s:[VECTOR_RANGE %.1f $vector_%d]=>{$YIELD_DISTANCE_AS: distance_%d}",
-              v.getFieldName(), DISTANCE_THRESHOLD, i, i);
+              v.getFieldName(), v.getMaxDistance(), i, i);
       rangeQueries.add(rangeQuery);
     }
 
-    String baseQuery = String.join(" | ", rangeQueries);
+    String baseQuery = String.join(" AND ", rangeQueries);
 
     // Add filter expression if present
     if (filterExpression != null) {

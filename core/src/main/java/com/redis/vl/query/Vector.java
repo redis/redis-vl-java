@@ -57,6 +57,7 @@ public final class Vector {
   private final String fieldName;
   private final String dtype;
   private final double weight;
+  private final double maxDistance;
 
   private Vector(Builder builder) {
     // Validate before modifying state
@@ -74,11 +75,16 @@ public final class Vector {
     if (builder.weight <= 0) {
       throw new IllegalArgumentException("Weight must be positive, got " + builder.weight);
     }
+    if (builder.maxDistance < 0.0 || builder.maxDistance > 2.0) {
+      throw new IllegalArgumentException(
+          "max_distance must be a value between 0.0 and 2.0, got " + builder.maxDistance);
+    }
 
     this.vector = Arrays.copyOf(builder.vector, builder.vector.length);
     this.fieldName = builder.fieldName.trim();
     this.dtype = builder.dtype;
     this.weight = builder.weight;
+    this.maxDistance = builder.maxDistance;
   }
 
   /**
@@ -105,6 +111,7 @@ public final class Vector {
     private String fieldName;
     private String dtype = "float32"; // Default from Python
     private double weight = 1.0; // Default from Python
+    private double maxDistance = 2.0; // Default from Python
 
     Builder() {}
 
@@ -157,6 +164,19 @@ public final class Vector {
     }
 
     /**
+     * Set the maximum distance threshold for this vector in multi-vector range queries.
+     *
+     * <p>Must be between 0.0 and 2.0 (inclusive). Default is 2.0.
+     *
+     * @param maxDistance Maximum distance threshold
+     * @return This builder
+     */
+    public Builder maxDistance(double maxDistance) {
+      this.maxDistance = maxDistance;
+      return this;
+    }
+
+    /**
      * Build the Vector instance.
      *
      * @return Configured Vector
@@ -174,6 +194,7 @@ public final class Vector {
     if (o == null || getClass() != o.getClass()) return false;
     Vector vector1 = (Vector) o;
     return Double.compare(vector1.weight, weight) == 0
+        && Double.compare(vector1.maxDistance, maxDistance) == 0
         && Arrays.equals(vector, vector1.vector)
         && fieldName.equals(vector1.fieldName)
         && dtype.equals(vector1.dtype);
@@ -185,13 +206,14 @@ public final class Vector {
     result = 31 * result + fieldName.hashCode();
     result = 31 * result + dtype.hashCode();
     result = 31 * result + Double.hashCode(weight);
+    result = 31 * result + Double.hashCode(maxDistance);
     return result;
   }
 
   @Override
   public String toString() {
     return String.format(
-        "Vector[fieldName=%s, dtype=%s, weight=%.2f, dimensions=%d]",
-        fieldName, dtype, weight, vector.length);
+        "Vector[fieldName=%s, dtype=%s, weight=%.2f, maxDistance=%.1f, dimensions=%d]",
+        fieldName, dtype, weight, maxDistance, vector.length);
   }
 }
