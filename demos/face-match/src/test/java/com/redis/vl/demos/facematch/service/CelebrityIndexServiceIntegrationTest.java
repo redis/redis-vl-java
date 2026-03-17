@@ -29,8 +29,7 @@ class CelebrityIndexServiceIntegrationTest {
   void setUp() {
     String host = redis.getHost();
     int port = redis.getMappedPort(6379);
-    HostAndPort hostAndPort = new HostAndPort(host, port);
-    jedis = new UnifiedJedis(hostAndPort);
+    jedis = RedisClient.builder().hostAndPort(host, port).build();
     service = new CelebrityIndexService(jedis);
     service.createIndex();
   }

@@ -28,7 +28,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
-import redis.clients.jedis.*;
+import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.UnifiedJedis;
 
 /** Main view with 3D cloud of square thumbnail images positioned by PCA. */
 public class MainView {
@@ -141,8 +142,7 @@ public class MainView {
                 // Connect to Redis (configured via system properties)
                 String redisHost = System.getProperty("redis.host", "localhost");
                 int redisPort = Integer.parseInt(System.getProperty("redis.port", "6380"));
-                HostAndPort hostAndPort = new HostAndPort(redisHost, redisPort);
-                UnifiedJedis jedis = new UnifiedJedis(hostAndPort);
+                UnifiedJedis jedis = RedisClient.builder().hostAndPort(redisHost, redisPort).build();
                 CelebrityIndexService indexService = new CelebrityIndexService(jedis);
                 indexService.createIndex(); // Initialize the index
 
@@ -408,8 +408,7 @@ public class MainView {
                 // Connect to Redis (configured via system properties)
                 String redisHost = System.getProperty("redis.host", "localhost");
                 int redisPort = Integer.parseInt(System.getProperty("redis.port", "6380"));
-                HostAndPort hostAndPort = new HostAndPort(redisHost, redisPort);
-                UnifiedJedis jedis = new UnifiedJedis(hostAndPort);
+                UnifiedJedis jedis = RedisClient.builder().hostAndPort(redisHost, redisPort).build();
                 CelebrityIndexService indexService = new CelebrityIndexService(jedis);
 
                 // Check if index exists and has data

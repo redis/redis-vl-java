@@ -11,7 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.UnifiedJedis;
 
 /**
@@ -44,8 +44,7 @@ public class FaceEmbeddingGenerator {
     System.out.println("Loaded " + entries.size() + " celebrities from CSV");
 
     // Connect to Redis
-    HostAndPort hostAndPort = new HostAndPort(REDIS_HOST, REDIS_PORT);
-    UnifiedJedis jedis = new UnifiedJedis(hostAndPort);
+    UnifiedJedis jedis = RedisClient.builder().hostAndPort(REDIS_HOST, REDIS_PORT).build();
     CelebrityIndexService indexService = new CelebrityIndexService(jedis);
 
     // Create index if doesn't exist
