@@ -56,7 +56,8 @@ public class DimensionalityReductionService {
     // Small datasets (50-100): perplexity 5-50
     // Medium datasets (1000-5000): perplexity 50-100
     // Large datasets (10000+): perplexity 100-300
-    double perplexity = Math.max(5.0, Math.min(50.0 + Math.log10(numSamples) * 50.0, 300.0));
+    double perplexity =
+        Math.max(2.0, Math.min(50.0 + Math.log10(numSamples) * 50.0, Math.min(numSamples - 1, 300.0)));
     System.out.println(
         String.format("t-SNE parameters: samples=%d, perplexity=%.1f", numSamples, perplexity));
 

@@ -425,8 +425,10 @@ public class MainView {
                   Platform.runLater(() -> statusLabel.setText("Generating sample data..."));
 
                   DataLoaderService dataLoader = new DataLoaderService();
-                  // Load all available celebrities (pass 0 or negative for all)
-                  List<Celebrity> celebs = dataLoader.generateSampleCelebrities(0);
+                  // celeb.count: 0 = all available, positive = limit to N (for faster startup)
+                  int celebCount =
+                      Integer.parseInt(System.getProperty("celeb.count", "0"));
+                  List<Celebrity> celebs = dataLoader.generateSampleCelebrities(celebCount);
 
                   Platform.runLater(() -> statusLabel.setText("Creating Redis index..."));
                   indexService.createIndex();

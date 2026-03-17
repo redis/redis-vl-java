@@ -61,10 +61,11 @@ dependencies {
 application {
     mainClass.set("com.redis.vl.demos.facematch.FaceMatchApplication")
 
-    // Configure Redis connection from environment or defaults
+    // Configure Redis connection and celebrity count from environment or defaults
     applicationDefaultJvmArgs = listOf(
         "-Dredis.host=${System.getenv("REDIS_HOST") ?: "localhost"}",
-        "-Dredis.port=${System.getenv("REDIS_PORT") ?: "6380"}"
+        "-Dredis.port=${System.getenv("REDIS_PORT") ?: "6380"}",
+        "-Dceleb.count=${System.getenv("CELEB_COUNT") ?: "0"}"
     )
 }
 
@@ -89,42 +90,41 @@ tasks.register<JavaExec>("testTensor") {
     mainClass.set("com.redis.vl.demos.facematch.util.TensorTest")
 }
 
-// Task to start Redis with docker-compose
+// Docker Compose tasks for Redis
+// Find docker command (try common locations)
+val dockerCmd = listOf("/usr/local/bin/docker", "/usr/bin/docker", "docker")
+    .firstOrNull { file(it).exists() || it == "docker" } ?: "docker"
+
 tasks.register<Exec>("redisUp") {
-    group = "application"
+    group = "docker"
     description = "Start Redis 8.2 container with persistence for face-match demo"
-    workingDir = file(".")
-    commandLine = listOf("docker-compose", "up", "-d")
+    workingDir = projectDir
+    commandLine(dockerCmd, "compose", "up", "-d", "--wait")
 
     doLast {
         println("Redis started on port 6380")
-        println("Waiting for Redis to be ready...")
-        Thread.sleep(3000)
     }
 }
 
-// Task to stop Redis
 tasks.register<Exec>("redisDown") {
-    group = "application"
+    group = "docker"
     description = "Stop Redis container"
-    workingDir = file(".")
-    commandLine = listOf("docker-compose", "down")
+    workingDir = projectDir
+    commandLine(dockerCmd, "compose", "down")
 }
 
-// Task to view Redis logs
 tasks.register<Exec>("redisLogs") {
-    group = "application"
+    group = "docker"
     description = "View Redis container logs"
-    workingDir = file(".")
-    commandLine = listOf("docker-compose", "logs", "-f", "redis")
+    workingDir = projectDir
+    commandLine(dockerCmd, "compose", "logs", "-f", "redis")
 }
 
-// Task to reset Redis data
 tasks.register<Exec>("redisReset") {
-    group = "application"
+    group = "docker"
     description = "Stop Redis and remove persisted data"
-    workingDir = file(".")
-    commandLine = listOf("docker-compose", "down", "-v")
+    workingDir = projectDir
+    commandLine(dockerCmd, "compose", "down", "-v")
 
     doLast {
         println("Redis data volumes removed. Run 'redisUp' to start fresh.")
