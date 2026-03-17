@@ -87,3 +87,7 @@ demos/rag-multimodal/src/main/resources/application.properties
 ### Demo Application Images ###
 # Don't commit large image datasets
 demos/face-match/src/main/resources/static/
+
+### Demo ONNX Models ###
+# Large model files - auto-downloaded at runtime via ModelDownloader
+demos/face-match/src/main/resources/models/*.onnx

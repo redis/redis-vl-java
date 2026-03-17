@@ -2,170 +2,120 @@ package com.redis.vl.demos.facematch.service;
 
 import com.redis.vl.demos.facematch.model.Celebrity;
 import com.redis.vl.demos.facematch.model.Celebrity3D;
-import org.apache.commons.math3.linear.*;
-import smile.manifold.TSNE;
-
 import java.util.ArrayList;
 import java.util.List;
+import smile.manifold.TSNE;
 
 /**
- * Service for reducing high-dimensional embeddings to 3D for visualization.
- * Supports both PCA (fast, preserves global variance) and t-SNE (slower, preserves local neighborhoods).
+ * Service for reducing high-dimensional face embeddings to 3D for visualization using t-SNE. t-SNE
+ * (t-Distributed Stochastic Neighbor Embedding) preserves local neighborhoods, meaning similar
+ * faces will cluster together in the 3D visualization.
  */
 public class DimensionalityReductionService {
 
-    public enum Method {
-        PCA,    // Fast, preserves global structure
-        TSNE    // Slower, preserves local neighborhoods and semantic similarity
+  /**
+   * Reduce celebrity embeddings from 512D to 3D using t-SNE. t-SNE preserves local neighborhoods,
+   * so similar faces will be physically close in the 3D space.
+   *
+   * @param celebrities List of celebrities with 512-dim embeddings
+   * @return List of celebrities with 3D coordinates
+   */
+  public List<Celebrity3D> reduceTo3D(List<Celebrity> celebrities) {
+    return reduceTo3DTSNE(celebrities);
+  }
+
+  /**
+   * Reduce celebrity embeddings from 512D to 3D using t-SNE. t-SNE (t-Distributed Stochastic
+   * Neighbor Embedding) preserves local structure, meaning similar faces in high-dimensional space
+   * will appear physically close in 3D.
+   *
+   * @param celebrities List of celebrities with 512-dim embeddings
+   * @return List of celebrities with 3D coordinates
+   */
+  private List<Celebrity3D> reduceTo3DTSNE(List<Celebrity> celebrities) {
+    if (celebrities.isEmpty()) {
+      return new ArrayList<>();
     }
 
-    /**
-     * Reduce celebrity embeddings from 512D to 3D using t-SNE (default).
-     * t-SNE preserves local neighborhoods, so similar faces will be physically close.
-     *
-     * @param celebrities List of celebrities with 512-dim embeddings
-     * @return List of celebrities with 3D coordinates
-     */
-    public List<Celebrity3D> reduceTo3D(List<Celebrity> celebrities) {
-        return reduceTo3D(celebrities, Method.TSNE);
+    int numSamples = celebrities.size();
+    int numFeatures = 512;
+
+    // Convert embeddings to double[][] matrix for t-SNE
+    double[][] dataMatrix = new double[numSamples][numFeatures];
+    for (int i = 0; i < numSamples; i++) {
+      float[] embedding = celebrities.get(i).getEmbedding();
+      for (int j = 0; j < numFeatures; j++) {
+        dataMatrix[i][j] = embedding[j];
+      }
     }
 
-    /**
-     * Reduce celebrity embeddings from 512D to 3D using specified method.
-     *
-     * @param celebrities List of celebrities with 512-dim embeddings
-     * @param method Dimensionality reduction method (PCA or TSNE)
-     * @return List of celebrities with 3D coordinates
-     */
-    public List<Celebrity3D> reduceTo3D(List<Celebrity> celebrities, Method method) {
-        if (method == Method.TSNE) {
-            return reduceTo3DTSNE(celebrities);
-        } else {
-            return reduceTo3DPCA(celebrities);
-        }
+    System.out.println("Running t-SNE dimensionality reduction (this may take a minute)...");
+
+    // Run t-SNE: 3D output with scale-aware perplexity
+    // Perplexity should scale with dataset size for optimal results
+    // Small datasets (50-100): perplexity 5-50
+    // Medium datasets (1000-5000): perplexity 50-100
+    // Large datasets (10000+): perplexity 100-300
+    double perplexity = Math.max(5.0, Math.min(50.0 + Math.log10(numSamples) * 50.0, 300.0));
+    System.out.println(
+        String.format("t-SNE parameters: samples=%d, perplexity=%.1f", numSamples, perplexity));
+
+    // Create t-SNE instance and run
+    // TSNE(data, dimensions, perplexity, iterations, momentum)
+    TSNE tsne = new TSNE(dataMatrix, 3, perplexity, 1000, 1);
+    double[][] tsneResult = tsne.coordinates;
+
+    // Create Celebrity3D objects with scale-aware coordinates
+    // Apply NON-LINEAR REPULSION to fix t-SNE's dense core problem
+    // t-SNE creates tight clusters in center, spread outliers on edges
+    // Solution: push points away from center using power transformation
+    List<Celebrity3D> result = new ArrayList<>();
+    double baseScale = 6000.0;
+    double scalingExponent = 1.0;
+    double scale = baseScale * Math.pow(numSamples / 100.0, scalingExponent);
+
+    // REPULSION TRANSFORMATION: spread dense core outward for better navigation
+    // Points near center get pushed out more aggressively than edge points
+    // Exponent < 1.0 pushes core OUT and pulls edges IN (redistributes density)
+    // 0.75 provides moderate spreading - balances navigability with compactness
+    double repulsionExponent = 0.75; // Moderate repulsion for balanced distribution
+    System.out.println(
+        String.format(
+            "3D visualization: scale=%.1f, repulsion exponent=%.2f (spreads dense core)",
+            scale, repulsionExponent));
+
+    for (int i = 0; i < numSamples; i++) {
+      // Get normalized t-SNE coordinates
+      double x = tsneResult[i][0];
+      double y = tsneResult[i][1];
+      double z = tsneResult[i][2];
+
+      // Calculate distance from center (origin)
+      double distanceFromCenter = Math.sqrt(x * x + y * y + z * z);
+
+      if (distanceFromCenter > 0) {
+        // Apply repulsion: new_distance = distance^repulsionExponent
+        // This pushes dense core outward more than sparse edges
+        double newDistance = Math.pow(distanceFromCenter, repulsionExponent);
+
+        // Scale factor based on repulsion (how much to push out)
+        double repulsionFactor = newDistance / distanceFromCenter;
+
+        // Apply repulsion + scale
+        x = x * repulsionFactor * scale;
+        y = y * repulsionFactor * scale;
+        z = z * repulsionFactor * scale;
+      } else {
+        // Point exactly at origin (rare) - just apply scale
+        x = x * scale;
+        y = y * scale;
+        z = z * scale;
+      }
+
+      result.add(new Celebrity3D(celebrities.get(i), x, y, z));
     }
 
-    /**
-     * Reduce celebrity embeddings from 512D to 3D using t-SNE.
-     * t-SNE (t-Distributed Stochastic Neighbor Embedding) preserves local structure,
-     * meaning similar faces in high-dimensional space will appear physically close in 3D.
-     *
-     * @param celebrities List of celebrities with 512-dim embeddings
-     * @return List of celebrities with 3D coordinates
-     */
-    private List<Celebrity3D> reduceTo3DTSNE(List<Celebrity> celebrities) {
-        if (celebrities.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        int numSamples = celebrities.size();
-        int numFeatures = 512;
-
-        // Convert embeddings to double[][] matrix for t-SNE
-        double[][] dataMatrix = new double[numSamples][numFeatures];
-        for (int i = 0; i < numSamples; i++) {
-            float[] embedding = celebrities.get(i).getEmbedding();
-            for (int j = 0; j < numFeatures; j++) {
-                dataMatrix[i][j] = embedding[j];
-            }
-        }
-
-        System.out.println("Running t-SNE dimensionality reduction (this may take a minute)...");
-
-        // Run t-SNE: 3D output, perplexity=30 (good for ~100 samples)
-        // Higher perplexity = more global structure preserved
-        // Lower perplexity = more focus on local neighbors
-        double perplexity = Math.min(30.0, (numSamples - 1) / 3.0);
-
-        // Create t-SNE instance and run
-        // TSNE(data, dimensions, perplexity, iterations, momentum)
-        TSNE tsne = new TSNE(dataMatrix, 3, perplexity, 1000, 1);
-        double[][] tsneResult = tsne.coordinates;
-
-        // Create Celebrity3D objects with scaled coordinates
-        List<Celebrity3D> result = new ArrayList<>();
-        // Much larger scale to spread out the t-SNE clustering (t-SNE tends to bunch)
-        double scale = 4000.0; // Increased dramatically to spread out the visualization
-
-        for (int i = 0; i < numSamples; i++) {
-            double x = tsneResult[i][0] * scale;
-            double y = tsneResult[i][1] * scale;
-            double z = tsneResult[i][2] * scale;
-            result.add(new Celebrity3D(celebrities.get(i), x, y, z));
-        }
-
-        System.out.println("t-SNE complete!");
-        return result;
-    }
-
-    /**
-     * Reduce celebrity embeddings from 512D to 3D using PCA (via SVD).
-     * SVD is more numerically stable than eigendecomposition for PCA.
-     * PCA preserves global variance but NOT local similarity.
-     *
-     * @param celebrities List of celebrities with 512-dim embeddings
-     * @return List of celebrities with 3D coordinates
-     */
-    private List<Celebrity3D> reduceTo3DPCA(List<Celebrity> celebrities) {
-        if (celebrities.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        // Convert embeddings to matrix (rows = samples, columns = features)
-        int numSamples = celebrities.size();
-        int numFeatures = 512;
-
-        double[][] dataMatrix = new double[numSamples][numFeatures];
-        for (int i = 0; i < numSamples; i++) {
-            float[] embedding = celebrities.get(i).getEmbedding();
-            for (int j = 0; j < numFeatures; j++) {
-                dataMatrix[i][j] = embedding[j];
-            }
-        }
-
-        // Center the data (subtract mean from each feature)
-        double[] means = new double[numFeatures];
-        for (int j = 0; j < numFeatures; j++) {
-            double sum = 0;
-            for (int i = 0; i < numSamples; i++) {
-                sum += dataMatrix[i][j];
-            }
-            means[j] = sum / numSamples;
-        }
-
-        for (int i = 0; i < numSamples; i++) {
-            for (int j = 0; j < numFeatures; j++) {
-                dataMatrix[i][j] -= means[j];
-            }
-        }
-
-        // Create centered matrix
-        RealMatrix centeredMatrix = new Array2DRowRealMatrix(dataMatrix);
-
-        // Perform SVD: X = U * S * V^T
-        // The first 3 columns of U*S give us the PCA projection
-        SingularValueDecomposition svd = new SingularValueDecomposition(centeredMatrix);
-
-        // Get U matrix (left singular vectors) and singular values
-        RealMatrix U = svd.getU();
-        double[] singularValues = svd.getSingularValues();
-
-        // Create Celebrity3D objects with scaled coordinates for better visualization
-        List<Celebrity3D> result = new ArrayList<>();
-        // Larger scale factor to spread out normalized embeddings in 3D space
-        // Normalized vectors have small variance, so we need aggressive scaling
-        double scale = 1000.0; // Scale factor for 3D visualization
-
-        for (int i = 0; i < numSamples; i++) {
-            // Project onto first 3 principal components
-            // PC_i = U_i * S_i (for first 3 components)
-            double x = U.getEntry(i, 0) * singularValues[0] * scale;
-            double y = U.getEntry(i, 1) * singularValues[1] * scale;
-            double z = U.getEntry(i, 2) * singularValues[2] * scale;
-
-            result.add(new Celebrity3D(celebrities.get(i), x, y, z));
-        }
-
-        return result;
-    }
+    System.out.println("t-SNE complete!");
+    return result;
+  }
 }

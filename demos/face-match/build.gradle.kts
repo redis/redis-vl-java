@@ -35,8 +35,7 @@ dependencies {
     implementation("ai.djl.pytorch:pytorch-engine:0.29.0")
     implementation("ai.djl.pytorch:pytorch-model-zoo:0.29.0")
 
-    // Dimensionality reduction
-    implementation("org.apache.commons:commons-math3:3.6.1")
+    // Dimensionality reduction (t-SNE)
     implementation("com.github.haifengl:smile-core:3.1.1")
 
     // JavaFX 3D visualization
@@ -61,10 +60,17 @@ dependencies {
 
 application {
     mainClass.set("com.redis.vl.demos.facematch.FaceMatchApplication")
+
+    // Configure Redis connection from environment or defaults
+    applicationDefaultJvmArgs = listOf(
+        "-Dredis.host=${System.getenv("REDIS_HOST") ?: "localhost"}",
+        "-Dredis.port=${System.getenv("REDIS_PORT") ?: "6380"}"
+    )
 }
 
 tasks.test {
     useJUnitPlatform()
+    maxHeapSize = "2g"
 }
 
 // Task to inspect ONNX model
@@ -83,12 +89,66 @@ tasks.register<JavaExec>("testTensor") {
     mainClass.set("com.redis.vl.demos.facematch.util.TensorTest")
 }
 
+// Task to start Redis with docker-compose
+tasks.register<Exec>("redisUp") {
+    group = "application"
+    description = "Start Redis 8.2 container with persistence for face-match demo"
+    workingDir = file(".")
+    commandLine = listOf("docker-compose", "up", "-d")
+
+    doLast {
+        println("Redis started on port 6380")
+        println("Waiting for Redis to be ready...")
+        Thread.sleep(3000)
+    }
+}
+
+// Task to stop Redis
+tasks.register<Exec>("redisDown") {
+    group = "application"
+    description = "Stop Redis container"
+    workingDir = file(".")
+    commandLine = listOf("docker-compose", "down")
+}
+
+// Task to view Redis logs
+tasks.register<Exec>("redisLogs") {
+    group = "application"
+    description = "View Redis container logs"
+    workingDir = file(".")
+    commandLine = listOf("docker-compose", "logs", "-f", "redis")
+}
+
+// Task to reset Redis data
+tasks.register<Exec>("redisReset") {
+    group = "application"
+    description = "Stop Redis and remove persisted data"
+    workingDir = file(".")
+    commandLine = listOf("docker-compose", "down", "-v")
+
+    doLast {
+        println("Redis data volumes removed. Run 'redisUp' to start fresh.")
+    }
+}
+
+// Make run task depend on redisUp
+tasks.named("run") {
+    dependsOn("redisUp")
+
+    doFirst {
+        println("Starting Face Match demo...")
+        println("Redis connection: localhost:6380")
+        println("Note: Embeddings will be cached in Redis for faster subsequent launches")
+    }
+}
+
 // Task to generate embeddings from CSV
 tasks.register<JavaExec>("generateEmbeddings") {
     group = "application"
     description = "Generate face embeddings from celebrity CSV and index in Redis"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.redis.vl.demos.facematch.service.FaceEmbeddingGenerator")
+    dependsOn("redisUp")
 
     // Default argument
     val csvFile = project.findProperty("csvFile") as String?
@@ -96,7 +156,11 @@ tasks.register<JavaExec>("generateEmbeddings") {
 
     args = listOf(csvFile)
 
-    // Environment variables
+    // Environment variables - use port 6380 for demo Redis
     environment("REDIS_HOST", System.getenv("REDIS_HOST") ?: "localhost")
-    environment("REDIS_PORT", System.getenv("REDIS_PORT") ?: "6379")
+    environment("REDIS_PORT", System.getenv("REDIS_PORT") ?: "6380")
+
+    doFirst {
+        println("Generating embeddings and indexing in Redis on port 6380...")
+    }
 }

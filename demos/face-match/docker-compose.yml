@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:8.2
+    container_name: redisvl4j-face-match-redis
+    ports:
+      - "6380:6379"  # Non-default port to avoid conflicts
+    volumes:
+      - redis-data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - face-match-network
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  face-match-network:
+    driver: bridge
