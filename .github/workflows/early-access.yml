@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: write  # required for actions/upload-artifact
 
 concurrency:
   group: early-access-${{ github.ref }}

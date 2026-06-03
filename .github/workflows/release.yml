@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: write  # required for actions/upload-artifact
 
 concurrency:
   group: release-${{ github.ref }}
@@ -75,14 +76,14 @@ jobs:
             build/reports/tests/aggregate/
 
       - name: Assemble
-        uses: jreleaser/release-action@97b5e2f0e845de2fe1dbbdf451ac6a21233fafff # v2
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
         with:
           arguments: assemble
         env:
           JRELEASER_PROJECT_VERSION: ${{ inputs.version }}
 
       - name: Release
-        uses: jreleaser/release-action@97b5e2f0e845de2fe1dbbdf451ac6a21233fafff # v2
+        uses: jreleaser/release-action@90ac653bb9c79d11179e65d81499f3f34527dcd5 # 2.5.0
         with:
           arguments: full-release
         env:
