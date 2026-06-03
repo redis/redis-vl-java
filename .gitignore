@@ -81,5 +81,11 @@ notebooks/*_output.ipynb
 
 spotbugs-output.txt
 
+# Claude Code
+.claude/
+
+# Specs / scratch
+specs/
+
 # Demos
 demos/rag-multimodal/src/main/resources/application.properties
