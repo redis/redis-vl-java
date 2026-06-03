@@ -105,14 +105,17 @@ jobs:
           restore-keys: ${{ runner.os }}-gradlew-
 
       - name: Run tests
-        run: ./gradlew :core:test -S
+        run: ./gradlew :core:test :demos:langchain4j-vcr:test :demos:spring-ai-vcr:test -S
 
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: test-reports
-          path: core/build/reports/tests/test/
+          path: |
+            core/build/reports/tests/test/
+            demos/langchain4j-vcr/build/reports/tests/test/
+            demos/spring-ai-vcr/build/reports/tests/test/
 
   # ── 4. Static analysis (runs in parallel with tests after compile) ───────────
   spotbugs:
