@@ -527,6 +527,73 @@ Enter [Redis](https://redis.io) – a cornerstone of the NoSQL world, renowned f
 
 The Redis Vector Library bridges the gap between the AI-native developer ecosystem and Redis's robust capabilities. With a lightweight, elegant, and intuitive interface, RedisVL makes it easy to leverage Redis's power. Built on the [Jedis](https://github.com/redis/jedis) client, RedisVL transforms Redis's features into a grammar perfectly aligned with the needs of today's AI/ML Engineers and Data Scientists.
 
+RedisVL is more than a low-level client wrapper — it's an SDK plus a set of patterns, examples, and docs for AI-native Redis usage. At a high level it helps Java teams:
+
+- Define Redis search/index schemas in YAML or Java
+- Create and manage Redis-backed search indices
+- Store documents, metadata, and embeddings in Redis
+- Run vector, text, filter, and hybrid queries
+- Integrate Redis into LangChain4J-based RAG systems
+- Add semantic cache, message history, reranking, and routing patterns
+
+## 🧱 Core Use Cases
+
+RedisVL is positioned around these primary use cases:
+
+- Vector similarity search
+- Hybrid text + vector search
+- RAG retrieval backends
+- LLM semantic caching
+- Embedding generation workflows
+- Reranking search results
+- Semantic routing
+- LLM chat/message history persistence
+
+In practice, adoption tends to fall into three buckets, which maps to how you should pick APIs:
+
+| You are… | Use… |
+|----------|------|
+| Building a Java vector-search layer directly on Redis | The basic `schema` / `index` / `query` APIs |
+| Building a RAG assistant or retrieval chain with LangChain4J | The `com.redis.vl.langchain4j` adapters |
+| Looking for reusable AI infrastructure patterns | The `extensions` (cache, router, message history) |
+
+The main entry point is **`SearchIndex`**, which holds the schema and Redis connection behavior and exposes index lifecycle and query operations. Treat the demos and notebooks as reference implementations, not production architecture templates.
+
+## 🗂️ Repository Structure
+
+This is a multi-module Gradle (Kotlin DSL) project:
+
+| Module | Description |
+|--------|-------------|
+| **`core/`** | The main product code, published as the `com.redis:redisvl` Maven artifact. This is the customer-facing deliverable. |
+| **`docs/`** | A dedicated [Antora](https://antora.org/) documentation site (not just a README supplement), including generated Javadocs. Treated as a maintained, first-class artifact and part of the delivery pipeline. |
+| **`demos/`** | Sample applications: `rag-multimodal` (JavaFX multimodal RAG demo), `langchain4j-vcr`, and `spring-ai-vcr` (record/replay testing demos). Important for adoption and validation, but not shipped artifacts. |
+| **`notebooks/`** | Jupyter notebooks for interactive walkthroughs — enablement and onboarding material for developers evaluating the library. |
+
+Key package areas inside `core` (`com.redis.vl.*`):
+
+- `index` — index creation, loading, querying, and fetch operations
+- `schema` — schema and field definitions
+- `query` — vector, text, count, aggregation, and hybrid query objects
+- `storage` — Redis Hash and Redis JSON storage behavior
+- `langchain4j` — LangChain4J adapters for embedding store, retriever, chat memory, and document store
+- `extensions.cache` — semantic cache and embeddings cache
+- `extensions.router` — semantic router
+- `extensions.messagehistory` — message history and semantic message history
+- `utils.vectorize` — vectorizer integrations for LangChain4J and local ONNX models
+- `utils.rerank` — reranking utilities
+- `test.vcr` — VCR-style record/replay support for LLM-related tests
+
+## ⚙️ Dependency & Runtime Model
+
+- Java **source/target compatibility is 17**; the Gradle toolchain builds with Java **21**.
+- **Jedis** is the underlying — and public — Redis client dependency. RedisVL layers higher-level abstractions on top of it.
+- **LangChain4J** integrations are mostly optional, compile-time integrations (`compileOnly`) — include only the providers you need.
+- **ONNX Runtime** is bundled for local embedding and reranking support.
+- **Spring AI** support is present mainly for VCR testing compatibility.
+
+This means you can use RedisVL in a basic Redis/vector-search mode without adopting every AI integration, while still being able to opt into richer AI-framework integrations when needed.
+
 ## 📚 Examples and Notebooks
 
 Check out the [notebooks](notebooks/) directory for interactive Jupyter notebook examples:
