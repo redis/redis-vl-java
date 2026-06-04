@@ -108,16 +108,36 @@ subprojects {
             xml.required = true
             html.required = true
         }
+        // Exclude Lombok @Generated inner classes and pure exception types from coverage
+        classDirectories.setFrom(
+            files(classDirectories.files.map { dir ->
+                fileTree(dir) {
+                    exclude(
+                        "**/*\$*.class",
+                        "**/exceptions/**",
+                        "**/*Exception.class"
+                    )
+                }
+            })
+        )
     }
 
     tasks.jacocoTestCoverageVerification {
+        dependsOn(tasks.jacocoTestReport)
+        classDirectories.setFrom(tasks.jacocoTestReport.get().classDirectories)
         violationRules {
             rule {
                 limit {
+                    counter = "INSTRUCTION"
+                    value = "COVEREDRATIO"
                     minimum = "0.80".toBigDecimal()
                 }
             }
         }
+    }
+
+    tasks.check {
+        dependsOn(tasks.jacocoTestCoverageVerification)
     }
 
     dependencies {
