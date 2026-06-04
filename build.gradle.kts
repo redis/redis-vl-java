@@ -113,7 +113,6 @@ subprojects {
             files(classDirectories.files.map { dir ->
                 fileTree(dir) {
                     exclude(
-                        "**/*\$*.class",
                         "**/exceptions/**",
                         "**/*Exception.class"
                     )

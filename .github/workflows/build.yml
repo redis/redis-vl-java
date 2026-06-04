@@ -107,8 +107,8 @@ jobs:
       - name: Run tests
         run: ./gradlew :core:test :demos:langchain4j-vcr:test :demos:spring-ai-vcr:test -S
 
-      - name: Generate coverage reports
-        run: ./gradlew :core:jacocoTestReport :demos:langchain4j-vcr:jacocoTestReport :demos:spring-ai-vcr:jacocoTestReport -S
+      - name: Verify coverage and generate reports
+        run: ./gradlew :core:jacocoTestCoverageVerification :core:jacocoTestReport :demos:langchain4j-vcr:jacocoTestCoverageVerification :demos:langchain4j-vcr:jacocoTestReport :demos:spring-ai-vcr:jacocoTestCoverageVerification :demos:spring-ai-vcr:jacocoTestReport -S
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
