@@ -113,8 +113,22 @@ subprojects {
             files(classDirectories.files.map { dir ->
                 fileTree(dir) {
                     exclude(
+                        // Exception types — no testable logic
                         "**/exceptions/**",
-                        "**/*Exception.class"
+                        "**/*Exception.class",
+                        // Constants classes — only static final fields
+                        "**/extensions/Constants.class",
+                        "**/extensions/ExtensionConstants.class",
+                        // Pure enums — no branching logic
+                        "**/schema/FieldType.class",
+                        "**/schema/StorageType.class",
+                        "**/query/ReducerFunction.class",
+                        "**/extensions/router/DistanceAggregationMethod.class",
+                        // Pure DTOs / config value objects — only Lombok-generated accessors
+                        "**/extensions/router/RouteMatch.class",
+                        "**/query/SortField.class",
+                        "**/redis/RedisConnectionConfig.class",
+                        "**/redis/RedisConnectionConfig\$*.class"
                     )
                 }
             })
