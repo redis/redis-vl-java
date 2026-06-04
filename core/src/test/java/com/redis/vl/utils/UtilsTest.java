@@ -32,7 +32,8 @@ class UtilsTest {
 
   @Test
   void normCosineDistanceOfOneIsHalf() {
-    assertThat(Utils.normCosineDistance(1.0f)).isCloseTo(0.5f, org.assertj.core.data.Offset.offset(0.001f));
+    assertThat(Utils.normCosineDistance(1.0f))
+        .isCloseTo(0.5f, org.assertj.core.data.Offset.offset(0.001f));
   }
 
   @Test
@@ -55,7 +56,8 @@ class UtilsTest {
 
   @Test
   void denormCosineDistanceOfHalfIsOne() {
-    assertThat(Utils.denormCosineDistance(0.5f)).isCloseTo(1.0f, org.assertj.core.data.Offset.offset(0.001f));
+    assertThat(Utils.denormCosineDistance(0.5f))
+        .isCloseTo(1.0f, org.assertj.core.data.Offset.offset(0.001f));
   }
 
   @Test
