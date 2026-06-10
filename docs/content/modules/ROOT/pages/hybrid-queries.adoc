@@ -523,6 +523,65 @@ Filter multiFilter = Filter.and(
 );
 ----
 
+== Multi-Vector Queries
+
+When your documents have multiple vector fields (e.g. text embeddings and image embeddings), use `MultiVectorQuery` to search across all of them simultaneously:
+
+[source,java]
+----
+import com.redis.vl.query.MultiVectorQuery;
+import com.redis.vl.query.Vector;
+
+Vector textVec = Vector.builder()
+    .vector(textEmbedding)
+    .fieldName("text_embedding")
+    .weight(0.7)
+    .build();
+
+Vector imageVec = Vector.builder()
+    .vector(imageEmbedding)
+    .fieldName("image_embedding")
+    .weight(0.3)
+    .build();
+
+MultiVectorQuery query = MultiVectorQuery.builder()
+    .vectors(textVec, imageVec)
+    .returnFields("title", "category")
+    .numResults(10)
+    .build();
+
+List<Map<String, Object>> results = index.query(query);
+----
+
+Results are scored using a weighted combination of the individual vector similarities.
+
+=== Per-Vector Distance Thresholds
+
+Each vector can have its own `maxDistance` to control how similar results must be for that particular field. Values range from 0.0 (exact match only) to 2.0 (include everything):
+
+[source,java]
+----
+// Tight threshold on text, loose on image
+Vector textVec = Vector.builder()
+    .vector(textEmbedding)
+    .fieldName("text_embedding")
+    .maxDistance(0.3)   // only very similar text
+    .build();
+
+Vector imageVec = Vector.builder()
+    .vector(imageEmbedding)
+    .fieldName("image_embedding")
+    .maxDistance(1.5)   // broader image matches
+    .build();
+
+MultiVectorQuery query = MultiVectorQuery.builder()
+    .vectors(textVec, imageVec)
+    .numResults(10)
+    .build();
+----
+
+When `maxDistance` is not set, it defaults to 2.0 (no distance filtering).
+
 == Tips for Effective Hybrid Queries
 
 . *Use Pre-Filtering* - More efficient than post-filtering
