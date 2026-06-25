@@ -115,6 +115,40 @@ class SearchIndexTest extends BaseIntegrationTest {
   }
 
   @Test
+  @DisplayName("Should attach to an existing index without dropping data when not overwriting")
+  void shouldAttachWhenOverwriteFalseAndIndexExists() {
+    // Given an existing index with a document
+    searchIndex.create();
+    Map<String, Object> document = new HashMap<>();
+    document.put("title", "Redis in Action");
+    searchIndex.addDocument("doc:1", document);
+
+    // When
+    searchIndex.create(false);
+
+    // Then - the index is attached and the existing data is preserved
+    assertThat(searchIndex.exists()).isTrue();
+    assertThat(searchIndex.getDocumentCount()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("Should recreate an index without dropping data when overwriting")
+  void shouldRecreateWhenOverwriteTrueAndIndexExists() {
+    // Given an existing index with a document
+    searchIndex.create();
+    Map<String, Object> document = new HashMap<>();
+    document.put("title", "Redis in Action");
+    searchIndex.addDocument("doc:1", document);
+
+    // When
+    searchIndex.create(true);
+
+    // Then - the index is recreated
+    assertThat(searchIndex.exists()).isTrue();
+    assertThat(searchIndex.getDocumentCount()).isEqualTo(1);
+  }
+
+  @Test
   @DisplayName("Should add document to index")
   void shouldAddDocumentToIndex() {
     // Given

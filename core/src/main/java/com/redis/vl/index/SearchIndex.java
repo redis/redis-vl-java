@@ -947,13 +947,24 @@ public final class SearchIndex {
   }
 
   /**
-   * Create the index with overwrite and drop options
+   * Create the index with overwrite and drop options.
    *
-   * @param overwrite Whether to overwrite an existing index
+   * <p>If the index already exists and {@code overwrite} is false, this attaches to the existing
+   * index and returns without modifying it. If {@code overwrite} is true, the existing index is
+   * dropped (optionally with its data) and recreated.
+   *
+   * @param overwrite Whether to overwrite an existing index; when false, an existing index is left
+   *     intact and attached to
    * @param drop Whether to drop existing data when overwriting
    */
   public void create(boolean overwrite, boolean drop) {
-    if (overwrite && exists()) {
+    if (exists()) {
+      if (!overwrite) {
+        // Index already exists and overwrite is false; attach to the existing index instead
+        // of recreating it (matches Python's create(overwrite=False) early return).
+        log.info("Index {} already exists, not overwriting", getName());
+        return;
+      }
       delete(drop);
     }
 
